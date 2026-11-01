@@ -10,12 +10,15 @@ var rng: RandomNumberGenerator
 var budget := 0.0
 var _done_events := {}
 var _next_pick: Dictionary = {}
+var _next_elite_t := INF
 
 
 func _init(waves_data: Dictionary, enemies_by_id: Dictionary, random: RandomNumberGenerator) -> void:
 	waves = waves_data
 	enemies = enemies_by_id
 	rng = random
+	if waves.has("elites"):
+		_next_elite_t = float(waves.elites.first_s)
 
 
 func budget_rate(t: float) -> float:
@@ -43,9 +46,22 @@ func hp_mult(t: float) -> float:
 	return 1.0 + float(waves.hp_growth_per_min) * t / 60.0
 
 
-## Returns spawn orders: [{id, count, pattern}] for this tick.
+## Enemy contact and shot damage scale up over the run too.
+func damage_mult(t: float) -> float:
+	return 1.0 + float(waves.get("damage_growth_per_min", 0.0)) * t / 60.0
+
+
+## Returns spawn orders: [{id, count, pattern, elite?}] for this tick.
 func update(dt: float, t: float, alive: int) -> Array:
 	var out := []
+	if t >= _next_elite_t:
+		_next_elite_t += float(waves.elites.every_s)
+		var choices := []
+		for p in pool_at(t):
+			if waves.elites.types.has(p.enemy):
+				choices.append(p.enemy)
+		if not choices.is_empty():
+			out.append({"id": choices[rng.randi() % choices.size()], "count": 1, "pattern": "single", "elite": true})
 	for i in waves.events.size():
 		var ev: Dictionary = waves.events[i]
 		if not _done_events.has(i) and t >= float(ev.t):

@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -62,4 +62,23 @@ static func validate(d: Dictionary) -> Array:
 	for m in d.meta:
 		if m.costs.is_empty():
 			errors.append("meta %s has no costs" % m.id)
+	var evolved_weapons := {}
+	for ev in d.evolutions:
+		var w: Variant = null
+		for u in d.upgrades:
+			if u.id == ev.weapon:
+				w = u
+		if w == null or w.type != "weapon":
+			errors.append("evolution %s: '%s' is not a weapon" % [ev.id, ev.weapon])
+		if not up_ids.has(ev.requires):
+			errors.append("evolution %s requires unknown upgrade '%s'" % [ev.id, ev.requires])
+		if evolved_weapons.has(ev.weapon):
+			errors.append("weapon %s has more than one evolution" % ev.weapon)
+		evolved_weapons[ev.weapon] = true
+	if d.waves.has("elites"):
+		for t in d.waves.elites.types:
+			if not enemy_ids.has(t):
+				errors.append("waves.elites references unknown enemy '%s'" % t)
+			elif float(enemy_ids[t].radius) * float(d.waves.elites.radius_mult) > float(d.balance.perf.max_enemy_radius):
+				errors.append("elite %s radius exceeds perf.max_enemy_radius" % t)
 	return errors

@@ -18,8 +18,6 @@ var upgrade_list: Array = []
 var upgrade_defs: Dictionary = {}  # id -> def
 var enemy_defs: Array = []  # type index -> def
 var enemy_idx: Dictionary = {}  # id -> type index
-var _trad := PackedFloat32Array()  # type index -> radius
-var _tspeed := PackedFloat32Array()  # type index -> speed
 var _tbeh := PackedInt32Array()  # type index -> BEH_*
 const BEH_CHASE := 0
 const BEH_RANGED := 1
@@ -35,7 +33,7 @@ var events: Array = []
 
 var time := 0.0
 var run_length := 300.0
-var state := "playing"  # playing | levelup | dead | won
+var state := "playing"  # playing | levelup | chest | dead | won
 
 # --- Player ---
 var p_pos := Vector2.ZERO
@@ -57,6 +55,31 @@ var revives_used := 0
 var boss_killed := false
 var boss_index := -1  # enemy index of a live boss, for the HUD bar
 var death_cause := ""
+var elites_killed := 0
+var chests_opened := 0
+var dashes := 0
+
+# --- Dash ---
+var p_move := Vector2.ZERO  # last movement input
+var p_dash_t := 0.0  # time left in the current dash
+var p_dash_cd := 0.0
+var p_dash_dir := Vector2.RIGHT
+
+# --- Evolutions ---
+var evolution_defs := {}  # weapon id -> evolution def
+var evolved := {}  # weapon id -> evolution id
+var _evo_announced := {}
+var _nova_echo := -1.0
+
+# --- Chests (dropped by elites and the boss) ---
+var c_pos := PackedVector2Array()
+var c_items := PackedInt32Array()
+var chest_rewards: Array = []  # [{kind, id, name, desc, level}] of the chest being opened
+
+# --- Rare pickups ---
+const PICKUP_KINDS := ["vacuum", "heal", "bomb"]
+var i_pos := PackedVector2Array()
+var i_kind := PackedInt32Array()
 
 # --- Weapons ---
 var wstats: Dictionary = {}  # weapon id -> final stats (after globals)
@@ -77,6 +100,9 @@ var e_timer := PackedFloat32Array()
 var e_phase := PackedInt32Array()
 var e_dir := PackedVector2Array()
 var e_hitcd := PackedFloat32Array()
+var e_rad := PackedFloat32Array()  # per enemy (elites are bigger)
+var e_spd := PackedFloat32Array()
+var e_elite := PackedByteArray()
 var _next_uid := 1
 var _dead := {}
 
@@ -115,12 +141,12 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	for e in data.enemies:
 		enemy_idx[e.id] = enemy_defs.size()
 		enemy_defs.append(e)
-		_trad.append(float(e.radius))
-		_tspeed.append(float(e.speed))
 		_tbeh.append(int(BEHAVIORS.get(e.behavior, BEH_CHASE)))
 	upgrade_list = data.upgrades
 	for u in upgrade_list:
 		upgrade_defs[u.id] = u
+	for ev in data.get("evolutions", []):
+		evolution_defs[ev.weapon] = ev
 	var by_id := {}
 	for e in enemy_defs:
 		by_id[e.id] = e
@@ -152,6 +178,7 @@ func step(dt: float, move: Vector2) -> void:
 	_process_dead()
 	_contact_damage()
 	_update_gems(dt)
+	_update_pickups()
 	if pending_levelups > 0 and state == "playing":
 		_open_levelup()
 
@@ -159,18 +186,53 @@ func step(dt: float, move: Vector2) -> void:
 func choose_upgrade(id: String) -> void:
 	if state != "levelup" or not offers.has(id):
 		return
-	var was := int(owned.get(id, 0))
-	owned[id] = was + 1
-	var old_max := p_max_hp
-	_recompute_stats()
-	if p_max_hp > old_max:
-		p_hp += p_max_hp - old_max
+	_apply_level(id)
 	pending_levelups -= 1
 	offers = []
 	state = "playing"
 	_emit({"type": "upgrade", "id": id, "level": owned[id]})
 	if pending_levelups > 0:
 		_open_levelup()
+
+
+## Starts a dash if it is off cooldown. Returns true if it dashed.
+func dash() -> bool:
+	if state != "playing" or p_dash_cd > 0.0:
+		return false
+	var pl: Dictionary = bal.player
+	p_dash_dir = p_move.normalized() if p_move.length_squared() > 0.01 else p_facing
+	p_dash_t = float(pl.dash_s)
+	p_dash_cd = float(pl.dash_cooldown_s)
+	p_iframes = maxf(p_iframes, float(pl.dash_iframes_s))
+	dashes += 1
+	_emit({"type": "dash", "pos": p_pos, "dir": p_dash_dir})
+	return true
+
+
+## Called when the chest reveal has been shown. Rewards were already applied.
+func close_chest() -> void:
+	if state != "chest":
+		return
+	chest_rewards = []
+	state = "playing"
+	if pending_levelups > 0:
+		_open_levelup()
+
+
+## Weapons that are maxed and have their paired passive, not yet evolved.
+func ready_evolutions() -> Array:
+	var out := []
+	for wid in evolution_defs:
+		var ev: Dictionary = evolution_defs[wid]
+		if evolved.has(wid) or not owned.has(ev.requires):
+			continue
+		if int(owned.get(wid, 0)) >= Upgrades.max_level(upgrade_defs[wid]):
+			out.append(wid)
+	return out
+
+
+func is_elite(i: int) -> bool:
+	return e_elite[i] == 1
 
 
 func reroll_offers() -> void:
@@ -207,7 +269,7 @@ func enemy_count() -> int:
 
 
 func enemy_radius(i: int) -> float:
-	return _trad[e_type[i]]
+	return e_rad[i]
 
 
 ## Indices of enemies whose circle overlaps the circle (center, radius).
@@ -224,7 +286,7 @@ func query(center: Vector2, radius: float) -> Array:
 			if cell == null:
 				continue
 			for i: int in cell:
-				var rr := radius + _trad[e_type[i]]
+				var rr := radius + e_rad[i]
 				if e_pos[i].distance_squared_to(center) <= rr * rr:
 					out.append(i)
 	return out
@@ -246,6 +308,13 @@ func _recompute_stats() -> void:
 		if def.type != "weapon":
 			continue
 		var w := Upgrades.stats_at(def, owned[id])
+		if evolved.has(id):
+			var ev: Dictionary = evolution_defs[id]
+			for k in ev.stats:
+				w[k] = float(w.get(k, 0.0)) + float(ev.stats[k])
+			for k in ["heal_on_hit", "pulses", "forks"]:
+				if ev.has(k):
+					w[k] = float(ev[k])
 		var dmg_mult := 1.0 + float(stats.might)
 		var cd_mult := maxf(0.35, 1.0 - float(stats.haste))
 		if w.has("damage"):
@@ -263,8 +332,15 @@ func _recompute_stats() -> void:
 
 func _update_player(dt: float, move: Vector2) -> void:
 	var m := move.limit_length(1.0)
-	var spd := float(bal.player.speed) * (1.0 + float(stats.move))
-	p_pos += m * spd * dt
+	p_move = m
+	if p_dash_cd > 0.0:
+		p_dash_cd -= dt
+	if p_dash_t > 0.0:
+		p_dash_t -= dt
+		p_pos += p_dash_dir * float(bal.player.dash_speed) * dt
+	else:
+		var spd := float(bal.player.speed) * (1.0 + float(stats.move))
+		p_pos += m * spd * dt
 	if m.length_squared() > 0.01:
 		p_facing = m.normalized()
 	var regen := float(bal.player.regen) + float(stats.regen)
@@ -291,8 +367,11 @@ func _spawn(dt: float) -> void:
 					var a := a0 + TAU * k / n
 					_add_enemy(order.id, p_pos + Vector2(cos(a), sin(a)) * d)
 			"single":
-				_add_enemy(order.id, _spawn_point())
-				if enemy_defs[enemy_idx[order.id]].behavior == "boss":
+				var elite: bool = order.get("elite", false)
+				_add_enemy(order.id, _spawn_point(), elite)
+				if elite:
+					_emit({"type": "elite_spawn", "id": order.id})
+				elif enemy_defs[enemy_idx[order.id]].behavior == "boss":
 					_emit({"type": "boss_spawn"})
 			_:
 				var c := _spawn_point()
@@ -300,12 +379,22 @@ func _spawn(dt: float) -> void:
 					_add_enemy(order.id, c + Vector2(rng.randf_range(-40, 40), rng.randf_range(-40, 40)))
 
 
-func _add_enemy(id: String, pos: Vector2) -> void:
+func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	var t: int = enemy_idx[id]
 	var d: Dictionary = enemy_defs[t]
 	var hp := float(d.hp)
 	if not d.get("fixed_hp", false):
 		hp *= director.hp_mult(time)
+	var r := float(d.radius)
+	var spd := float(d.speed)
+	if elite:
+		var el: Dictionary = data.waves.elites
+		hp *= float(el.hp_mult)
+		r *= float(el.radius_mult)
+		spd *= float(el.speed_mult)
+	e_rad.append(r)
+	e_spd.append(spd)
+	e_elite.append(1 if elite else 0)
 	e_type.append(t)
 	e_uid.append(_next_uid)
 	_next_uid += 1
@@ -334,6 +423,12 @@ func _remove_enemy(i: int) -> void:
 		e_phase[i] = e_phase[last]
 		e_dir[i] = e_dir[last]
 		e_hitcd[i] = e_hitcd[last]
+		e_rad[i] = e_rad[last]
+		e_spd[i] = e_spd[last]
+		e_elite[i] = e_elite[last]
+	e_rad.resize(last)
+	e_spd.resize(last)
+	e_elite.resize(last)
 	e_type.resize(last)
 	e_uid.resize(last)
 	e_pos.resize(last)
@@ -378,7 +473,7 @@ func _update_enemies(dt: float) -> void:
 		var dist2 := to_p.length_squared()
 		var dist := sqrt(dist2)
 		var dir := to_p / dist if dist > 0.001 else Vector2.ZERO
-		var spd := _tspeed[t]
+		var spd := e_spd[i]
 		var vel := dir * spd
 		if beh != BEH_CHASE:
 			vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
@@ -386,7 +481,7 @@ func _update_enemies(dt: float) -> void:
 		# resolves overlaps every SEP_EVERY frames, with a matching push strength.
 		var sep := Vector2.ZERO
 		if i % SEP_EVERY == phase:
-			var ri := _trad[t]
+			var ri := e_rad[i]
 			var cx := floori(pos.x / CELL)
 			var cy := floori(pos.y / CELL)
 			var found := 0
@@ -399,7 +494,7 @@ func _update_enemies(dt: float) -> void:
 						if j == i:
 							continue
 						var off := pos - e_pos[j]
-						var md := ri + _trad[e_type[j]]
+						var md := ri + e_rad[j]
 						var d2 := off.length_squared()
 						if d2 < md * md and d2 > 0.0001:
 							var dd := sqrt(d2)
@@ -488,11 +583,29 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 	var d: Dictionary = enemy_defs[e_type[i]]
 	e_hp[i] -= amount
 	e_flash[i] = float(bal.juice.flash_s)
-	e_knock[i] += knock * (1.0 - float(d.get("knock_resist", 0.0)))
+	var resist := float(d.get("knock_resist", 0.0))
+	if e_elite[i] == 1:
+		resist = maxf(resist, float(data.waves.elites.knock_resist))
+	e_knock[i] += knock * (1.0 - resist)
 	if show:
 		_emit({"type": "hit", "pos": e_pos[i], "amount": amount})
 	if e_hp[i] <= 0.0:
 		_dead[i] = true
+
+
+## Weapons focus big threats: the nearest elite or boss in range, else the
+## nearest enemy.
+func _priority_target(from: Vector2, max_range: float) -> int:
+	var best := -1
+	var best_d := max_range * max_range
+	for i in e_pos.size():
+		if e_hp[i] <= 0.0 or (e_elite[i] == 0 and _tbeh[e_type[i]] != BEH_BOSS):
+			continue
+		var d2 := e_pos[i].distance_squared_to(from)
+		if d2 < best_d:
+			best_d = d2
+			best = i
+	return best if best >= 0 else _nearest_enemy(from, max_range)
 
 
 func _nearest_enemy(from: Vector2, max_range: float, exclude: Dictionary = {}) -> int:
@@ -517,7 +630,7 @@ func _update_weapons(dt: float) -> void:
 				cooldowns[id] -= dt
 				if cooldowns[id] > 0.0:
 					continue
-				var tgt := _nearest_enemy(p_pos, w.range)
+				var tgt := _priority_target(p_pos, w.range)
 				if tgt < 0:
 					cooldowns[id] = 0.0
 					continue
@@ -540,34 +653,51 @@ func _update_weapons(dt: float) -> void:
 						if e_hitcd[i] <= 0.0 and e_hp[i] > 0.0:
 							e_hitcd[i] = w.hit_interval
 							_damage(i, w.damage, (e_pos[i] - p_pos).normalized() * w.knockback)
+							if w.has("heal_on_hit"):
+								p_hp = minf(p_max_hp, p_hp + w.heal_on_hit)
 			"nova":
+				if _nova_echo > 0.0:
+					_nova_echo -= dt
+					if _nova_echo <= 0.0:
+						_fire_nova(w)
 				cooldowns[id] -= dt
 				if cooldowns[id] > 0.0:
 					continue
 				cooldowns[id] = w.cooldown
-				for i: int in query(p_pos, w.area):
-					_damage(i, w.damage, (e_pos[i] - p_pos).normalized() * w.knockback)
-				_emit({"type": "nova", "pos": p_pos, "radius": w.area})
+				_fire_nova(w)
+				if w.get("pulses", 1.0) > 1.0:
+					_nova_echo = 0.3
 			"chain":
 				cooldowns[id] -= dt
 				if cooldowns[id] > 0.0:
 					continue
-				var tgt := _nearest_enemy(p_pos, w.range)
+				var tgt := _priority_target(p_pos, w.range)
 				if tgt < 0:
 					cooldowns[id] = 0.0
 					continue
 				cooldowns[id] = w.cooldown
 				var hit := {}
-				var pts := PackedVector2Array([p_pos])
 				var cur := tgt
-				for k in int(w.jumps) + 1:
-					hit[e_uid[cur]] = true
-					pts.append(e_pos[cur])
-					_damage(cur, w.damage, Vector2.ZERO)
-					cur = _nearest_enemy(e_pos[cur], w.jump_range, hit)
-					if cur < 0:
-						break
-				_emit({"type": "chain", "points": pts})
+				for f in int(w.get("forks", 1.0)):
+					if f > 0:
+						cur = _nearest_enemy(p_pos, w.range, hit)
+						if cur < 0:
+							break
+					var pts := PackedVector2Array([p_pos])
+					for k in int(w.jumps) + 1:
+						hit[e_uid[cur]] = true
+						pts.append(e_pos[cur])
+						_damage(cur, w.damage, Vector2.ZERO)
+						cur = _nearest_enemy(e_pos[cur], w.jump_range, hit)
+						if cur < 0:
+							break
+					_emit({"type": "chain", "points": pts, "evolved": evolved.has(id)})
+
+
+func _fire_nova(w: Dictionary) -> void:
+	for i: int in query(p_pos, w.area):
+		_damage(i, w.damage, (e_pos[i] - p_pos).normalized() * w.knockback)
+	_emit({"type": "nova", "pos": p_pos, "radius": w.area})
 
 
 func _spawn_bullet(vel: Vector2, w: Dictionary) -> void:
@@ -662,12 +792,22 @@ func _process_dead() -> void:
 	for i: int in idx:
 		var d: Dictionary = enemy_defs[e_type[i]]
 		var pos := e_pos[i]
+		var elite := e_elite[i] == 1
 		kills += 1
-		_drop_gem(pos, float(d.xp))
-		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": float(d.radius)})
-		if d.behavior == "boss":
+		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite})
+		if elite:
+			elites_killed += 1
+			_drop_gem(pos, float(data.waves.elites.xp))
+			_drop_chest(pos, int(bal.chests.elite_items))
+			_emit({"type": "elite_killed", "pos": pos})
+		elif d.behavior == "boss":
 			boss_killed = true
+			_drop_gem(pos, float(d.xp))
+			_drop_chest(pos, int(bal.chests.boss_items))
 			_emit({"type": "boss_killed", "pos": pos})
+		else:
+			_drop_gem(pos, float(d.xp))
+			_roll_pickup(pos)
 		_remove_enemy(i)
 		if d.has("split_into"):
 			for k in int(d.split_count):
@@ -679,7 +819,7 @@ func _process_dead() -> void:
 func _hurt(amount: float, cause: String) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
-	p_hp -= amount * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
+	p_hp -= amount * director.damage_mult(time) * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
 	_emit({"type": "hurt", "amount": amount})
 	if p_hp <= 0.0:
@@ -695,7 +835,10 @@ func _contact_damage() -> void:
 	for i: int in query(p_pos, p_radius):
 		if e_hp[i] > 0.0:
 			var d: Dictionary = enemy_defs[e_type[i]]
-			_hurt(float(d.damage), d.id)
+			if e_elite[i] == 1:
+				_hurt(float(d.damage) * float(data.waves.elites.damage_mult), "elite_" + d.id)
+			else:
+				_hurt(float(d.damage), d.id)
 			return
 
 
@@ -754,3 +897,111 @@ func _open_levelup() -> void:
 		return
 	state = "levelup"
 	_emit({"type": "level_up", "level": level})
+
+
+# ===================================================== upgrades and chests
+
+## Raises an upgrade one level (level-up pick or chest), healing on max HP gain.
+func _apply_level(id: String) -> void:
+	owned[id] = int(owned.get(id, 0)) + 1
+	var old_max := p_max_hp
+	_recompute_stats()
+	if p_max_hp > old_max:
+		p_hp += p_max_hp - old_max
+	for wid in ready_evolutions():
+		if not _evo_announced.has(wid):
+			_evo_announced[wid] = true
+			_emit({"type": "evolution_ready", "weapon": wid, "name": evolution_defs[wid].name})
+
+
+func _drop_chest(pos: Vector2, items: int) -> void:
+	c_pos.append(pos)
+	c_items.append(items)
+
+
+func _open_chest(items: int) -> void:
+	chests_opened += 1
+	chest_rewards = []
+	for k in items:
+		chest_rewards.append(_chest_reward())
+	state = "chest"
+	_emit({"type": "chest", "rewards": chest_rewards})
+
+
+## One chest item: an evolution if one is ready, else a level of something
+## you already own, else a new item, else a heal.
+func _chest_reward() -> Dictionary:
+	var ready := ready_evolutions()
+	if not ready.is_empty():
+		var wid: String = ready[0]
+		var ev: Dictionary = evolution_defs[wid]
+		evolved[wid] = ev.id
+		_recompute_stats()
+		_emit({"type": "evolution", "id": ev.id, "weapon": wid})
+		return {"kind": "evolution", "id": ev.id, "name": ev.name, "desc": ev.desc, "level": 0}
+	var pool := []
+	for u in upgrade_list:
+		var lv := int(owned.get(u.id, 0))
+		if lv > 0 and lv < Upgrades.max_level(u):
+			pool.append(u.id)
+	if pool.is_empty():
+		pool = _roll()
+	if pool.is_empty():
+		p_hp = minf(p_max_hp, p_hp + p_max_hp * float(bal.chests.heal_when_nothing))
+		return {"kind": "heal", "id": "", "name": "Nutrients", "desc": "Restores health", "level": 0}
+	var id: String = pool[rng.randi() % pool.size()]
+	_apply_level(id)
+	var def: Dictionary = upgrade_defs[id]
+	return {"kind": "upgrade", "id": id, "name": def.name, "desc": Upgrades.describe(def, owned[id]), "level": owned[id]}
+
+
+func _roll_pickup(pos: Vector2) -> void:
+	var pk: Dictionary = bal.pickups
+	if i_pos.size() >= int(pk.max_on_map):
+		return
+	var r := rng.randf()
+	var acc := 0.0
+	for k in PICKUP_KINDS.size():
+		acc += float(pk.chances.get(PICKUP_KINDS[k], 0.0))
+		if r < acc:
+			i_pos.append(pos)
+			i_kind.append(k)
+			return
+
+
+func _update_pickups() -> void:
+	if state != "playing":
+		return
+	var cr := p_radius + float(bal.chests.pickup_radius)
+	for i in range(c_pos.size() - 1, -1, -1):
+		if c_pos[i].distance_squared_to(p_pos) < cr * cr:
+			var n := c_items[i]
+			c_pos.remove_at(i)
+			c_items.remove_at(i)
+			_open_chest(n)
+			return
+	var ir := p_radius + float(bal.pickups.pickup_radius)
+	for i in range(i_pos.size() - 1, -1, -1):
+		if i_pos[i].distance_squared_to(p_pos) < ir * ir:
+			var kind: String = PICKUP_KINDS[i_kind[i]]
+			var pos := i_pos[i]
+			i_pos.remove_at(i)
+			i_kind.remove_at(i)
+			_apply_pickup(kind, pos)
+
+
+func _apply_pickup(kind: String, pos: Vector2) -> void:
+	var pk: Dictionary = bal.pickups
+	match kind:
+		"vacuum":
+			g_pull.fill(1)
+		"heal":
+			p_hp = minf(p_max_hp, p_hp + p_max_hp * float(pk.heal_frac))
+		"bomb":
+			var r := float(pk.bomb_radius)
+			for i: int in query(p_pos, r):
+				var tough := e_elite[i] == 1 or _tbeh[e_type[i]] == BEH_BOSS
+				var push := (e_pos[i] - p_pos).normalized() * 300.0
+				_damage(i, float(pk.bomb_damage) if tough else 1.0e6, push, tough)
+			_process_dead()
+	_emit({"type": "pickup_item", "kind": kind, "pos": pos})

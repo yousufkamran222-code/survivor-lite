@@ -15,8 +15,15 @@ const SOUNDS := {
 	"death": preload("res://assets/processed/sfx/death.wav"),
 	"boss": preload("res://assets/processed/sfx/boss.wav"),
 	"click": preload("res://assets/processed/sfx/click.wav"),
+	"dash": preload("res://assets/processed/sfx/dash.wav"),
+	"elite": preload("res://assets/processed/sfx/elite.wav"),
+	"vacuum": preload("res://assets/processed/sfx/vacuum.wav"),
+	"heal": preload("res://assets/processed/sfx/heal.wav"),
+	"bomb": preload("res://assets/processed/sfx/bomb.wav"),
+	"chest": preload("res://assets/processed/sfx/chest.wav"),
+	"evolve": preload("res://assets/processed/sfx/evolve.wav"),
 }
-const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80}
+const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40}
 const VOLUME_DB := {"shoot": -14.0, "hit": -12.0, "kill": -9.0, "pickup": -13.0, "chain": -10.0}
 
 var _players: Array[AudioStreamPlayer] = []

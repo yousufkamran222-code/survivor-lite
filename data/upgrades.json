@@ -1,13 +1,13 @@
 [
   {"id": "bolt", "type": "weapon", "name": "Pulse Bolt", "weight": 1.0,
    "levels": [
-     {"damage": 10, "cooldown": 0.75, "count": 1, "pierce": 0, "speed": 560, "size": 7, "range": 460, "knockback": 120},
+     {"damage": 10, "cooldown": 0.55, "count": 1, "pierce": 0, "speed": 620, "size": 7, "range": 580, "knockback": 120},
      {"damage": 4},
      {"count": 1},
      {"damage": 4, "cooldown": -0.15},
      {"pierce": 2, "count": 1}
    ],
-   "desc": ["Fires at the nearest germ.", "+4 damage", "+1 bolt", "+4 damage, fires faster", "Pierces 2, +1 bolt"]},
+   "desc": ["Fires at the nearest germ (elites first).", "+4 damage", "+1 bolt", "+4 damage, fires faster", "Pierces 2, +1 bolt"]},
 
   {"id": "orbit", "type": "weapon", "name": "Antibodies", "weight": 1.0,
    "levels": [

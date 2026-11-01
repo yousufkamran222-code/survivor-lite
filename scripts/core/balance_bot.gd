@@ -7,7 +7,7 @@ extends RefCounted
 var rng := RandomNumberGenerator.new()
 var danger_radius := 230.0
 var tangent := 1.0
-var gem_greed := 0.9
+var gem_greed := 1.3
 
 
 func _init(seed_value: int) -> void:
@@ -33,18 +33,35 @@ func move(w: World) -> Vector2:
 		dir = away.normalized()
 		# Circle a little instead of running straight, like players do.
 		dir = (dir + dir.orthogonal() * 0.6 * tangent).normalized()
-	# Players chase XP: pull toward the nearest gem, harder when it is safe.
-	var best := -1
-	var best_d := 450.0 * 450.0
-	for i in w.g_pos.size():
-		var d2 := w.g_pos[i].distance_squared_to(w.p_pos)
-		if d2 < best_d:
-			best_d = d2
-			best = i
-	if best >= 0:
-		var to_gem := (w.g_pos[best] - w.p_pos).normalized()
+	# Players chase loot: chests and pickups first (they are rare and visible),
+	# else the nearest XP gem; harder when it is safe.
+	var target := Vector2.INF
+	var best_d := 550.0 * 550.0
+	for p in w.c_pos:
+		if p.distance_squared_to(w.p_pos) < best_d:
+			best_d = p.distance_squared_to(w.p_pos)
+			target = p
+	for p in w.i_pos:
+		if p.distance_squared_to(w.p_pos) < best_d:
+			best_d = p.distance_squared_to(w.p_pos)
+			target = p
+	var greed := gem_greed * 1.5
+	if target == Vector2.INF:
+		greed = gem_greed
+		best_d = 450.0 * 450.0
+		for i in w.g_pos.size():
+			var d2 := w.g_pos[i].distance_squared_to(w.p_pos)
+			if d2 < best_d:
+				best_d = d2
+				target = w.g_pos[i]
+	if target != Vector2.INF:
+		var to_t := (target - w.p_pos).normalized()
 		var safety := clampf(1.0 - away.length() / 0.02, 0.15, 1.0)
-		dir = (dir + to_gem * safety * gem_greed).normalized()
+		dir = (dir + to_t * safety * greed).normalized()
+	# Dash out when something is about to touch us.
+	if w.p_dash_cd <= 0.0 and away.length() > 0.05:
+		w.p_move = dir
+		w.dash()
 	return dir
 
 

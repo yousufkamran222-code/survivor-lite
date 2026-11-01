@@ -15,3 +15,4 @@ Newest last. Each entry gives the decision, why it was made, and what would chan
 - **D-007 The web build is a dev tool only.** The single-threaded web export (`variant/thread_support=false`) works on GitHub Pages without COOP/COEP headers. The product is the Android app.
 - **D-008 Ads through an `Ads` autoload with swappable backends.** Web and tests use a stub that always rewards. AdMob comes in M3 behind the same API.
 - **D-009 Balance targets are checked by a bot, then by humans.** The bot is a consistent stand-in and does not represent real players. Real playtest notes override it.
+- **D-010 Fun pass inside the scope cap.** Yousuf chose all four: dash, elites + chests, evolutions and rare pickups. Evolutions live in their own table (max 4, one per weapon), so the ~10-upgrade pool stays small. Weapons target elites and the boss first, so the big rewards actually get earned.

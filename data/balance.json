@@ -6,10 +6,28 @@
     "max_hp": 100,
     "speed": 175,
     "radius": 18,
-    "pickup_radius": 105,
+    "pickup_radius": 125,
     "iframes_s": 0.5,
     "regen": 0.0,
-    "armor": 0.0
+    "armor": 0.0,
+    "dash_speed": 950,
+    "dash_s": 0.16,
+    "dash_cooldown_s": 3.2,
+    "dash_iframes_s": 0.22
+  },
+  "chests": {
+    "pickup_radius": 34,
+    "elite_items": 1,
+    "boss_items": 3,
+    "heal_when_nothing": 0.3
+  },
+  "pickups": {
+    "chances": {"vacuum": 0.0025, "heal": 0.003, "bomb": 0.0015},
+    "max_on_map": 5,
+    "pickup_radius": 30,
+    "heal_frac": 0.3,
+    "bomb_radius": 720,
+    "bomb_damage": 300
   },
   "xp": {
     "base": 5,
@@ -25,7 +43,7 @@
     "heal_when_all_maxed": 0.2
   },
   "economy": {
-    "gold_per_kill": 0.08,
+    "gold_per_kill": 0.05,
     "gold_per_minute": 8,
     "gold_boss_bonus": 60,
     "gold_victory_bonus": 50
@@ -68,7 +86,11 @@
     "kill_burst_particles": 5,
     "levelup_input_delay_s": 0.35,
     "stick_radius": 90,
-    "stick_deadzone": 0.12
+    "stick_deadzone": 0.12,
+    "dash_button_radius": 72,
+    "dash_button_margin": 40,
+    "shake_bomb": 18,
+    "hitstop_chest_s": 0.0
   },
   "palette": {
     "background": "#1d1433",

@@ -97,6 +97,13 @@ def build_sfx() -> None:
     write("death", env(mix(osc(400, 40, 0.9, "saw"), noise(0.9, 0.05) * 0.8), attack=0.01, decay_pow=1.4), 0.8)
     write("boss", env(mix(osc(70, 50, 1.2, "saw"), osc(105, 75, 1.2, "square") * 0.5), attack=0.15, decay_pow=1.2), 0.8)
     write("click", env(osc(1000, 1000, 0.03, "sine")), 0.4)
+    write("dash", env(mix(noise(0.18, 0.25), osc(900, 300, 0.18, "sine") * 0.5), attack=0.01, decay_pow=1.5), 0.6)
+    write("elite", seq(env(osc(220, 220, 0.18, "square"), decay_pow=0.6), env(osc(165, 165, 0.3, "square"), decay_pow=0.8)), 0.6)
+    write("vacuum", env(mix(osc(200, 1600, 0.6, "sine"), noise(0.6, 0.15) * 0.4), attack=0.05, decay_pow=0.7), 0.6)
+    write("heal", seq(*[env(osc(f, f, 0.1, "sine"), decay_pow=1.0) for f in (660, 880, 1320)]), 0.5)
+    write("bomb", env(mix(osc(120, 30, 0.9, "sine"), noise(0.9, 0.04) * 1.2), attack=0.005, decay_pow=1.6), 0.9)
+    write("chest", seq(*[env(osc(f, f, 0.07, "tri"), decay_pow=0.9) for f in (392, 494, 587, 784, 988)]), 0.6)
+    write("evolve", mix(*[env(osc(f, f * 2, 0.9, "saw"), attack=0.02, decay_pow=1.2) * 0.4 for f in (262, 330, 392, 523)]), 0.8)
 
 
 def build_background(size: int = 512, bg="#1d1433", dots="#2a1e48", cells="#251a40") -> None:

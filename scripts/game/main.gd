@@ -12,7 +12,7 @@ var hud_layer: CanvasLayer
 var hud: HudOverlay
 var ui_root: Control
 var pause_btn: Button
-var screen := "menu"  # menu | playing | levelup | dead | results | paused
+var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
 var hitstop := 0.0
 const MAX_STEP_DT := 1.0 / 30.0
 
@@ -21,6 +21,9 @@ var _levelup: Array
 var _dead: Array
 var _results: Array
 var _pause: Array
+var _chest: Array
+var _evo_by_passive := {}  # passive id -> evolution def
+var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
 var _results_doubled := false
 var _touch_index := -1
@@ -51,6 +54,12 @@ func _ready() -> void:
 	hud = HudOverlay.new()
 	hud.pal = pal
 	hud.stick_radius = float(bal.juice.stick_radius)
+	hud.dash_radius = float(bal.juice.dash_button_radius)
+	hud.dash_margin = float(bal.juice.dash_button_margin)
+	hud.elite_color = GameData.color(data.waves.elites.color)
+	for ev in data.evolutions:
+		_evo_by_passive[ev.requires] = ev
+		_evo_by_weapon[ev.weapon] = ev
 	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
 	ui_root.add_child(hud)
 
@@ -65,6 +74,7 @@ func _ready() -> void:
 	_dead = UiKit.overlay(ui_root)
 	_results = UiKit.overlay(ui_root)
 	_pause = UiKit.overlay(ui_root)
+	_chest = UiKit.overlay(ui_root, 0.8)
 	_show_menu()
 
 
@@ -73,7 +83,14 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if screen != "playing":
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
+		world.dash()
+		return
 	if event is InputEventScreenTouch:
+		# Dash: tap the DASH button, or tap with a second finger while steering.
+		if event.pressed and (hud.in_dash_button(event.position) or (_touch_index != -1 and event.index != _touch_index)):
+			world.dash()
+			return
 		if event.pressed and _touch_index == -1:
 			_touch_index = event.index
 			hud.stick_active = true
@@ -134,12 +151,15 @@ func _process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	world.step(minf(delta, MAX_STEP_DT), _move_input())
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
+	hud.cam_pos = view.cam.position
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
 	match world.state:
 		"levelup":
 			_show_levelup()
+		"chest":
+			_show_chest()
 		"dead":
 			_on_death()
 		"won":
@@ -177,6 +197,30 @@ func _handle_events(events: Array) -> void:
 			"death":
 				Sfx.play("death", 0.0)
 				Input.vibrate_handheld(200)
+			"dash":
+				Sfx.play("dash")
+			"elite_spawn":
+				Sfx.play("elite", 0.0)
+				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
+			"elite_killed":
+				Sfx.play("boss", 0.1)
+				Input.vibrate_handheld(60)
+			"evolution_ready":
+				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
+				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
+			"pickup_item":
+				match ev.kind:
+					"vacuum":
+						Sfx.play("vacuum", 0.0)
+						hud.toast("VACUUM!", pal.gem_small, 1.2)
+					"heal":
+						Sfx.play("heal", 0.0)
+						hud.toast("+HEALTH", pal.gem_medium, 1.2)
+					"bomb":
+						Sfx.play("bomb", 0.0)
+						hud.toast("BOOM!", pal.enemy_shot, 1.2)
+						Input.vibrate_handheld(120)
+				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
 
 
 func _start_run() -> void:
@@ -194,7 +238,7 @@ func _start_run() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
-	var in_run := s in ["playing", "levelup", "dead", "paused"]
+	var in_run := s in ["playing", "levelup", "chest", "dead", "paused"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
 	view.visible = s != "menu"
@@ -203,7 +247,7 @@ func _set_screen(s: String) -> void:
 
 
 func _hide_all() -> void:
-	for o in [_menu, _levelup, _dead, _results, _pause]:
+	for o in [_menu, _levelup, _dead, _results, _pause, _chest]:
 		o[0].visible = false
 
 
@@ -282,7 +326,11 @@ func _show_levelup() -> void:
 		var def: Dictionary = world.upgrade_defs[id]
 		var nl := world.next_level_of(id)
 		var tag := "NEW " + ("WEAPON" if def.type == "weapon" else "PASSIVE") if nl == 1 else "Lv %d" % nl
-		var b := UiKit.button("%s   (%s)\n%s" % [def.name, tag, Upgrades.describe(def, nl)], _pick.bind(id), 150)
+		var txt := "%s   (%s)\n%s" % [def.name, tag, Upgrades.describe(def, nl)]
+		var hint := _evolution_hint(id, nl)
+		if hint != "":
+			txt += "\n" + hint
+		var b := UiKit.button(txt, _pick.bind(id), 150)
 		col.add_child(b)
 		buttons.append(b)
 	var reroll := UiKit.button("Reroll  (watch ad)", _reroll, 80)
@@ -298,6 +346,82 @@ func _show_levelup() -> void:
 	for b in buttons:
 		if is_instance_valid(b):
 			b.disabled = false
+
+
+## "Evolves with X" style hint for a level-up card, or "".
+func _evolution_hint(id: String, next_level: int) -> String:
+	if _evo_by_passive.has(id):
+		var ev: Dictionary = _evo_by_passive[id]
+		if not world.evolved.has(ev.weapon):
+			return "* Evolves max %s" % world.upgrade_defs[ev.weapon].name
+	if _evo_by_weapon.has(id) and next_level == Upgrades.max_level(world.upgrade_defs[id]):
+		var ev: Dictionary = _evo_by_weapon[id]
+		return "* MAX: + %s = %s" % [world.upgrade_defs[ev.requires].name, ev.name]
+	return ""
+
+
+# ------------------------------------------------------------------ chest
+
+## Slot-machine style reveal: names spin, then the real rewards land.
+func _show_chest() -> void:
+	_set_screen("chest")
+	var rewards: Array = world.chest_rewards.duplicate()
+	Sfx.play("chest", 0.0)
+	Input.vibrate_handheld(50)
+	Analytics.event("chest_open", {"items": rewards.size(), "t": int(world.time)})
+	var col: VBoxContainer = _chest[1]
+	UiKit.clear(col)
+	col.add_child(UiKit.label("CHEST!", 60, pal.gem_large))
+	var slots: Array[Label] = []
+	for r in rewards:
+		var l := UiKit.label("?", 36, pal.text)
+		l.custom_minimum_size = Vector2(0, 120)
+		col.add_child(l)
+		slots.append(l)
+	_chest[0].visible = true
+	var names := []
+	for u in data.upgrades:
+		names.append(u.name)
+	for ev in data.evolutions:
+		names.append(ev.name)
+	# Spin, slowing down, then land each slot in turn.
+	var delay := 0.05
+	for step in 12:
+		for k in slots.size():
+			if is_instance_valid(slots[k]):
+				slots[k].text = names[randi() % names.size()]
+		Sfx.play("click", 0.3)
+		await get_tree().create_timer(delay).timeout
+		delay *= 1.13
+	for k in slots.size():
+		if not is_instance_valid(slots[k]):
+			return
+		var r: Dictionary = rewards[k]
+		var evo: bool = r.kind == "evolution"
+		var head := "EVOLUTION!\n" if evo else ""
+		var lvl := "  Lv %d" % r.level if r.kind == "upgrade" else ""
+		slots[k].text = "%s%s%s\n%s" % [head, r.name, lvl, r.desc]
+		slots[k].add_theme_color_override("font_color", pal.ui_accent if evo else pal.text)
+		slots[k].add_theme_font_size_override("font_size", 40 if evo else 32)
+		if evo:
+			Sfx.play("evolve", 0.0)
+			Input.vibrate_handheld(150)
+			view.add_shake(14.0)
+			Analytics.event("evolution", {"id": r.id, "t": int(world.time)})
+		else:
+			Sfx.play("level_up", 0.0)
+		await get_tree().create_timer(0.35).timeout
+	if is_instance_valid(col):
+		col.add_child(UiKit.button("CONTINUE", _close_chest, 110))
+
+
+func _close_chest() -> void:
+	_chest[0].visible = false
+	world.close_chest()
+	if world.state == "levelup":
+		_show_levelup()
+	else:
+		_set_screen("playing")
 
 
 func _pick(id: String) -> void:
@@ -354,7 +478,7 @@ func _show_results(won: bool) -> void:
 	if not won:
 		Save.deaths += 1
 	Save.best_time = maxf(Save.best_time, world.time)
-	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold})
+	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes})
 	_build_results(won)
 
 

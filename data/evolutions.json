@@ -1,0 +1,14 @@
+[
+  {"id": "storm",  "weapon": "bolt",  "requires": "multishot", "name": "Cytotoxic Storm",
+   "desc": "A piercing fan of heavy bolts.", "color": "#ff6bd6",
+   "stats": {"damage": 12, "count": 3, "pierce": 3, "cooldown": -0.15, "size": 3}},
+  {"id": "wall",   "weapon": "orbit", "requires": "vitality",  "name": "Immune Wall",
+   "desc": "Huge antibodies that heal you on every hit.", "color": "#7cff9b",
+   "stats": {"damage": 14, "count": 2, "size": 9, "orbit_radius": 25}, "heal_on_hit": 0.6},
+  {"id": "fever",  "weapon": "nova",  "requires": "regen",     "name": "Fever Spike",
+   "desc": "A huge pulse that strikes twice.", "color": "#ff7b54",
+   "stats": {"damage": 22, "area": 90, "cooldown": -0.5}, "pulses": 2},
+  {"id": "neural", "weapon": "chain", "requires": "haste",     "name": "Neural Storm",
+   "desc": "Three sparks at once, jumping further.", "color": "#ffe066",
+   "stats": {"damage": 12, "jumps": 4, "jump_range": 60}, "forks": 3}
+]

@@ -1,8 +1,15 @@
 {
-  "budget_curve": [[0, 1.6], [45, 3.5], [90, 5.5], [150, 8.5], [210, 13.0], [270, 17.0], [300, 20.0]],
+  "budget_curve": [[0, 2.4], [45, 3.8], [90, 5.5], [150, 8.5], [210, 13.0], [270, 17.0], [300, 20.0]],
   "max_budget_bank": 12,
   "max_alive": 170,
-  "hp_growth_per_min": 0.65,
+  "hp_growth_per_min": 1.2,
+  "damage_growth_per_min": 0.3,
+  "elites": {
+    "first_s": 35, "every_s": 40,
+    "types": ["grunt", "runner", "spitter", "brute", "charger", "splitter"],
+    "hp_mult": 8, "radius_mult": 1.7, "speed_mult": 1.15, "damage_mult": 1.5,
+    "xp": 12, "knock_resist": 0.85, "color": "#ffd166"
+  },
   "pool": [
     {"enemy": "grunt",    "from": 0,   "until": 9999, "weight": 10},
     {"enemy": "swarm",    "from": 30,  "until": 9999, "weight": 4, "group": 6},

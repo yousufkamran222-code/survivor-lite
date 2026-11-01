@@ -57,9 +57,12 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var bot := BalanceBot.new(seed_value)
 	var peak_enemies := 0
 	var hp_at_boss := -1.0
-	while w.state == "playing" or w.state == "levelup":
+	while w.state in ["playing", "levelup", "chest"]:
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
+			continue
+		if w.state == "chest":
+			w.close_chest()
 			continue
 		w.step(DT, bot.move(w))
 		peak_enemies = maxi(peak_enemies, w.enemy_count())
@@ -69,6 +72,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"seed": seed_value, "time": w.time, "won": w.state == "won", "level": w.level,
 		"kills": w.kills, "cause": w.death_cause, "owned": w.owned.duplicate(),
 		"peak_enemies": peak_enemies, "boss_killed": w.boss_killed,
+		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0),
 	}
 
@@ -88,12 +92,16 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var peak := 0
 	var gold := 0
 	var kills := 0
+	var evos := 0
+	var chests := 0
 	for r in results:
 		times.append(r.time)
 		levels.append(r.level)
 		peak = maxi(peak, r.peak_enemies)
 		gold += r.gold
 		kills += r.kills
+		evos += r.evolutions
+		chests += r.chests
 		if r.won:
 			wins += 1
 		else:
@@ -125,6 +133,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"level_p50": _pct(levels, 0.5),
 		"mean_kills": snappedf(float(kills) / maxf(results.size(), 1), 0.1),
 		"mean_gold": snappedf(float(gold) / maxf(results.size(), 1), 0.1),
+		"mean_chests": snappedf(float(chests) / maxf(results.size(), 1), 0.1),
+		"mean_evolutions": snappedf(float(evos) / maxf(results.size(), 1), 0.01),
 		"peak_enemies": peak,
 		"death_causes": causes,
 		"death_time_buckets": buckets,

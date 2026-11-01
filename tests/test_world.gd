@@ -15,6 +15,8 @@ func _run_bot(w: World, seconds: float) -> void:
 	for i in steps:
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
+		if w.state == "chest":
+			w.close_chest()
 		if w.state != "playing":
 			break
 		w.step(DT, bot.move(w))
