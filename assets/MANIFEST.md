@@ -4,6 +4,7 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 
 | Path | Source | Licence |
 |---|---|---|
+| `assets/processed/bg_tile.png` | Drawn by `tools/build_assets.py` | Original work (project-owned) |
 | `assets/processed/sfx/*.wav` | Synthesised by `tools/build_assets.py` (no samples) | Original work (project-owned) |
 | `icon.svg` | Hand-written SVG in this repo | Original work (project-owned) |
 

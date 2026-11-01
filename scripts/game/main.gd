@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var screen := "menu"  # menu | playing | levelup | dead | results | paused
 var hitstop := 0.0
+const MAX_STEP_DT := 1.0 / 30.0
 
 var _menu: Array
 var _levelup: Array
@@ -50,6 +51,7 @@ func _ready() -> void:
 	hud = HudOverlay.new()
 	hud.pal = pal
 	hud.stick_radius = float(bal.juice.stick_radius)
+	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
 	ui_root.add_child(hud)
 
 	pause_btn = UiKit.button("II", _pause_run, 72)
@@ -120,13 +122,18 @@ func _notification(what: int) -> void:
 
 # -------------------------------------------------------------- game loop
 
-func _physics_process(delta: float) -> void:
+## One simulation step per rendered frame, with dt clamped. If the phone
+## can't keep up, the game slows slightly instead of running extra catch-up
+## steps (which made slow frames slower: the "spiral").
+func _process(delta: float) -> void:
 	if screen != "playing" or world == null:
 		return
 	if hitstop > 0.0:
 		hitstop -= delta
 		return
-	world.step(delta, _move_input())
+	var t0 := Time.get_ticks_usec()
+	world.step(minf(delta, MAX_STEP_DT), _move_input())
+	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()

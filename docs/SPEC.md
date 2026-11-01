@@ -14,7 +14,7 @@
 
 ## Run structure and difficulty curve (`data/waves.json`)
 - A spawn **budget** (points/s) ramps 1.6 → 3.5 → 5.5 → 8.5 → 13 → 17 → 20 at 0/45/90/150/210/270/300 s. Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
-- Enemy HP grows +55% per minute (not the boss). The on-screen cap is 170, plus short overshoot from rings and splits.
+- Enemy HP grows +65% per minute (not the boss). The on-screen cap is 170, plus short overshoot from rings and splits.
 - New enemy types unlock over time (table below). Scripted beats: Spore ring at 1:00, Zipper ring at 2:15, Lump ring at 3:20, **boss at 3:50**, final Spore flood at 4:40.
 - **Targets** (checked with `tools/sim/balance_sim.gd`, then real playtests): median first-time death 3:00-4:30, win rate under 30% without meta upgrades and over 60% with most meta bought, a level-up roughly every 15 s, and the boss killed in about half of the runs that reach it.
 

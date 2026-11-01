@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Rebuild everything in assets/processed/ from code (and assets/raw/ later).
 
-Right now this synthesises all sound effects (sfxr-style: oscillators, pitch
-sweeps, noise and envelopes), so there are no licensing questions. Output is
-deterministic: the same script always produces byte-identical files.
+Synthesises all sound effects (sfxr-style: oscillators, pitch sweeps, noise
+and envelopes) and draws the tiled background, so there are no licensing
+questions. Output is deterministic.
 
 Usage:  python3 tools/build_assets.py
-Needs:  numpy
+Needs:  numpy, pillow
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import wave
 from pathlib import Path
 
 import numpy as np
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 SFX_DIR = ROOT / "assets" / "processed" / "sfx"
@@ -98,5 +99,29 @@ def build_sfx() -> None:
     write("click", env(osc(1000, 1000, 0.03, "sine")), 0.4)
 
 
+def build_background(size: int = 512, bg="#1d1433", dots="#2a1e48", cells="#251a40") -> None:
+    """Seamless 512px tile of faint dots and cells (drawn tiled under the world)."""
+    rng = np.random.default_rng(99)
+    scale = 4  # supersample for smooth edges
+    img = Image.new("RGB", (size * scale, size * scale), bg)
+    d = ImageDraw.Draw(img)
+
+    def blob(x, y, r, col):
+        for ox in (-size, 0, size):  # wrap so the tile is seamless
+            for oy in (-size, 0, size):
+                cx, cy = (x + ox) * scale, (y + oy) * scale
+                d.ellipse([cx - r * scale, cy - r * scale, cx + r * scale, cy + r * scale], fill=col)
+
+    for _ in range(6):
+        blob(rng.uniform(0, size), rng.uniform(0, size), rng.uniform(18, 44), cells)
+    for _ in range(26):
+        blob(rng.uniform(0, size), rng.uniform(0, size), rng.uniform(2.0, 4.5), dots)
+    img = img.resize((size, size), Image.LANCZOS)
+    out = ROOT / "assets" / "processed" / "bg_tile.png"
+    img.save(out, optimize=True)
+    print(f"wrote {out.name}")
+
+
 if __name__ == "__main__":
     build_sfx()
+    build_background()

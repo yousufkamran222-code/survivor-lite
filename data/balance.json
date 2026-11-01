@@ -45,11 +45,15 @@
     "max_projectiles": 220,
     "max_enemy_shots": 120,
     "max_effects": 140,
-    "max_damage_numbers": 40,
+    "max_damage_numbers": 24,
     "despawn_distance": 1300,
     "spawn_min_distance": 760,
     "spawn_max_distance": 860,
     "max_enemy_radius": 72
+  },
+  "debug": {
+    "show_perf": true,
+    "invincible": false
   },
   "juice": {
     "flash_s": 0.08,

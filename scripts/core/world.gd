@@ -19,6 +19,15 @@ var upgrade_defs: Dictionary = {}  # id -> def
 var enemy_defs: Array = []  # type index -> def
 var enemy_idx: Dictionary = {}  # id -> type index
 var _trad := PackedFloat32Array()  # type index -> radius
+var _tspeed := PackedFloat32Array()  # type index -> speed
+var _tbeh := PackedInt32Array()  # type index -> BEH_*
+const BEH_CHASE := 0
+const BEH_RANGED := 1
+const BEH_DASH := 2
+const BEH_BOSS := 3
+const BEHAVIORS := {"chase": BEH_CHASE, "ranged": BEH_RANGED, "dash": BEH_DASH, "boss": BEH_BOSS}
+var _frame := 0
+const SEP_EVERY := 3  # separation cadence (frames); see _update_enemies
 
 ## Set false in headless sims to skip building event dictionaries.
 var emit_events := true
@@ -107,6 +116,8 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 		enemy_idx[e.id] = enemy_defs.size()
 		enemy_defs.append(e)
 		_trad.append(float(e.radius))
+		_tspeed.append(float(e.speed))
+		_tbeh.append(int(BEHAVIORS.get(e.behavior, BEH_CHASE)))
 	upgrade_list = data.upgrades
 	for u in upgrade_list:
 		upgrade_defs[u.id] = u
@@ -209,7 +220,7 @@ func query(center: Vector2, radius: float) -> Array:
 	var y1 := floori((center.y + r) / CELL)
 	for cx in range(x0, x1 + 1):
 		for cy in range(y0, y1 + 1):
-			var cell: Variant = _grid.get(Vector2i(cx, cy))
+			var cell: Variant = _grid.get(_key(cx, cy))
 			if cell == null:
 				continue
 			for i: int in cell:
@@ -336,10 +347,16 @@ func _remove_enemy(i: int) -> void:
 	e_hitcd.resize(last)
 
 
+## Integer grid key: much cheaper to hash than Vector2i.
+static func _key(cx: int, cy: int) -> int:
+	return (cx + 32768) * 65536 + (cy + 32768)
+
+
 func _rebuild_grid() -> void:
 	_grid.clear()
 	for i in e_pos.size():
-		var k := Vector2i(floori(e_pos[i].x / CELL), floori(e_pos[i].y / CELL))
+		var p := e_pos[i]
+		var k := _key(floori(p.x / CELL), floori(p.y / CELL))
 		var cell: Variant = _grid.get(k)
 		if cell == null:
 			_grid[k] = [i]
@@ -348,84 +365,112 @@ func _rebuild_grid() -> void:
 
 
 func _update_enemies(dt: float) -> void:
-	var decay := float(bal.juice.knockback_decay)
-	var despawn := float(bal.perf.despawn_distance)
+	var decay := maxf(0.0, 1.0 - float(bal.juice.knockback_decay) * dt)
+	var despawn2 := float(bal.perf.despawn_distance) ** 2
 	boss_index = -1
+	_frame += 1
+	var phase := _frame % SEP_EVERY
 	for i in e_pos.size():
 		var t := e_type[i]
-		var d: Dictionary = enemy_defs[t]
+		var beh := _tbeh[t]
 		var pos := e_pos[i]
 		var to_p := p_pos - pos
-		var dist := to_p.length()
+		var dist2 := to_p.length_squared()
+		var dist := sqrt(dist2)
 		var dir := to_p / dist if dist > 0.001 else Vector2.ZERO
-		var spd := float(d.speed)
+		var spd := _tspeed[t]
 		var vel := dir * spd
-		match d.behavior:
-			"ranged":
-				var keep := float(d.keep_distance)
-				if dist < keep - 30.0:
-					vel = -dir * spd * 0.7
-				elif dist < keep + 30.0:
-					vel = dir.orthogonal() * spd * 0.5
-				e_timer[i] -= dt
-				if e_timer[i] <= 0.0 and dist < keep + 220.0:
-					e_timer[i] = float(d.fire_cooldown)
-					_enemy_shot(pos, dir, float(d.shot_speed), float(d.shot_damage))
-			"dash":
-				e_timer[i] -= dt
-				match e_phase[i]:
-					0:
-						if dist < float(d.dash_range) and e_timer[i] <= 0.0:
-							e_phase[i] = 1
-							e_timer[i] = float(d.windup_s)
-							e_dir[i] = dir
-					1:
-						vel = Vector2.ZERO
-						if e_timer[i] <= 0.0:
-							e_phase[i] = 2
-							e_timer[i] = float(d.dash_s)
-					2:
-						vel = e_dir[i] * float(d.dash_speed)
-						if e_timer[i] <= 0.0:
-							e_phase[i] = 0
-							e_timer[i] = float(d.dash_cooldown_s)
-			"boss":
-				boss_index = i
-				e_timer[i] -= dt
-				if e_timer[i] <= 0.0:
-					e_timer[i] = float(d.burst_cooldown_s)
-					var n := int(d.burst_count)
-					var a0 := rng.randf() * TAU
-					for k in n:
-						var a := a0 + TAU * k / n
-						_enemy_shot(pos, Vector2(cos(a), sin(a)), float(d.shot_speed), float(d.shot_damage))
-		# Soft separation so swarms read as a crowd, not a single blob.
+		if beh != BEH_CHASE:
+			vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
+		# Soft separation so swarms read as a crowd, not one blob. Each enemy
+		# resolves overlaps every SEP_EVERY frames, with a matching push strength.
 		var sep := Vector2.ZERO
-		var ri := _trad[t]
-		var ck := Vector2i(floori(pos.x / CELL), floori(pos.y / CELL))
-		for ox in range(-1, 2):
-			for oy in range(-1, 2):
-				var cell: Variant = _grid.get(Vector2i(ck.x + ox, ck.y + oy))
-				if cell == null:
-					continue
-				for j: int in cell:
-					if j == i:
+		if i % SEP_EVERY == phase:
+			var ri := _trad[t]
+			var cx := floori(pos.x / CELL)
+			var cy := floori(pos.y / CELL)
+			var found := 0
+			for ox in range(-1, 2):
+				for oy in range(-1, 2):
+					var cell: Variant = _grid.get(_key(cx + ox, cy + oy))
+					if cell == null:
 						continue
-					var off := pos - e_pos[j]
-					var md := ri + _trad[e_type[j]]
-					var d2 := off.length_squared()
-					if d2 < md * md and d2 > 0.0001:
-						var dd := sqrt(d2)
-						sep += off / dd * (md - dd) * 0.5
-		pos += (vel + e_knock[i]) * dt + sep.limit_length(6.0)
-		e_knock[i] = e_knock[i] * maxf(0.0, 1.0 - decay * dt)
-		if dist > despawn and d.behavior != "boss":
+					for j: int in cell:
+						if j == i:
+							continue
+						var off := pos - e_pos[j]
+						var md := ri + _trad[e_type[j]]
+						var d2 := off.length_squared()
+						if d2 < md * md and d2 > 0.0001:
+							var dd := sqrt(d2)
+							sep += off / dd * (md - dd) * (0.5 * SEP_EVERY)
+							found += 1
+							if found >= 6:
+								break
+					if found >= 6:
+						break
+				if found >= 6:
+					break
+		var kn := e_knock[i]
+		if kn != Vector2.ZERO:
+			pos += (vel + kn) * dt
+			e_knock[i] = kn * decay if kn.length_squared() > 1.0 else Vector2.ZERO
+		else:
+			pos += vel * dt
+		if sep != Vector2.ZERO:
+			pos += sep.limit_length(12.0)
+		if dist2 > despawn2 and beh != BEH_BOSS:
 			pos = _spawn_point()
 		e_pos[i] = pos
 		if e_flash[i] > 0.0:
 			e_flash[i] -= dt
 		if e_hitcd[i] > 0.0:
 			e_hitcd[i] -= dt
+
+
+## Non-chase behaviours (ranged, dash, boss). Returns the velocity to use.
+func _special_behavior(i: int, t: int, beh: int, pos: Vector2, dir: Vector2, dist: float, spd: float, vel: Vector2, dt: float) -> Vector2:
+	var d: Dictionary = enemy_defs[t]
+	match beh:
+		BEH_RANGED:
+			var keep := float(d.keep_distance)
+			if dist < keep - 30.0:
+				vel = -dir * spd * 0.7
+			elif dist < keep + 30.0:
+				vel = dir.orthogonal() * spd * 0.5
+			e_timer[i] -= dt
+			if e_timer[i] <= 0.0 and dist < keep + 220.0:
+				e_timer[i] = float(d.fire_cooldown)
+				_enemy_shot(pos, dir, float(d.shot_speed), float(d.shot_damage))
+		BEH_DASH:
+			e_timer[i] -= dt
+			match e_phase[i]:
+				0:
+					if dist < float(d.dash_range) and e_timer[i] <= 0.0:
+						e_phase[i] = 1
+						e_timer[i] = float(d.windup_s)
+						e_dir[i] = dir
+				1:
+					vel = Vector2.ZERO
+					if e_timer[i] <= 0.0:
+						e_phase[i] = 2
+						e_timer[i] = float(d.dash_s)
+				2:
+					vel = e_dir[i] * float(d.dash_speed)
+					if e_timer[i] <= 0.0:
+						e_phase[i] = 0
+						e_timer[i] = float(d.dash_cooldown_s)
+		BEH_BOSS:
+			boss_index = i
+			e_timer[i] -= dt
+			if e_timer[i] <= 0.0:
+				e_timer[i] = float(d.burst_cooldown_s)
+				var n := int(d.burst_count)
+				var a0 := rng.randf() * TAU
+				for k in n:
+					var a := a0 + TAU * k / n
+					_enemy_shot(pos, Vector2(cos(a), sin(a)), float(d.shot_speed), float(d.shot_damage))
+	return vel
 
 
 func _enemy_shot(pos: Vector2, dir: Vector2, speed: float, dmg: float) -> void:
@@ -632,6 +677,8 @@ func _process_dead() -> void:
 
 
 func _hurt(amount: float, cause: String) -> void:
+	if bal.get("debug", {}).get("invincible", false):
+		return
 	p_hp -= amount * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
 	_emit({"type": "hurt", "amount": amount})

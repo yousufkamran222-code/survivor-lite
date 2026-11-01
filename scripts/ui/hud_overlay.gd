@@ -10,6 +10,8 @@ var stick_active := false
 var stick_origin := Vector2.ZERO
 var stick_pos := Vector2.ZERO
 var stick_radius := 90.0
+var show_perf := false
+var sim_ms := 0.0
 
 
 func _ready() -> void:
@@ -41,6 +43,10 @@ func _draw() -> void:
 		draw_rect(r, Color(0, 0, 0, 0.55))
 		draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
 		draw_string(font, Vector2(0, 112), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+	# Perf readout for playtests (balance.json debug.show_perf).
+	if show_perf:
+		var txt := "%d fps  %d enemies  sim %.1f ms" % [Engine.get_frames_per_second(), world.enemy_count(), sim_ms]
+		draw_string(font, Vector2(0, size.y - 14), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
 	# Floating joystick.
 	if stick_active:
 		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
