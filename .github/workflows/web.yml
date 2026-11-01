@@ -1,0 +1,57 @@
+name: Web playtest build
+
+# Publishes a browser build to GitHub Pages so the game can be playtested on a
+# phone within minutes of a merge. DEV TOOL ONLY: ads, haptics, real
+# performance and Android lifecycle must be checked on the APK.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-godot
+        with:
+          templates: "true"
+
+      - name: Tests
+        run: godot --headless --path . -s res://tests/run_tests.gd
+
+      - name: Stamp build info
+        run: |
+          echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
+
+      - name: Export web
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+          touch build/web/.nojekyll
+          ls -la build/web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

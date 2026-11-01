@@ -1,0 +1,92 @@
+{
+  "title": "Petri Panic",
+  "run_length_s": 300,
+  "start_weapon": "bolt",
+  "player": {
+    "max_hp": 100,
+    "speed": 175,
+    "radius": 18,
+    "pickup_radius": 105,
+    "iframes_s": 0.5,
+    "regen": 0.0,
+    "armor": 0.0
+  },
+  "xp": {
+    "base": 5,
+    "linear": 3,
+    "quad": 0.1,
+    "gem_speed": 650,
+    "max_gems": 120
+  },
+  "upgrades": {
+    "offers_per_level": 3,
+    "max_weapons": 4,
+    "owned_weight_mult": 1.6,
+    "heal_when_all_maxed": 0.2
+  },
+  "economy": {
+    "gold_per_kill": 0.08,
+    "gold_per_minute": 8,
+    "gold_boss_bonus": 60,
+    "gold_victory_bonus": 50
+  },
+  "revive": {
+    "max_per_run": 1,
+    "hp_frac": 0.5,
+    "clear_radius": 380,
+    "iframes_s": 2.5
+  },
+  "ads": {
+    "interstitial_every_deaths": 3,
+    "min_runs_before_interstitial": 2,
+    "stub_duration_s": 1.0
+  },
+  "perf": {
+    "max_projectiles": 220,
+    "max_enemy_shots": 120,
+    "max_effects": 140,
+    "max_damage_numbers": 40,
+    "despawn_distance": 1300,
+    "spawn_min_distance": 760,
+    "spawn_max_distance": 860,
+    "max_enemy_radius": 72
+  },
+  "juice": {
+    "flash_s": 0.08,
+    "knockback_decay": 9.0,
+    "shake_hurt": 12,
+    "shake_nova": 4,
+    "shake_boss_kill": 26,
+    "shake_decay": 60,
+    "hitstop_hurt_s": 0.05,
+    "hitstop_boss_kill_s": 0.2,
+    "damage_numbers": true,
+    "kill_burst_particles": 5,
+    "levelup_input_delay_s": 0.35,
+    "stick_radius": 90,
+    "stick_deadzone": 0.12
+  },
+  "palette": {
+    "background": "#1d1433",
+    "background_dots": "#2a1e48",
+    "background_cells": "#251a40",
+    "player": "#f4f1ff",
+    "player_nucleus": "#5ce1e6",
+    "player_hurt": "#ff5d73",
+    "gem_small": "#5ce1e6",
+    "gem_medium": "#7cff9b",
+    "gem_large": "#ffd166",
+    "bolt": "#e8fbff",
+    "orbit": "#9be7ff",
+    "nova": "#7cc6ff",
+    "chain": "#c8a6ff",
+    "enemy_shot": "#ff9f43",
+    "hp_bar": "#ff5d73",
+    "xp_bar": "#5ce1e6",
+    "text": "#ffffff",
+    "ui_panel": "#2a1f4a",
+    "ui_button": "#3d2d6b",
+    "ui_button_pressed": "#5a45a0",
+    "ui_accent": "#ffd166"
+  }
+}

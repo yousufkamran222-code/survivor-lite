@@ -1,0 +1,22 @@
+{
+  "budget_curve": [[0, 1.6], [45, 3.5], [90, 5.5], [150, 8.5], [210, 13.0], [270, 17.0], [300, 20.0]],
+  "max_budget_bank": 12,
+  "max_alive": 170,
+  "hp_growth_per_min": 0.55,
+  "pool": [
+    {"enemy": "grunt",    "from": 0,   "until": 9999, "weight": 10},
+    {"enemy": "swarm",    "from": 30,  "until": 9999, "weight": 4, "group": 6},
+    {"enemy": "runner",   "from": 50,  "until": 9999, "weight": 5},
+    {"enemy": "spitter",  "from": 75,  "until": 9999, "weight": 3},
+    {"enemy": "brute",    "from": 95,  "until": 9999, "weight": 2},
+    {"enemy": "charger",  "from": 120, "until": 9999, "weight": 3},
+    {"enemy": "splitter", "from": 150, "until": 9999, "weight": 3}
+  ],
+  "events": [
+    {"t": 60,  "enemy": "swarm",   "count": 22, "pattern": "ring"},
+    {"t": 135, "enemy": "runner",  "count": 18, "pattern": "ring"},
+    {"t": 200, "enemy": "brute",   "count": 6,  "pattern": "ring"},
+    {"t": 230, "enemy": "boss",    "count": 1,  "pattern": "single"},
+    {"t": 280, "enemy": "swarm",   "count": 36, "pattern": "ring"}
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {"id": "grunt",    "name": "Germ",        "behavior": "chase",  "hp": 10,   "speed": 85,  "damage": 10, "radius": 16, "xp": 1,  "cost": 1.0, "color": "#7bd389"},
+  {"id": "swarm",    "name": "Spore",       "behavior": "chase",  "hp": 4,    "speed": 120, "damage": 5,  "radius": 9,  "xp": 1,  "cost": 0.4, "color": "#c5f277"},
+  {"id": "runner",   "name": "Zipper",      "behavior": "chase",  "hp": 9,    "speed": 172, "damage": 8,  "radius": 12, "xp": 1,  "cost": 1.5, "color": "#ffd166"},
+  {"id": "brute",    "name": "Lump",        "behavior": "chase",  "hp": 75,   "speed": 58,  "damage": 20, "radius": 30, "xp": 5,  "cost": 6.0, "color": "#e05a47", "knock_resist": 0.8},
+  {"id": "spitter",  "name": "Spitter",     "behavior": "ranged", "hp": 20,   "speed": 70,  "damage": 8,  "radius": 15, "xp": 2,  "cost": 3.0, "color": "#ff9f43",
+   "keep_distance": 290, "fire_cooldown": 2.8, "shot_speed": 230, "shot_damage": 10},
+  {"id": "charger",  "name": "Lancer",      "behavior": "dash",   "hp": 28,   "speed": 65,  "damage": 15, "radius": 17, "xp": 3,  "cost": 3.5, "color": "#f15bb5",
+   "dash_range": 300, "windup_s": 0.7, "dash_s": 0.55, "dash_speed": 430, "dash_cooldown_s": 2.0},
+  {"id": "splitter", "name": "Mitosis",     "behavior": "chase",  "hp": 32,   "speed": 78,  "damage": 12, "radius": 21, "xp": 2,  "cost": 3.0, "color": "#2ec4b6",
+   "split_into": "grunt", "split_count": 2},
+  {"id": "boss",     "name": "Mother Cell", "behavior": "boss",   "hp": 1000, "speed": 70,  "damage": 30, "radius": 70, "xp": 60, "cost": 0,   "color": "#d7263d", "knock_resist": 0.97, "fixed_hp": true,
+   "burst_cooldown_s": 3.6, "burst_count": 14, "shot_speed": 210, "shot_damage": 12}
+]

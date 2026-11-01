@@ -1,0 +1,8 @@
+[
+  {"id": "meta_hp",     "name": "Thick Membrane", "stat": "max_hp",  "per_level": 10,   "desc": "+10 max HP",        "costs": [40, 80, 140, 220, 320]},
+  {"id": "meta_might",  "name": "Potency",        "stat": "might",   "per_level": 0.05, "desc": "+5% damage",        "costs": [50, 100, 170, 260, 380]},
+  {"id": "meta_move",   "name": "Mobility",       "stat": "move",    "per_level": 0.04, "desc": "+4% move speed",    "costs": [40, 90, 160]},
+  {"id": "meta_magnet", "name": "Absorption",     "stat": "magnet",  "per_level": 0.15, "desc": "+15% pickup range", "costs": [30, 70, 120]},
+  {"id": "meta_growth", "name": "Growth",         "stat": "xp_gain", "per_level": 0.08, "desc": "+8% XP",            "costs": [60, 120, 200]},
+  {"id": "meta_greed",  "name": "Greed",          "stat": "gold_gain","per_level": 0.10, "desc": "+10% gold",         "costs": [50, 110, 190]}
+]

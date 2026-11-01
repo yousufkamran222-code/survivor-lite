@@ -1,0 +1,13 @@
+# Godot
+.godot/
+/build/
+*.tmp
+export_credentials.cfg
+# Secrets: never commit
+*.keystore
+*.jks
+service-account*.json
+# Python
+__pycache__/
+.venv/
+/data/build_info.json

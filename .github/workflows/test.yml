@@ -1,0 +1,30 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-godot
+
+      - name: Unit + simulation tests
+        run: godot --headless --path . -s res://tests/run_tests.gd
+
+      - name: Balance smoke (4 bot runs)
+        run: |
+          godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 4 --seed 1 --json sim.json > /dev/null
+          python3 - <<'PY'
+          import json, os
+          r = json.load(open("sim.json"))
+          keys = ["runs", "time_p10", "time_p50", "time_p90", "win_rate", "boss_kill_rate", "level_p50", "mean_kills", "mean_gold", "peak_enemies", "sim_ms_per_run"]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("### Balance smoke\n\n| metric | value |\n|---|---|\n")
+              for k in keys:
+                  f.write(f"| {k} | {r[k]} |\n")
+              f.write(f"\nDeath causes: `{r['death_causes']}`\n")
+          PY

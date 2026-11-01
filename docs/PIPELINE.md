@@ -1,0 +1,65 @@
+# Development and release pipeline
+
+## Who does what
+| Claude Code (cloud) | Yousuf | GitHub Actions |
+|---|---|---|
+| Code, data tables, tests, tools | Playtests on phone, judges feel | Tests on every push and PR |
+| Balance sims, asset generation | Account steps (Play, AdMob, keystore) | Web build to Pages on `main` |
+| PRs with sim numbers | Merges PRs, art-direction calls | APK on demand and on `v*` tags |
+
+## The daily loop (about 1 hour)
+1. Open the Pages link on your phone and play 2-3 runs. Check that the build SHA at the bottom of the menu matches the latest merge.
+2. Write short, specific notes: "Lancer dash unreadable", "too quiet before 1:00", "level-up every 5 s is too often at 2:00".
+3. Paste the notes into a Claude Code session. Claude turns them into data or code changes, runs the tests and the sim, and opens a PR quoting before/after numbers.
+4. Merge the PR. About 3 minutes later the new web build is live. Repeat.
+5. Before any session where you judge **feel or performance**, and at every milestone, run **Actions → Android build → Run workflow**, then install the APK on both phones.
+
+## Verification layers
+| Layer | Catches | Where |
+|---|---|---|
+| `tests/` (headless, seeded) | Logic bugs: damage, XP, upgrades, spawns, revive, data references | Every push |
+| `balance_sim.gd` (bot runs) | Difficulty spikes, broken upgrades, run length | Every push (4-run smoke), PRs (12+ runs) |
+| Playwright screenshot of web build | UI layout, boot errors | In the cloud session, ad hoc |
+| Web build on phone | Feel, readability, rough UX | Every merge |
+| APK on 2 phones | Performance, touch latency, audio, ads, lifecycle | Milestones and feel sessions |
+
+## Milestones
+| # | Goal | Status |
+|---|---|---|
+| **M0** | Repo bootstrap: CLAUDE.md, CI, tests, sim, web build, AdService stub | **done** |
+| **M1** | Core loop playable: 8 enemies, 11 upgrades, boss, level-ups, death, results, meta shop, stub ads, SFX | **done (first pass)** |
+| M2 | Feel and balance pass from phone playtests. Low-end perf check on APK (target 60 fps at 170 enemies). Pick the final theme and name | next |
+| M3 | Android release plumbing: Gradle build and AAB, AdMob plugin and `AdmobBackend` (test IDs), Firebase Analytics, signed release via secrets | |
+| M4 | Store kit: icon, 4-5 screenshots, short 15 s gameplay capture, store text, privacy policy, data-safety form | |
+| M5 | Closed test: upload the AAB, 12+ testers opted in for 14 days, fix bugs, iterate on telemetry | |
+| M6 | Production release, then small paid UA tests ($50-100) to measure CPI, D1/D7 and ROAS | |
+
+## Release calendar (compressed, critical path first)
+The **14-day closed test** (if it applies to your account) is the long pole, so start the accounts on day 1.
+| Day | Work |
+|---|---|
+| 1 | Accounts: Play Console ($25), AdMob, PSEB. Recruit testers. Enable Pages. Pick the theme |
+| 2-6 | M2 feel and balance via daily phone playtests |
+| 7-10 | M3: AAB, AdMob (test IDs), Firebase |
+| 11-12 | M4 store kit, privacy policy, data safety |
+| 13 | Upload to closed testing and send the link to testers |
+| 14-27 | Tester clock: fix, polish, read telemetry |
+| 28 | Apply for production and release |
+
+## Release gates
+- **Closed test → production:** no crash or ANR seen in a week, a median session of 2 runs or more, and every ad placement verified on a real device with test IDs.
+- **Production → paid UA:** D1 ≥ 35%, D7 ≥ 10%, median session ≥ 6 min, and no single upgrade dominating sim win rates.
+
+## Facts to verify (not yet confirmed)
+- Whether the Play closed-test requirement (12 testers, 14 days) applies to your account type. Check Play Console when you register.
+- That Pakistan is supported for Play merchant payouts before relying on IAP. AdMob payouts by wire are the safer path.
+- The current Godot AdMob plugin (e.g. Poing Studios `godot-admob-android`) and Firebase plugin versions that support Godot 4.7. Check before M3.
+- PSEB, tax and SBP export details with an accountant.
+
+## Balance baseline (bot, 2026-11-01)
+| | runs | p10 | p50 | p90 | win | boss kill | level p50 | kills | gold |
+|---|---|---|---|---|---|---|---|---|---|
+| no meta | 16 | 1:14-2:07 | ~3:05 | 5:00 | 31% | 13% | 10-13 | ~455 | ~85 |
+| all meta (`--meta`, before early-game softening) | 8 | 5:00 | 5:00 | 5:00 | 100% | 13% | 16 | ~910 | ~170 |
+
+Known bot bias: it flees the boss, so the boss kill rate is understated, and a human will engage it. Make the first M2 tuning decisions from phone playtests.

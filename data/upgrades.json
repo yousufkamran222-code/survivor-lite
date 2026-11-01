@@ -1,0 +1,69 @@
+[
+  {"id": "bolt", "type": "weapon", "name": "Pulse Bolt", "weight": 1.0,
+   "levels": [
+     {"damage": 10, "cooldown": 0.75, "count": 1, "pierce": 0, "speed": 560, "size": 7, "range": 460, "knockback": 120},
+     {"damage": 4},
+     {"count": 1},
+     {"damage": 4, "cooldown": -0.15},
+     {"pierce": 2, "count": 1}
+   ],
+   "desc": ["Fires at the nearest germ.", "+4 damage", "+1 bolt", "+4 damage, fires faster", "Pierces 2, +1 bolt"]},
+
+  {"id": "orbit", "type": "weapon", "name": "Antibodies", "weight": 1.0,
+   "levels": [
+     {"damage": 8, "count": 2, "orbit_radius": 85, "size": 14, "spin": 3.2, "hit_interval": 0.5, "knockback": 160},
+     {"count": 1},
+     {"damage": 5},
+     {"count": 1, "orbit_radius": 15},
+     {"damage": 6, "spin": 1.0}
+   ],
+   "desc": ["Antibodies orbit you, hitting anything they touch.", "+1 antibody", "+5 damage", "+1 antibody, wider orbit", "+6 damage, spins faster"]},
+
+  {"id": "nova", "type": "weapon", "name": "Fever Pulse", "weight": 0.9,
+   "levels": [
+     {"damage": 14, "cooldown": 3.0, "area": 140, "knockback": 340},
+     {"area": 30},
+     {"damage": 8},
+     {"cooldown": -0.6},
+     {"damage": 10, "area": 40}
+   ],
+   "desc": ["A heat pulse that damages and shoves everything near you.", "+30 radius", "+8 damage", "Pulses faster", "+10 damage, +40 radius"]},
+
+  {"id": "chain", "type": "weapon", "name": "Nerve Spark", "weight": 0.9,
+   "levels": [
+     {"damage": 12, "cooldown": 1.6, "jumps": 2, "range": 380, "jump_range": 180},
+     {"jumps": 2},
+     {"damage": 6},
+     {"cooldown": -0.4},
+     {"jumps": 3, "damage": 6}
+   ],
+   "desc": ["A spark that jumps between nearby germs.", "+2 jumps", "+6 damage", "Sparks faster", "+3 jumps, +6 damage"]},
+
+  {"id": "might", "type": "passive", "name": "Enzymes", "weight": 1.0,
+   "levels": [{"might": 0.12}, {"might": 0.12}, {"might": 0.12}, {"might": 0.12}, {"might": 0.12}],
+   "desc": ["+12% damage"]},
+
+  {"id": "haste", "type": "passive", "name": "Metabolism", "weight": 1.0,
+   "levels": [{"haste": 0.07}, {"haste": 0.07}, {"haste": 0.07}, {"haste": 0.07}, {"haste": 0.07}],
+   "desc": ["Weapons recharge 7% faster"]},
+
+  {"id": "swift", "type": "passive", "name": "Flagella", "weight": 0.9,
+   "levels": [{"move": 0.08}, {"move": 0.08}, {"move": 0.08}, {"move": 0.08}, {"move": 0.08}],
+   "desc": ["+8% move speed"]},
+
+  {"id": "vitality", "type": "passive", "name": "Thick Wall", "weight": 0.9,
+   "levels": [{"max_hp": 20}, {"max_hp": 20}, {"max_hp": 20}, {"max_hp": 20}, {"max_hp": 20}],
+   "desc": ["+20 max HP and heal 20"]},
+
+  {"id": "magnet", "type": "passive", "name": "Receptors", "weight": 0.8,
+   "levels": [{"magnet": 0.35}, {"magnet": 0.35}, {"magnet": 0.35}, {"magnet": 0.35}, {"magnet": 0.35}],
+   "desc": ["+35% pickup range"]},
+
+  {"id": "multishot", "type": "passive", "name": "Replication", "weight": 0.6,
+   "levels": [{"amount": 1}, {"amount": 1}],
+   "desc": ["+1 bolt, antibody and spark jump"]},
+
+  {"id": "regen", "type": "passive", "name": "Repair", "weight": 0.8,
+   "levels": [{"regen": 0.4}, {"regen": 0.4}, {"regen": 0.4}],
+   "desc": ["Regenerate 0.4 HP per second"]}
+]
