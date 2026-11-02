@@ -264,7 +264,9 @@ func test_towers_grow_with_waves_and_free_mode_compounds() -> void:
 	var w := _tower_world(0)
 	var early := float(w.tower_stats(0).damage)
 	w.wave = 8
-	check(float(w.tower_stats(0).damage) > early * 2.0, "tower damage keeps pace with the waves")
+	var g := float(w.bal.defense.tower_growth_per_wave)
+	check(g > 0.0, "towers grow per wave")
+	check_near(float(w.tower_stats(0).damage), early * (1.0 + g * 7.0), 0.01, "tower damage keeps pace with the waves")
 	var hp12 := w._hp_mult()
 	w.wave = w.wave_count
 	hp12 = w._hp_mult()
