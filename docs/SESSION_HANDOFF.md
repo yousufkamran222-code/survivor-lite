@@ -318,6 +318,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 2. **Theme and name are still open** (working title "Petri Panic"; tagline "You are the infection"). Raise this before store work (M4).
 
 **Planned features (agreed or proposed):**
+0. **Nucleus (tower defence) mode: planned and agreed, next to build.** Full spec and build order in `docs/ROADMAP.md` "Prototype 3" (D-013). Start with step 1 (core loop, Bolt Spire only) and get a playtest verdict before step 2.
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:
    - Leukocyte / Spore Burst
    - Virus / Hijack

@@ -59,6 +59,51 @@ Original plan:
 - New upgrades: Viral Load (convert chance), Hijack (convert stats), Incubation (a bigger cap).
 - Test question: does a growing swarm feel like power without hiding the danger?
 
+## Prototype 3: "Nucleus" mode (tower defence): **planned 2026-11-02, not built yet**
+Yousuf's choices (2026-11-02): germs go for the nucleus but switch to you when close; build by **standing on a pad**; **12 numbered waves**, then on a win you may **continue into endless Free Mode**; only the **nucleus dying** ends the run (you respawn).
+
+### The mode in one paragraph
+A big host **nucleus** sits at the centre of a bounded dish. Germs pour in from 3-4 **vents** on the rim (they pulse before a wave so you see where trouble comes from) and march on the nucleus, switching to you when you come within aggro range. Kills give **biomass** (a run-only currency, separate from XP and gold). Around the nucleus are 6 glowing **build pads**: stand on one, a ring fills over about 1 s, and it builds (first time: pick 1 of 4 towers in a small popup) or upgrades the tower if you can pay. You still have your weapons, dash and banked level-ups, and you plug the gaps your towers leave. If you die you reform at the nucleus after about 5 s while the towers keep fighting. Clear wave 12 (boss wave) to win; the victory screen offers **COLLECT** or **KEEP GOING** (Free Mode: endless, ever-harder waves for a best-wave record and leaderboard).
+
+### Rules (all numbers live in data, these are starting values)
+- **Nucleus:** 1000 HP, regenerates a little during breathers. Enemies that reach it stop and attack it on a melee tick; Spitters shoot it. HUD: big nucleus HP bar at the top, flashes and shakes when hit; off-screen arrow when you're far away.
+- **Targeting:** each enemy targets the player if within `aggro_radius` (about 220 px), otherwise the nucleus. No pathfinding: straight lines plus the existing separation; vent positions create natural lanes. Allies (Swarm) don't exist in this mode.
+- **Biomass:** gained directly on kill (no pickup to chase; elites/boss give more), plus a bonus for clearing a wave. Shown next to the wave counter.
+- **Pads and towers:** 6 pads at about 260 px from the nucleus. 4 tower types that reuse the existing weapon code from a fixed origin, 3 levels each:
+  | Tower | Based on | Role |
+  |---|---|---|
+  | Bolt Spire | Pulse Bolt | Single target, long range, focuses elites |
+  | Antibody Post | Antibodies | Orbs around the pad; block Spitter shots near the nucleus |
+  | Fever Node | Fever Pulse | Area pulse + slow; crowd control at the core |
+  | Spark Coil | Nerve Spark | Chain lightning; good against Spores |
+  Your **might and haste** (level-ups and meta) also apply to towers, so the survivor half keeps mattering. No selling in v1.
+- **Waves:** a table in `waves.json` (`defense.waves`): per wave a budget, enemy pool, active vents, elites, and the boss on wave 12. The next wave starts after a short breather (about 6 s, "Wave 5 in 3..2..1") once the field is nearly clear, or after a max timer so turtling can't stall. HUD: "WAVE 7/12".
+- **Free Mode (after the win):** waves 13+ are generated from the last wave (budget and HP x about 1.15 per wave, an elite every wave, a boss every 5). The run already counts as a win; Free Mode adds gold per wave and records **best wave**. When the nucleus falls in Free Mode, the results screen still shows a win.
+- **Player death:** no game over; respawn timer (`defense.respawn_s`). The `revive` ad is replaced by an optional rewarded **"Repair nucleus +50%"**, once per run, offered when the nucleus drops below 25%.
+- Meta upgrades, banked level-ups, dash, chests and pickups all work as in other modes (own XP curve via the mode overrides).
+
+### How it fits the code (for the build session)
+- `data/modes.json`: new `"nucleus"` entry, overrides `defense.enabled: true`, territory off, its own XP curve, menu card (icon, colour, `special: best_wave`).
+- `data/balance.json`: new `defense` block (nucleus hp/regen/radius, aggro_radius, pad count/radius/build time, biomass per kill/elite/wave, respawn_s, free-mode scaling). `data/towers.json` (new file in `GameData.FILES`): 4 towers x 3 levels with costs, each pointing at a weapon id plus stat deltas; validated like upgrades.
+- **The dish without territory:** today the bounded dish (clamp, rim, spawn points) only exists when `territory.enabled`. Split the dish clamp/spawn logic from claiming (e.g. `territory.claiming: false`) rather than duplicating it. Check this first.
+- `World` (rules stay in World): nucleus state (`core_pos`, `core_hp`), `_enemy_target(i)` used by enemy movement, enemy-vs-core contact damage, towers as small parallel arrays (`t_pad`, `t_type`, `t_level`, `t_cd`), `_update_towers()` reusing the weapon fire helpers with an origin, pad build progress in `_update_player`, biomass, respawn state, wave state machine (`wave`, `wave_state: spawning|breather`, `free_mode`). New events: `core_hit`, `core_low`, `tower_built`, `tower_upgraded`, `wave_start`, `wave_clear`, `respawn`, `defense_won`. New states: `tower_pick` (popup), `defense_won` (continue choice).
+- `SpawnDirector`: wave-table mode (spawn at active vents) alongside the time-based budget.
+- `WorldView`: nucleus, pads (with the fill ring), towers (few, so plain draws are fine), vent pulses. `HudOverlay`: nucleus bar, wave counter, biomass, respawn countdown. `Main`: tower-pick popup (reuse the card/popup style), continue screen, sounds/haptics.
+- `Profile`: add `best_wave` to the per-mode record fields; make sure old saves without it load (default 0 in `from_dict`/`_record`; bump `Profile.VERSION` if the format changes). `online.json`: "Nucleus: best wave" leaderboard + 2-3 achievements.
+- Bot: walk to a pad when biomass covers the next build/upgrade, otherwise fight near the nucleus. Sim report: waves cleared, nucleus HP left, towers built, win rate, best free-mode wave.
+- Tests: nucleus damage and loss condition, aggro switch, pad build cost/progress, tower fires from its pad, wave table determinism, free-mode scaling, respawn, save loads without `best_wave`.
+- Scope: CLAUDE.md rule 8 gets "4 tower types (Nucleus mode only, reusing the weapons)". Perf: at most 6 towers; their shots go through the existing bullet caps.
+
+### Build order (each step ends with a phone playtest)
+1. **Core loop:** dish without claiming, nucleus + targeting + core damage + loss, respawn, 3 vents, 6 pads, biomass, **Bolt Spire only**, a simple 12-wave table, HUD. Test question: *is defending fun, and does standing on pads feel good?*
+2. **Depth:** all 4 towers with 3 levels and the pick popup, wave breathers/countdown and vent telegraphs, boss wave, win → COLLECT / KEEP GOING, Free Mode scaling.
+3. **Polish and meta:** build/upgrade VFX and sounds, records, leaderboard and achievements, nucleus-repair ad, sim balance pass with the bot.
+
+### Open (decide during step 1)
+- Final mode name ("Nucleus" is a placeholder).
+- Does the tower-pick popup pause the game like level-ups (proposed: yes)?
+- Pad count 6 vs more pads unlocking at later waves.
+
 ## Step 3: combine
 - Converts on your land stop erosion and patrol its edge. Unguarded land slowly decays.
 - Elites and the boss corrupt chunks of land as they walk.
