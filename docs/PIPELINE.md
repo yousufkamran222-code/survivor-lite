@@ -101,3 +101,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - See ROADMAP Prototype 2 "Rework" for rules. Data: max_allies 20 → 12, ally_hp_mult 2 → 3, ally_damage_mult 1.2 → 2, plus new ring/feed keys.
 - Fixed a bot bug: it treated allies as threats (this also biased the earlier Swarm numbers).
 - Bot, seeds 600/700/800 × 8: before (roaming swarm, buggy bot) win ~25%, p50 4:22-5:00. After: win ~54%, p10 2:35-3:55, p50 5:00, level 15-17, peak allies 12-15. Control (conversion off): ~42%.
+
+### 2026-11-03 playtest fixes: Swarm too easy, frame spikes, joystick
+- Swarm "untouchable" with the swarm plus Antibodies: ally HP ×3 → ×2, damage ×2 → ×1.5, feed cap +150% → +75%, feed heal 15% → 8%, and Swarm gets its own XP curve (linear 4, quad 0.16). Bot, seeds 600/700/800 × 8: before ~54% win, p50 5:00, level 15-17; after ~42% win, p50 3:24-5:00, level 10-13.
+- Frame spikes with heavy late-game effects at only ~80 enemies: the simulation was cheap (0.58 ms per step fully loaded, `bench.gd --loaded`). The cause was rendering, where screen-sized translucent ring fills (Fever Spike, vacuum, bomb) are heavy on phone fill rate. Big rings now draw only their outline, and damage numbers are capped at 12. Probe (xvfb, loaded Swarm build): worst frame ~30-35 ms → ~20-28 ms. The perf readout now also shows draw calls and live effects.
+- Joystick: the base stays where you first touch (`juice.stick_follow` = false; true restores the drag-along base).

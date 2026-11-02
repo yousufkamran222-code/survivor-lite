@@ -2,7 +2,7 @@ extends SceneTree
 ## Performance benchmark for World.step: plays a "kiting" run (player keeps
 ## running, so enemies pile up behind) and reports the time per subsystem.
 ##
-## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200] [--mode swarm]
+## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200] [--mode swarm] [--loaded]
 
 const DT := 1.0 / 60.0
 
@@ -18,6 +18,14 @@ func _initialize() -> void:
 	if mi >= 0 and mi + 1 < args.size():
 		mode = args[mi + 1]
 	var w := World.new(GameData.apply_mode(GameData.load_all(), mode), 7)
+	var events_seen := 0
+	if args.has("--loaded"):
+		# Late-game stress: every weapon maxed and evolved, passives up.
+		for u in w.upgrade_list:
+			w.owned[u.id] = Upgrades.max_level(u)
+		for wid in w.evolution_defs:
+			w.evolved[wid] = w.evolution_defs[wid].id
+		w._recompute_stats()
 	var parts := ["spawn", "grid", "enemies", "weapons", "bullets", "shots", "dead", "contact", "gems"]
 	var cost := {}
 	for p in parts:
@@ -48,6 +56,7 @@ func _initialize() -> void:
 		if w.pending_levelups > 0 and w.state == "playing":
 			w._open_levelup()
 		w.p_hp = w.p_max_hp  # immortal: we want peak density, not a death
+		events_seen += w.events.size()
 		w.events.clear()
 		var ts := [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10]
 		for k in parts.size():
@@ -61,4 +70,5 @@ func _initialize() -> void:
 	print("avg step: %.3f ms   avg step with 150+ enemies: %.3f ms (%d steps)" % [total / 1000.0 / steps, dense_us / 1000.0 / maxi(dense_steps, 1), dense_steps])
 	for p in parts:
 		print("  %-8s %6.3f ms/step" % [p, cost[p] / 1000.0 / steps])
+	print("  events/step %.1f  bullets at end %d" % [float(events_seen) / steps, w.b_pos.size()])
 	quit(0)

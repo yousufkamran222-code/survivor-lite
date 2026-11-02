@@ -4,7 +4,7 @@
    "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
   {"id": "swarm", "name": "Swarm", "tag": "NEW",
    "desc": "Kills can convert germs into your allies. Grow an army that fights for you.",
-   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}}},
+   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.16}}},
   {"id": "classic", "name": "Classic", "tag": "",
    "desc": "An endless field. Kite, build, survive 5:00.",
    "overrides": {"territory": {"enabled": false}}}

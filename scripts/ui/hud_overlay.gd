@@ -13,6 +13,7 @@ var stick_pos := Vector2.ZERO
 var stick_radius := 90.0
 var show_perf := false
 var sim_ms := 0.0
+var fx_count := 0
 var cam_pos := Vector2.ZERO  # world position at the screen centre
 var dash_radius := 72.0
 var dash_margin := 40.0
@@ -97,13 +98,14 @@ func _draw() -> void:
 		ty += 52.0
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
-		var txt := "%d fps  %d enemies  sim %.1f ms" % [Engine.get_frames_per_second(), world.enemy_count(), sim_ms]
+		var txt := "%d fps  %d enemies  sim %.1f ms  dc %d  fx %d" % [Engine.get_frames_per_second(), world.enemy_count(), sim_ms, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), fx_count]
 		draw_string(font, Vector2(0, size.y - 14), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
 	# Floating joystick.
 	if stick_active:
 		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
 		draw_arc(stick_origin, stick_radius, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0)
-		draw_circle(stick_pos, 34, Color(1, 1, 1, 0.35))
+		var knob := stick_origin + (stick_pos - stick_origin).limit_length(stick_radius)
+		draw_circle(knob, 34, Color(1, 1, 1, 0.35))
 
 
 ## Arrows at the screen edge pointing to off-screen chests, elites and boss.

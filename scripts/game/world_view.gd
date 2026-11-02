@@ -337,7 +337,11 @@ func _draw_top() -> void:
 		match f.kind:
 			"ring":
 				var c: Color = f.get("color", pal.nova)
-				ci.draw_circle(f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
+				# Translucent fills are only for small rings: a big one (Fever
+				# Spike, vacuum, bomb) covers the screen and costs phones a lot
+				# of fill rate, which showed up as frame-time spikes.
+				if f.r < 160.0:
+					ci.draw_circle(f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
 				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), 5.0)
 			"chain":
 				var pts: PackedVector2Array = f.points

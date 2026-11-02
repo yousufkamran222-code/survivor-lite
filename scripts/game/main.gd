@@ -101,10 +101,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.stick_active = false
 	elif event is InputEventScreenDrag and event.index == _touch_index:
 		hud.stick_pos = event.position
-		# Floating stick: the base follows the finger past the rim.
-		var off: Vector2 = hud.stick_pos - hud.stick_origin
-		if off.length() > hud.stick_radius:
-			hud.stick_origin = hud.stick_pos - off.normalized() * hud.stick_radius
+		# The base appears where you touch and stays put while you hold
+		# (juice.stick_follow = true restores the old drag-along base).
+		if bal.juice.get("stick_follow", false):
+			var off: Vector2 = hud.stick_pos - hud.stick_origin
+			if off.length() > hud.stick_radius:
+				hud.stick_origin = hud.stick_pos - off.normalized() * hud.stick_radius
 
 
 func _move_input() -> Vector2:
@@ -152,6 +154,7 @@ func _process(delta: float) -> void:
 	world.step(minf(delta, MAX_STEP_DT), _move_input())
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	hud.cam_pos = view.cam.position
+	hud.fx_count = view.fx.size()
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
