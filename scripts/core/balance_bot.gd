@@ -8,6 +8,7 @@ var rng := RandomNumberGenerator.new()
 var danger_radius := 230.0
 var tangent := 1.0
 var gem_greed := 1.3
+var loop_time := 3.0  # territory: seconds out before heading home to close the loop
 
 
 func _init(seed_value: int) -> void:
@@ -58,6 +59,15 @@ func move(w: World) -> Vector2:
 		var to_t := (target - w.p_pos).normalized()
 		var safety := clampf(1.0 - away.length() / 0.02, 0.15, 1.0)
 		dir = (dir + to_t * safety * greed).normalized()
+	# Territory: run a loop out, then head back to close it; stay off the rim.
+	if w.terr != null:
+		if w.p_on_land:
+			loop_time = rng.randf_range(2.0, 4.5)
+		elif w.terr.trail_age > loop_time:
+			var home := -w.p_pos.normalized() if w.p_pos.length() > 1.0 else Vector2.ZERO
+			dir = (dir * 0.6 + home * 1.4).normalized()
+		if w.p_pos.length() > w.terr.radius - 250.0:
+			dir = (dir - w.p_pos.normalized() * 0.8).normalized()
 	# Dash out when something is about to touch us.
 	if w.p_dash_cd <= 0.0 and away.length() > 0.05:
 		w.p_move = dir

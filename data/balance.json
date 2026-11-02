@@ -15,6 +15,24 @@
     "dash_cooldown_s": 3.2,
     "dash_iframes_s": 0.22
   },
+  "territory": {
+    "enabled": true,
+    "dish_radius": 1500,
+    "grid": 64,
+    "home_radius": 170,
+    "core_radius": 70,
+    "trail_timeout_s": 8.0,
+    "trail_point_spacing": 18,
+    "claim_burst_frac": 0.4,
+    "enemy_slow": 0.3,
+    "enemy_dps": 4.0,
+    "tick_s": 0.25,
+    "player_damage_bonus": 0.2,
+    "player_regen": 1.0,
+    "erosion_per_s": 0.35,
+    "elite_erosion_mult": 4.0,
+    "boss_erosion_mult": 10.0
+  },
   "chests": {
     "pickup_radius": 34,
     "elite_items": 1,

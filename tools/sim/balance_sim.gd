@@ -4,7 +4,8 @@ extends SceneTree
 ##
 ## Usage:
 ##   godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 40 --seed 1000
-## Options: --runs N, --seed S, --meta (use maxed meta upgrades), --json PATH
+## Options: --runs N, --seed S, --meta (use maxed meta upgrades), --classic
+## (territory off), --json PATH
 
 const DT := 1.0 / 30.0
 
@@ -14,6 +15,8 @@ func _initialize() -> void:
 	var runs := int(args.get("runs", 30))
 	var seed0 := int(args.get("seed", 1000))
 	var d := GameData.load_all()
+	if args.has("classic"):
+		d.balance.territory.enabled = false
 	var meta := {}
 	if args.has("meta"):
 		var levels := {}
@@ -73,6 +76,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"kills": w.kills, "cause": w.death_cause, "owned": w.owned.duplicate(),
 		"peak_enemies": peak_enemies, "boss_killed": w.boss_killed,
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
+		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0),
 	}
 
@@ -94,6 +98,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var kills := 0
 	var evos := 0
 	var chests := 0
+	var infected := 0.0
 	for r in results:
 		times.append(r.time)
 		levels.append(r.level)
@@ -102,6 +107,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		kills += r.kills
 		evos += r.evolutions
 		chests += r.chests
+		infected += r.infected
 		if r.won:
 			wins += 1
 		else:
@@ -133,6 +139,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"level_p50": _pct(levels, 0.5),
 		"mean_kills": snappedf(float(kills) / maxf(results.size(), 1), 0.1),
 		"mean_gold": snappedf(float(gold) / maxf(results.size(), 1), 0.1),
+		"mean_infected": snappedf(infected / maxf(results.size(), 1), 0.001),
 		"mean_chests": snappedf(float(chests) / maxf(results.size(), 1), 0.1),
 		"mean_evolutions": snappedf(float(evos) / maxf(results.size(), 1), 0.01),
 		"peak_enemies": peak,

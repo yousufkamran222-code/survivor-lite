@@ -103,6 +103,7 @@ def build_sfx() -> None:
     write("heal", seq(*[env(osc(f, f, 0.1, "sine"), decay_pow=1.0) for f in (660, 880, 1320)]), 0.5)
     write("bomb", env(mix(osc(120, 30, 0.9, "sine"), noise(0.9, 0.04) * 1.2), attack=0.005, decay_pow=1.6), 0.9)
     write("chest", seq(*[env(osc(f, f, 0.07, "tri"), decay_pow=0.9) for f in (392, 494, 587, 784, 988)]), 0.6)
+    write("claim", seq(env(osc(330, 660, 0.12, "tri"), decay_pow=0.8), env(osc(660, 990, 0.16, "sine"), decay_pow=1.2)), 0.6)
     write("evolve", mix(*[env(osc(f, f * 2, 0.9, "saw"), attack=0.02, decay_pow=1.2) * 0.4 for f in (262, 330, 392, 523)]), 0.8)
 
 

@@ -26,8 +26,9 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 ```
 data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups), enemies, upgrades,
                      evolutions, waves (incl. elites), meta. Tune here, not in code.
-scripts/core/        Pure logic, no Nodes: World (the whole simulation), SpawnDirector, Upgrades,
-                     Progression, GameData (load + validate), BalanceBot. Deterministic for a seed.
+scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
+                     trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression,
+                     GameData (load + validate), BalanceBot. Deterministic for a seed.
 scripts/game/        main.gd (screen flow + UI wiring), world_view.gd (draws World, effects, camera shake)
 scripts/ui/          UiKit (theme + widgets in code), HudOverlay (XP bar, timer, joystick)
 scripts/autoload/    Save, Analytics, Sfx, Ads (AdService + StubAdBackend)
@@ -64,6 +65,9 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 - `test.yml`: on every push and PR it runs the tests and a 4-run balance smoke, written to the job summary.
 - `web.yml`: on push to `main` (or a manual run) it tests, exports the web build and deploys to GitHub Pages. The menu shows the build SHA.
 - `android.yml`: manual run or a `v*` tag builds an APK artifact. Signed release if the keystore secrets exist, otherwise debug. An AAB via the Gradle build comes in M3.
+
+## Direction
+`docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A). Territory is prototype 1, behind `balance.territory.enabled` (set from the menu's Mode toggle via `Save.territory_mode`). The sim's `--classic` flag turns it off.
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone and next steps. Update it when you finish one.

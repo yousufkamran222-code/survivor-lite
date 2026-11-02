@@ -10,6 +10,7 @@ var best_time := 0.0
 var runs := 0
 var deaths := 0
 var muted := false
+var territory_mode := true  # prototype toggle: Territory vs Classic
 
 
 func _ready() -> void:
@@ -26,6 +27,7 @@ func load_save() -> void:
 	runs = int(cf.get_value("stats", "runs", 0))
 	deaths = int(cf.get_value("stats", "deaths", 0))
 	muted = bool(cf.get_value("settings", "muted", false))
+	territory_mode = bool(cf.get_value("settings", "territory_mode", true))
 
 
 func write() -> void:
@@ -36,6 +38,7 @@ func write() -> void:
 	cf.set_value("stats", "runs", runs)
 	cf.set_value("stats", "deaths", deaths)
 	cf.set_value("settings", "muted", muted)
+	cf.set_value("settings", "territory_mode", territory_mode)
 	cf.save(PATH)
 
 

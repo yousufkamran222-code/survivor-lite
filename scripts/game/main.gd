@@ -199,6 +199,14 @@ func _handle_events(events: Array) -> void:
 				Input.vibrate_handheld(200)
 			"dash":
 				Sfx.play("dash")
+			"claim":
+				Sfx.play("claim", 0.05)
+				Input.vibrate_handheld(30)
+				if ev.tiles >= 25:
+					hud.toast("CLAIMED +%d%%" % maxi(1, roundi(float(ev.tiles) / world.terr.dish_count * 100.0)), pal.player_nucleus, 1.2)
+			"trail_lost":
+				Sfx.play("hurt", 0.0)
+				hud.toast("Trail lost", pal.player_hurt, 1.0)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
@@ -225,13 +233,16 @@ func _handle_events(events: Array) -> void:
 
 func _start_run() -> void:
 	var meta := Progression.meta_bonus(data.meta, Save.meta_levels)
+	data.balance.territory.enabled = Save.territory_mode
 	world = World.new(data, randi(), meta)
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
 	Save.runs += 1
 	Save.write()
-	Analytics.event("run_start", {"run": Save.runs})
+	Analytics.event("run_start", {"run": Save.runs, "territory": Save.territory_mode})
+	if world.terr != null:
+		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
 	_hide_all()
 	_set_screen("playing")
 
@@ -272,6 +283,9 @@ func _show_menu() -> void:
 		b.add_theme_font_size_override("font_size", 22)
 		b.disabled = cost < 0 or Save.gold < cost
 		col.add_child(b)
+	var mode := UiKit.button("Mode: %s" % ("TERRITORY (prototype)" if Save.territory_mode else "CLASSIC"), _toggle_mode, 64)
+	mode.add_theme_font_size_override("font_size", 22)
+	col.add_child(mode)
 	var mute := UiKit.button("Sound: %s" % ("OFF" if Save.muted else "ON"), _toggle_mute, 64)
 	mute.add_theme_font_size_override("font_size", 22)
 	col.add_child(mute)
@@ -304,6 +318,12 @@ func _buy_meta(id: String) -> void:
 			Save.meta_levels[id] = lv + 1
 			Save.write()
 			Analytics.event("meta_buy", {"id": id, "level": lv + 1})
+	_show_menu()
+
+
+func _toggle_mode() -> void:
+	Save.territory_mode = not Save.territory_mode
+	Save.write()
 	_show_menu()
 
 
@@ -478,7 +498,7 @@ func _show_results(won: bool) -> void:
 	if not won:
 		Save.deaths += 1
 	Save.best_time = maxf(Save.best_time, world.time)
-	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes})
+	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0})
 	_build_results(won)
 
 
@@ -487,6 +507,8 @@ func _build_results(won: bool) -> void:
 	UiKit.clear(col)
 	col.add_child(UiKit.label("YOU SURVIVED!" if won else "RUN OVER", 56, pal.ui_accent))
 	col.add_child(UiKit.label("Time %s    Level %d    Kills %d" % [UiKit.fmt_time(world.time), world.level, world.kills], 28))
+	if world.terr != null:
+		col.add_child(UiKit.label("Dish infected: %d%%" % roundi(world.terr.infected_fraction() * 100.0), 32, pal.player_nucleus))
 	col.add_child(UiKit.label("+%d gold" % _results_gold, 48, pal.gem_large))
 	if not _results_doubled and Ads.is_rewarded_available():
 		col.add_child(UiKit.button("DOUBLE GOLD  (watch ad)", func() -> void:

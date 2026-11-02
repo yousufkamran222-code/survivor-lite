@@ -128,6 +128,11 @@ var g_val := PackedFloat32Array()
 var g_pull := PackedByteArray()
 
 var _grid := {}
+
+# --- Territory (prototype 1; null when balance.territory.enabled is false) ---
+var terr: Territory = null
+var p_on_land := false
+var _terr_tick := 0.0
 var _max_er := 72.0
 
 
@@ -151,6 +156,8 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	for e in enemy_defs:
 		by_id[e.id] = e
 	director = SpawnDirector.new(data.waves, by_id, rng)
+	if bal.has("territory") and bal.territory.get("enabled", false):
+		terr = Territory.new(bal.territory)
 	p_radius = float(bal.player.radius)
 	xp_next = Progression.xp_needed(bal, 1)
 	owned[bal.start_weapon] = 1
@@ -169,6 +176,8 @@ func step(dt: float, move: Vector2) -> void:
 		_emit({"type": "victory"})
 		return
 	_update_player(dt, move)
+	if terr != null:
+		_update_territory(dt)
 	_spawn(dt)
 	_rebuild_grid()
 	_update_enemies(dt)
@@ -344,6 +353,11 @@ func _update_player(dt: float, move: Vector2) -> void:
 	if m.length_squared() > 0.01:
 		p_facing = m.normalized()
 	var regen := float(bal.player.regen) + float(stats.regen)
+	if terr != null:
+		p_pos = terr.clamp_inside(p_pos, p_radius)
+		p_on_land = terr.is_owned(p_pos)
+		if p_on_land:
+			regen += float(bal.territory.player_regen)
 	if regen > 0.0:
 		p_hp = minf(p_max_hp, p_hp + regen * dt)
 	if p_iframes > 0.0:
@@ -353,7 +367,28 @@ func _update_player(dt: float, move: Vector2) -> void:
 func _spawn_point() -> Vector2:
 	var a := rng.randf() * TAU
 	var d := rng.randf_range(float(bal.perf.spawn_min_distance), float(bal.perf.spawn_max_distance))
-	return p_pos + Vector2(cos(a), sin(a)) * d
+	var p := p_pos + Vector2(cos(a), sin(a)) * d
+	if terr == null:
+		return p
+	# In the dish: off-screen, inside the rim and never on our land.
+	for attempt in 12:
+		if p.length() < terr.radius - 40.0 and not terr.is_owned(p):
+			return p
+		a = rng.randf() * TAU
+		d = rng.randf_range(float(bal.perf.spawn_min_distance) * 0.8, float(bal.perf.spawn_max_distance))
+		p = p_pos + Vector2(cos(a), sin(a)) * d
+	# Fallback: a random point on the rim.
+	a = rng.randf() * TAU
+	return Vector2(cos(a), sin(a)) * (terr.radius - 60.0)
+
+
+## Ring spawns and splits can land on bad spots in the dish; fix them up.
+func _valid_spawn(p: Vector2) -> Vector2:
+	if terr == null:
+		return p
+	if p.length() > terr.radius - 40.0 or terr.is_owned(p):
+		return _spawn_point()
+	return p
 
 
 func _spawn(dt: float) -> void:
@@ -365,7 +400,7 @@ func _spawn(dt: float) -> void:
 				var a0 := rng.randf() * TAU
 				for k in n:
 					var a := a0 + TAU * k / n
-					_add_enemy(order.id, p_pos + Vector2(cos(a), sin(a)) * d)
+					_add_enemy(order.id, _valid_spawn(p_pos + Vector2(cos(a), sin(a)) * d))
 			"single":
 				var elite: bool = order.get("elite", false)
 				_add_enemy(order.id, _spawn_point(), elite)
@@ -474,6 +509,8 @@ func _update_enemies(dt: float) -> void:
 		var dist := sqrt(dist2)
 		var dir := to_p / dist if dist > 0.001 else Vector2.ZERO
 		var spd := e_spd[i]
+		if terr != null and terr.is_owned(pos):
+			spd *= 1.0 - float(bal.territory.enemy_slow)
 		var vel := dir * spd
 		if beh != BEH_CHASE:
 			vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
@@ -516,6 +553,8 @@ func _update_enemies(dt: float) -> void:
 			pos += sep.limit_length(12.0)
 		if dist2 > despawn2 and beh != BEH_BOSS:
 			pos = _spawn_point()
+		if terr != null:
+			pos = terr.clamp_inside(pos, e_rad[i])
 		e_pos[i] = pos
 		if e_flash[i] > 0.0:
 			e_flash[i] -= dt
@@ -581,6 +620,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 	if e_hp[i] <= 0.0:
 		return
 	var d: Dictionary = enemy_defs[e_type[i]]
+	if p_on_land:
+		amount *= 1.0 + float(bal.territory.player_damage_bonus)
 	e_hp[i] -= amount
 	e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
@@ -1005,3 +1046,52 @@ func _apply_pickup(kind: String, pos: Vector2) -> void:
 				_damage(i, float(pk.bomb_damage) if tough else 1.0e6, push, tough)
 			_process_dead()
 	_emit({"type": "pickup_item", "kind": kind, "pos": pos})
+
+
+# ================================================================ territory
+
+func _update_territory(dt: float) -> void:
+	var lost_before := terr.trails_lost
+	var claimed := terr.update_player(p_pos, dt)
+	if terr.trails_lost > lost_before:
+		_emit({"type": "trail_lost"})
+	if not claimed.is_empty():
+		_on_claim(claimed)
+	_terr_tick += dt
+	var tick := float(bal.territory.tick_s)
+	if _terr_tick < tick:
+		return
+	_terr_tick -= tick
+	# Enemies on our land take damage and eat it back.
+	var t: Dictionary = bal.territory
+	var dmg := float(t.enemy_dps) * tick
+	var erode := float(t.erosion_per_s) * tick
+	var lost := 0
+	for i in e_pos.size():
+		var ti := terr.index_of(e_pos[i])
+		if ti < 0 or terr.tiles[ti] != Territory.OWNED:
+			continue
+		_damage(i, dmg, Vector2.ZERO, false)
+		var mult := 1.0
+		if e_elite[i] == 1:
+			mult = float(t.elite_erosion_mult)
+		elif _tbeh[e_type[i]] == BEH_BOSS:
+			mult = float(t.boss_erosion_mult)
+		if terr.erode(ti, erode * mult):
+			lost += 1
+	if lost > 0:
+		_emit({"type": "land_lost", "tiles": lost})
+	_process_dead()
+
+
+## Newly enclosed land bursts: enemies standing on it lose a chunk of max HP.
+func _on_claim(claimed: PackedInt32Array) -> void:
+	var set := {}
+	for i in claimed:
+		set[i] = true
+	var frac := float(bal.territory.claim_burst_frac)
+	for i in e_pos.size():
+		if set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
+			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
+	_process_dead()
+	_emit({"type": "claim", "tiles": claimed.size(), "cells": claimed, "infected": terr.infected_fraction()})

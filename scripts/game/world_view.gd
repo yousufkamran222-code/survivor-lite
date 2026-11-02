@@ -32,6 +32,9 @@ var _top: Node2D
 var evo_colors := {}  # weapon id -> Color of its evolution
 var elite_color := Color("#ffd166")
 var _hurt_t := 0.0  # blink only after real hits, not during dash iframes
+var _terr_img: Image
+var _terr_tex: ImageTexture
+var _land_color := Color(0.36, 0.88, 0.9, 0.3)
 var _blob_scale := 1.0
 
 
@@ -76,6 +79,16 @@ func _batch(tex: Texture2D, cap: int, dirs: int = 1) -> SpriteBatch:
 
 func set_world(w: World) -> void:
 	world = w
+	_terr_tex = null
+	if w.terr != null:
+		# One pixel per tile; linear filtering softens edges into a "culture".
+		var n := w.terr.n
+		_terr_img = Image.create(n, n, false, Image.FORMAT_RGBA8)
+		_land_color = Color(pal.player_nucleus, 0.3)
+		for i in n * n:
+			_terr_img.set_pixel(i % n, i / n, _land_color if w.terr.tiles[i] == Territory.OWNED else Color(0, 0, 0, 0))
+		_terr_tex = ImageTexture.create_from_image(_terr_img)
+		w.terr.dirty.clear()
 	fx.clear()
 	shake = 0.0
 	_damage_numbers = 0
@@ -119,6 +132,9 @@ func consume(events: Array) -> void:
 					"bomb":
 						add_shake(float(juice.shake_bomb))
 						_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.pickups.bomb_radius), "life": 0.5, "color": pal.enemy_shot}, max_fx + 4)
+			"claim":
+				_add_fx({"kind": "claim", "cells": ev.cells, "life": 0.5}, max_fx + 4)
+				add_shake(minf(3.0 + ev.tiles * 0.05, 12.0))
 			"evolution":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 320.0, "life": 0.7, "color": _wcolor(ev.weapon, pal.ui_accent)}, max_fx + 4)
 			"hurt":
@@ -187,6 +203,21 @@ func _draw() -> void:
 	var origin := Vector2(floorf(tl.x / tile), floorf(tl.y / tile)) * tile
 	var size := Vector2(ceilf((vp.x + 128.0) / tile) + 1.0, ceilf((vp.y + 128.0) / tile) + 1.0) * tile
 	draw_texture_rect(BG_TILE, Rect2(origin, size), true)
+	if world.terr != null:
+		_draw_territory()
+
+
+func _draw_territory() -> void:
+	var t := world.terr
+	if not t.dirty.is_empty():
+		for i in t.dirty:
+			_terr_img.set_pixel(i % t.n, i / t.n, _land_color if t.tiles[i] == Territory.OWNED else Color(0, 0, 0, 0))
+		t.dirty.clear()
+		_terr_tex.update(_terr_img)
+	draw_texture_rect(_terr_tex, Rect2(t.origin, Vector2.ONE * t.cell * t.n), false)
+	# Darken everything outside the dish and draw the glass rim.
+	draw_arc(Vector2.ZERO, t.radius + 700.0, 0, TAU, 96, Color(0.04, 0.02, 0.08, 0.9), 1400.0)
+	draw_arc(Vector2.ZERO, t.radius, 0, TAU, 128, Color(0.75, 0.85, 1.0, 0.35), 10.0)
 
 
 func _fill_gems(view: Rect2) -> void:
@@ -264,6 +295,7 @@ func _draw_top() -> void:
 		return
 	var ci := _top
 	var now := Time.get_ticks_msec() / 1000.0
+	_draw_trail(ci, now)
 	_draw_loot(ci, now)
 	# Elite aura: pulsing ring so they read as "big target, big reward".
 	for i in world.e_pos.size():
@@ -291,6 +323,12 @@ func _draw_top() -> void:
 					var b := pts[j + 1]
 					var mid := (a + b) / 2.0 + (b - a).orthogonal().normalized() * randf_range(-14, 14)
 					ci.draw_polyline(PackedVector2Array([a, mid, b]), Color(c, 1.0 - k), 4.0)
+			"claim":
+				if world.terr != null:
+					var t := world.terr
+					var c := Color(1, 1, 1, 0.45 * (1.0 - k))
+					for i: int in f.cells:
+						ci.draw_rect(Rect2(t.center_of(i) - Vector2.ONE * t.cell * 0.5, Vector2.ONE * t.cell), c)
 			"num":
 				var pos: Vector2 = f.pos + Vector2(0, -40.0 * k)
 				ci.draw_string(font, pos + Vector2(-20, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(1, 1, 1, 1.0 - k * k))
@@ -347,3 +385,17 @@ func _draw_loot(ci: CanvasItem, now: float) -> void:
 				ci.draw_circle(p, 22.0, Color(c, 0.2))
 				ci.draw_circle(p, 13.0, Color(0.15, 0.1, 0.12))
 				ci.draw_circle(p + Vector2(7, -11), 5.0 + 2.0 * sin(now * 20.0), c)
+
+
+## The trail you're drawing outside your land; blinks when about to fade.
+func _draw_trail(ci: CanvasItem, now: float) -> void:
+	var t := world.terr
+	if t == null or t.trail_points.is_empty():
+		return
+	var pts := t.trail_points.duplicate()
+	pts.append(world.p_pos)
+	var c: Color = pal.player_nucleus
+	var left := t.trail_time_left()
+	if left < 2.5 and fmod(now, 0.25) < 0.12:
+		c = pal.player_hurt
+	ci.draw_polyline(pts, Color(c, 0.85), 7.0)
