@@ -26,6 +26,7 @@ var _damage_numbers := 0
 var _gems: SpriteBatch
 var _shots: SpriteBatch
 var _enemies: SpriteBatch
+var _allies: SpriteBatch
 var _bullets: SpriteBatch
 var _dots: SpriteBatch
 var _top: Node2D
@@ -58,6 +59,7 @@ func setup(game_data: Dictionary) -> void:
 	_gems = _batch(ShapeTextures.diamond(), int(bal.xp.max_gems))
 	_shots = _batch(disc, int(perf.max_enemy_shots) * 2)
 	_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
+	_allies = _batch(ShapeTextures.ally_cell(), 64)
 	_bullets = _batch(disc, int(perf.max_projectiles) * 2)
 	_dots = _batch(disc, int(perf.max_effects))
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
@@ -120,6 +122,8 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain)}, max_fx + 4)
 			"convert":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
+			"swarm_feed":
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 170.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
 			"ally_lost":
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": pal.player_nucleus, "r": 14.0, "life": 0.25}, max_fx)
 			"shot_blocked":
@@ -254,6 +258,7 @@ func _fill_shots() -> void:
 
 func _fill_enemies(view: Rect2) -> void:
 	_enemies.begin()
+	_allies.begin()
 	var white := Color.WHITE
 	var pp := world.p_pos
 	for i in world.e_pos.size():
@@ -264,13 +269,13 @@ func _fill_enemies(view: Rect2) -> void:
 		var t := world.e_type[i]
 		var c: Color = enemy_colors[t]
 		if world.e_team[i] == 1:
-			# Allies: our colour (type still hinted), looking outward, fading out.
-			c = c.lerp(pal.player_nucleus, 0.7)
+			# Allies: our own cell shape in our colour (type faintly hinted).
+			c = pal.player_nucleus.lerp(c, 0.2)
 			if world.e_flash[i] > 0.0:
 				c = white
 			if world.e_life[i] < 3.0 and fmod(world.time, 0.3) < 0.15:
-				c.a = 0.4
-			_enemies.add(p, r * _blob_scale, c, (p - pp).angle())
+				c.a = 0.35
+			_allies.add(p, r * 2.0 / ShapeTextures.BLOB_OUTER, c)
 			continue
 		if world.e_flash[i] > 0.0:
 			c = white
@@ -278,6 +283,7 @@ func _fill_enemies(view: Rect2) -> void:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
 		_enemies.add(p, r * _blob_scale, c, (pp - p).angle())
 	_enemies.commit()
+	_allies.commit()
 
 
 func _fill_bullets() -> void:
@@ -316,7 +322,6 @@ func _draw_top() -> void:
 	# Ally ring: thin outline in our colour so the swarm reads as ours.
 	for i in world.e_pos.size():
 		if world.ally_count > 0 and world.is_ally(i):
-			ci.draw_arc(world.e_pos[i], world.enemy_radius(i) + 5.0, 0, TAU, 20, Color(pal.player, 0.7), 2.5)
 			continue
 		if world.is_elite(i):
 			var r := world.enemy_radius(i) * 1.25 + 4.0 * sin(now * 8.0)

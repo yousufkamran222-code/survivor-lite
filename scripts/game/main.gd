@@ -206,6 +206,11 @@ func _handle_events(events: Array) -> void:
 					hud.toast("CLAIMED +%d%%" % maxi(1, roundi(float(ev.tiles) / world.terr.dish_count * 100.0)), pal.player_nucleus, 1.2)
 			"convert":
 				Sfx.play("convert", 0.1)
+			"swarm_feed":
+				Sfx.play("convert", 0.0)
+				var feeds := roundi(float(ev.power) / float(world.bal.conversion.feed_power))
+				if feeds == 1 or feeds % 5 == 0:
+					hud.toast("SWARM FED +%d%%" % roundi(ev.power * 100.0), pal.player_nucleus, 1.2)
 			"trail_lost":
 				Sfx.play("hurt", 0.0)
 				hud.toast("Trail lost", pal.player_hurt, 1.0)
@@ -245,7 +250,7 @@ func _start_run() -> void:
 	if world.terr != null:
 		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
 	if world.conv_on:
-		hud.toast("Kills can join your swarm", pal.player_nucleus, 3.0)
+		hud.toast("Kills join your swarm. They guard you.", pal.player_nucleus, 3.0)
 	_hide_all()
 	_set_screen("playing")
 

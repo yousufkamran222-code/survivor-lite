@@ -129,7 +129,7 @@ func test_swarm_upgrades_only_in_swarm() -> void:
 	var in_classic := []
 	for u in classic.upgrade_list:
 		in_classic.append(u.id)
-	check(in_swarm.has("viral") and in_swarm.has("hijack"))
+	check(in_swarm.has("viral") and in_swarm.has("hive"))
 	check(not in_classic.has("viral"), "Swarm-only upgrades stay out of other modes")
 
 
@@ -149,3 +149,77 @@ func test_bot_swarm_run() -> void:
 		check(w.ally_count >= 0 and w.ally_count <= w._ally_cap(), "ally count in range")
 	check(w.conversions > 0, "conversions happen in a normal run")
 	check(peak > 0)
+
+
+func test_allies_hold_formation_around_player() -> void:
+	var w := _world()
+	for k in 4:
+		w._add_enemy("grunt", Vector2(300 + k * 30, 0))
+	for k in 4:
+		_kill(w, k)
+	check_eq(w.ally_count, 4)
+	for f in 240:
+		w.p_pos += Vector2(150.0 * DT, 0)  # the player keeps moving
+		w._rebuild_grid()
+		w._update_enemies(DT)
+	var ring := float(data().balance.conversion.ring_radius_max) + 40.0
+	for i in w.enemy_count():
+		check(w.e_pos[i].distance_to(w.p_pos) < ring, "ally %d stays near the player" % i)
+
+
+func test_full_swarm_feeds_power() -> void:
+	var w := _world()
+	var cap := w._ally_cap()
+	for k in cap + 3:
+		w._add_enemy("grunt", Vector2(300, k * 20))
+	var guard := 0
+	while w.hostile_count() > 0 and guard < 100:
+		for i in w.enemy_count():
+			if not w.is_ally(i):
+				_kill(w, i)
+				break
+		guard += 1
+	check_eq(w.ally_count, cap)
+	check_near(w.swarm_power, float(data().balance.conversion.feed_power) * 3.0, 0.001, "3 overflow conversions fed the swarm")
+	check(w._ally_power() > float(data().balance.conversion.ally_damage_mult), "allies got stronger")
+
+
+func test_ally_soaks_enemy_shots() -> void:
+	var w := _world()
+	w._add_enemy("grunt", Vector2(300, 0))
+	_kill(w, 0)
+	var hp := w.e_hp[0]
+	w._enemy_shot(w.e_pos[0], Vector2.RIGHT, 0.0, 10.0)
+	w._ally_block_shots(0, w.e_pos[0])
+	check_eq(w.s_pos.size(), 0, "shot absorbed")
+	check(w.e_hp[0] < hp, "ally took the hit")
+
+
+func test_hive_mind_and_convert_heal() -> void:
+	var w := _world()
+	w.owned["hive"] = 5
+	w.owned["viral"] = 2
+	w._recompute_stats()
+	w.p_hp = 50.0
+	w._add_enemy("grunt", Vector2(300, 0))
+	_kill(w, 0)
+	check_near(w.p_hp, 52.0, 0.001, "Viral Load heals per conversion")
+	w._add_enemy("brute", Vector2(-300, 0))
+	var hp := w.e_hp[1]
+	w._damage(1, 10.0, Vector2.ZERO, false)
+	check_near(hp - w.e_hp[1], 10.0 * (1.0 + 0.05 * 1), 0.01, "Hive Mind: +5% per ally at Lv5 with 1 ally")
+
+
+func test_swarm_power_is_capped() -> void:
+	var w := _world()
+	for k in w._ally_cap():
+		w._add_enemy("grunt", Vector2(300, k * 20))
+	while w.hostile_count() > 0:
+		for i in w.enemy_count():
+			if not w.is_ally(i):
+				_kill(w, i)
+				break
+	for k in 200:
+		w._add_enemy("grunt", Vector2(-300, 0))
+		_kill(w, w.enemy_count() - 1)
+	check_near(w.swarm_power, float(data().balance.conversion.feed_power_max), 0.001)

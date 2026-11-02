@@ -20,6 +20,8 @@ func move(w: World) -> Vector2:
 	var away := Vector2.ZERO
 	var dr2 := danger_radius * danger_radius
 	for i in w.e_pos.size():
+		if w.e_team[i] == 1:
+			continue  # our own allies are not a threat
 		var off := w.p_pos - w.e_pos[i]
 		var d2 := off.length_squared()
 		if d2 < dr2:

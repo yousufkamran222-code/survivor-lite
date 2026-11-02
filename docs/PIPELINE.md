@@ -96,3 +96,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-02 prototype 2: Swarm mode (conversion)
 - Built per ROADMAP; see its Prototype 2 section for rules and numbers.
 - Tuning: base chance 0.06 → 0.09 and ally lifetime 30 → 40 s. Before: win ~25%, peak allies 6-10. After: win ~25%, p50 4:22-5:00, peak allies 10-15.
+
+### 2026-11-02 Swarm rework: bodyguard formation
+- See ROADMAP Prototype 2 "Rework" for rules. Data: max_allies 20 → 12, ally_hp_mult 2 → 3, ally_damage_mult 1.2 → 2, plus new ring/feed keys.
+- Fixed a bot bug: it treated allies as threats (this also biased the earlier Swarm numbers).
+- Bot, seeds 600/700/800 × 8: before (roaming swarm, buggy bot) win ~25%, p50 4:22-5:00. After: win ~54%, p10 2:35-3:55, p50 5:00, level 15-17, peak allies 12-15. Control (conversion off): ~42%.

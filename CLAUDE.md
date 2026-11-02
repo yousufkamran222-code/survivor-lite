@@ -68,7 +68,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 
 ## Direction
 `docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A).
-**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1`; `query()` and the targeting helpers only return hostiles by default), Classic. Upgrades can be limited to modes with `"modes": [...]`.
+**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1` that hold a bodyguard ring around the player; `query()` and the targeting helpers only return hostiles by default, and anything that loops over `e_pos` must skip allies itself), Classic. Upgrades can be limited to modes with `"modes": [...]`.
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone and next steps. Update it when you finish one.

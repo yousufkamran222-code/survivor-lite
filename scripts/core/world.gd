@@ -139,6 +139,10 @@ var _terr_tick := 0.0
 # --- Conversion (prototype 2, Swarm mode; off unless balance.conversion.enabled) ---
 var conv_on := false
 var ally_count := 0
+var swarm_power := 0.0  # grows each time a conversion "feeds" a full swarm
+var _ally_slot := 0
+var _ally_slots := 1
+var _ally_snap := Vector2.INF
 var conversions := 0
 var _ally_tick := 0.0
 var _max_er := 72.0
@@ -532,6 +536,8 @@ func _update_enemies(dt: float) -> void:
 	boss_index = -1
 	_frame += 1
 	var phase := _frame % SEP_EVERY
+	_ally_slot = 0
+	_ally_slots = maxi(ally_count, 1)
 	for i in e_pos.size():
 		var t := e_type[i]
 		var beh := _tbeh[t]
@@ -543,7 +549,11 @@ func _update_enemies(dt: float) -> void:
 		var spd := e_spd[i]
 		var vel := Vector2.ZERO
 		if e_team[i] == 1:
+			_ally_snap = Vector2.INF
 			vel = _ally_velocity(i, t, beh, pos, to_p, dist, dt)
+			if _ally_snap != Vector2.INF:
+				pos = _ally_snap
+				vel = Vector2.ZERO
 			beh = BEH_CHASE  # never treated as a boss below
 		else:
 			if terr != null and terr.is_owned(pos):
@@ -659,6 +669,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 	var d: Dictionary = enemy_defs[e_type[i]]
 	if p_on_land:
 		amount *= 1.0 + float(bal.territory.player_damage_bonus)
+	if ally_count > 0:
+		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
 	e_hp[i] -= amount
 	e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
@@ -1181,19 +1193,29 @@ func _ally_cap() -> int:
 	return int(bal.conversion.max_allies) + int(stats.get("ally_cap", 0.0))
 
 
-## A killed (non-elite, non-boss) enemy may rise again on our side.
+## A killed (non-elite, non-boss) enemy may rise again on our side. If the
+## swarm is full, the conversion "feeds" it instead: a lasting power boost to
+## every ally plus a heal, so late conversions still count.
 func _try_convert(i: int, d: Dictionary) -> bool:
-	if not conv_on or d.behavior == "boss" or ally_count >= _ally_cap():
+	if not conv_on or d.behavior == "boss":
 		return false
 	var chance := float(bal.conversion.base_chance) + float(stats.get("convert", 0.0))
 	if rng.randf() >= chance:
 		return false
 	var c: Dictionary = bal.conversion
-	var power := 1.0 + float(stats.get("ally_power", 0.0))
+	p_hp = minf(p_max_hp, p_hp + float(stats.get("convert_heal", 0.0)))
+	if ally_count >= _ally_cap():
+		swarm_power = minf(swarm_power + float(c.feed_power), float(c.feed_power_max))
+		for k in e_pos.size():
+			if e_team[k] == 1:
+				e_hp[k] = minf(e_maxhp[k], e_hp[k] + e_maxhp[k] * float(c.feed_heal_frac))
+				e_flash[k] = 0.1
+		_emit({"type": "swarm_feed", "pos": e_pos[i], "power": swarm_power})
+		return false
 	e_team[i] = 1
-	e_hp[i] = e_maxhp[i] * float(c.ally_hp_mult) * power
+	e_hp[i] = e_maxhp[i] * float(c.ally_hp_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power)
 	e_maxhp[i] = e_hp[i]
-	e_spd[i] = float(d.speed) * float(c.ally_speed_mult)
+	e_spd[i] = maxf(float(d.speed) * float(c.ally_speed_mult), float(bal.player.speed) * 1.5)
 	e_life[i] = float(c.ally_lifetime_s) * (1.0 + float(stats.get("ally_cap", 0.0)) / 20.0)
 	e_knock[i] = Vector2.ZERO
 	e_timer[i] = 0.5
@@ -1204,40 +1226,65 @@ func _try_convert(i: int, d: Dictionary) -> bool:
 	return true
 
 
-## Allies chase the nearest enemy near them (staying leashed to the player),
-## otherwise trail behind the player. Ranged allies shoot instead of closing in.
+## Bodyguard formation: each ally holds a slot on a slowly turning ring around
+## the player, so the swarm helps while you kite. Melee allies body-block
+## (and brawl with whatever reaches them); ranged allies fire outward.
+## Allies also soak enemy shots that hit them.
 func _ally_velocity(i: int, t: int, beh: int, pos: Vector2, to_p: Vector2, dist: float, dt: float) -> Vector2:
 	var c: Dictionary = bal.conversion
-	var spd := e_spd[i]
 	e_life[i] -= dt
 	if e_life[i] <= 0.0 and e_hp[i] > 0.0:
 		e_hp[i] = 0.0
 		_dead[i] = true
-	var target := -1
-	if dist < float(c.leash):
-		var best := INF
-		for j: int in query(pos, float(c.aggro_radius)):
-			var d2 := e_pos[j].distance_squared_to(pos)
-			if d2 < best:
-				best = d2
-				target = j
-	if target >= 0:
-		var to_t := e_pos[target] - pos
-		if beh == BEH_RANGED:
-			e_timer[i] -= dt
-			if e_timer[i] <= 0.0:
+	var ring := minf(float(c.ring_radius) + float(c.ring_radius_per_ally) * _ally_slots, float(c.ring_radius_max))
+	var ang := TAU * _ally_slot / _ally_slots + time * float(c.ring_spin)
+	_ally_slot += 1
+	var slot := p_pos + Vector2(cos(ang), sin(ang)) * ring
+	if dist > float(c.teleport_distance):
+		_ally_snap = slot
+		return Vector2.ZERO
+	_ally_block_shots(i, pos)
+	if beh == BEH_RANGED:
+		e_timer[i] -= dt
+		if e_timer[i] <= 0.0:
+			var tgt := _nearest_enemy(pos, float(c.ally_shot_range))
+			if tgt >= 0:
 				var d: Dictionary = enemy_defs[t]
 				e_timer[i] = float(d.fire_cooldown) * 0.6
-				_ally_shot(pos, to_t.normalized(), float(d.shot_damage) * _ally_power())
-			return Vector2.ZERO if to_t.length() < 220.0 else to_t.normalized() * spd
-		return to_t.normalized() * spd
-	if dist > float(c.follow_radius):
-		return to_p / maxf(dist, 0.001) * spd * clampf(dist / 200.0, 0.4, 1.3)
-	return Vector2.ZERO
+				_ally_shot(pos, (e_pos[tgt] - pos).normalized(), float(d.shot_damage) * _ally_power())
+	var to_slot := slot - pos
+	var len := to_slot.length()
+	if len < 1.0:
+		return Vector2.ZERO
+	return to_slot / len * minf(e_spd[i], len / maxf(dt, 0.001))
+
+
+## Enemy shots that hit an ally are absorbed by it (the ally takes the damage).
+func _ally_block_shots(i: int, pos: Vector2) -> void:
+	var r := e_rad[i] + 6.0
+	var r2 := r * r
+	var k := s_pos.size() - 1
+	while k >= 0:
+		if s_pos[k].distance_squared_to(pos) < r2:
+			e_hp[i] -= s_dmg[k] * director.damage_mult(time)
+			e_flash[i] = 0.06
+			if e_hp[i] <= 0.0:
+				_dead[i] = true
+			_emit({"type": "shot_blocked", "pos": s_pos[k]})
+			var last := s_pos.size() - 1
+			s_pos[k] = s_pos[last]
+			s_vel[k] = s_vel[last]
+			s_life[k] = s_life[last]
+			s_dmg[k] = s_dmg[last]
+			s_pos.resize(last)
+			s_vel.resize(last)
+			s_life.resize(last)
+			s_dmg.resize(last)
+		k -= 1
 
 
 func _ally_power() -> float:
-	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0))) * director.damage_mult(time)
+	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power) * director.damage_mult(time)
 
 
 func _ally_shot(from: Vector2, dir: Vector2, dmg: float) -> void:

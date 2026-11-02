@@ -46,6 +46,13 @@ As built:
 - Bot (seeds 600/700/800 × 8): win ~25%, p50 4:22-5:00, ~76 conversions and 10-15 peak allies per run, 0 evolutions (the Swarm passives dilute the pool; revisit). Perf: 0.81 ms per step at 150+ enemies.
 - Not yet done: enemies retargeting allies (they still chase you, and allies intercept them), elite conversion.
 
+**Rework 2026-11-02 after playtest: bodyguard swarm.** Playtest verdict: "kinda" fun. It got busy and chaotic, using the swarm cost more HP than just kiting, 20 felt too few but "more" wasn't the fix, and the swarm upgrades were weaker than weapon upgrades. Changes:
+- Allies hold a slowly turning ring around the player (80-150 px), so they help while you kite. Melee allies body-block and brawl with whatever reaches them, ranged allies fire outward, and every ally soaks enemy shots that hit it.
+- Cap 12 (+3 per Incubation level). Conversions on a full swarm **feed** it: +6% power to all allies (max +150%) plus a heal.
+- New ally look: a hollow cell with a nucleus and no eyes, in our colour.
+- Hive Mind replaces Hijack: +1% weapon damage per living ally plus ally power. Viral Load also heals 1 HP per conversion.
+- Bot bug found and fixed: it fled its own allies. Bot, seeds 600/700/800 × 8: bodyguard swarm ~54% win, p50 5:00, peak allies 12-15; the same mode with conversion off was ~42%. So the swarm is now a net positive.
+
 Original plan:
 - Each kill has a convert chance (an upgrade raises it). Converts keep their type's behaviour, retarget enemies, have a lifetime or HP, and share the enemy cap (`conversion.max_allies`).
 - Allies are shown in your colour. Enemies target the nearest of the player or an ally.

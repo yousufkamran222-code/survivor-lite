@@ -39,6 +39,26 @@ static func blob(size: int = 64, dirs: int = 16) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
+## Ally cell: bright rim, faint body and a solid nucleus. Deliberately unlike
+## the enemy blob (no eyes) so friend and foe never get confused.
+static func ally_cell(size: int = 64) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.0 / h
+	for y in size:
+		for x in size:
+			var d := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h).length()
+			var outer := _aa(0.94, d, px)
+			if outer <= 0.0:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var rim := 1.0 - _aa(0.74, d, px)
+			var nucleus := _aa(0.36, d, px)
+			var a := maxf(maxf(rim, nucleus), 0.28) * outer
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)
+
+
 ## Plain anti-aliased disc (bullets, shots, particles).
 static func disc(size: int = 32) -> ImageTexture:
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)

@@ -3,7 +3,7 @@ extends RefCounted
 ## Upgrade maths. Each upgrade's "levels" array holds stat deltas; the stats at
 ## level N are the sum of the first N entries.
 
-const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "regen", "xp_gain", "gold_gain", "armor", "convert", "ally_power", "ally_cap"]
+const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "regen", "xp_gain", "gold_gain", "armor", "convert", "ally_power", "ally_cap", "hive", "convert_heal"]
 
 
 static func max_level(def: Dictionary) -> int:
