@@ -83,7 +83,7 @@ func _tile(m: Dictionary) -> Button:
 	var can_buy := not maxed and Save.gold >= cost
 	var col := _icon_color(m)
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 252)
+	b.custom_minimum_size = Vector2(0, 282)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.mouse_filter = Control.MOUSE_FILTER_PASS  # lets DragScroll see the drag
 	b.focus_mode = Control.FOCUS_NONE
@@ -115,9 +115,15 @@ func _tile(m: Dictionary) -> Button:
 	v.add_child(ic)
 	var name := UiKit.label(m.name, 21, Color.WHITE)
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	name.custom_minimum_size = Vector2(0, 54)
+	name.custom_minimum_size = Vector2(0, 50)
 	name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(name)
+	# What one level gives, so tiles read without opening the popup.
+	var what := _fixed_label(Progression.meta_effect_text(m, 1), 18, Color(col, 0.95))
+	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	what.clip_text = true
+	v.add_child(what)
 	var bar := TierBar.new()
 	bar.have = lv
 	bar.total = total
@@ -496,7 +502,6 @@ class TierBar:
 	var color := Color.WHITE
 	var flash_index := -1
 	var _flash := 1.0
-	var _sb := StyleBoxFlat.new()
 
 	func _process(delta: float) -> void:
 		if flash_index >= 0 and _flash > 0.0:
@@ -506,15 +511,14 @@ class TierBar:
 	func _draw() -> void:
 		var gap := 4.0 if total <= 10 else 2.0
 		var w := (size.x - gap * (total - 1)) / float(total)
-		var r := minf(size.y / 2.0, 6.0)
 		for k in total:
 			var rect := Rect2(k * (w + gap), 0, w, size.y)
-			_sb.set_corner_radius_all(int(r))
+			# Plain rects: they batch into one draw call (rounded style boxes
+			# cost one each, ~80 extra calls across the shop grid).
 			if k < have:
-				_sb.bg_color = color.lerp(Color.WHITE, _flash if k == flash_index else 0.0)
+				draw_rect(rect, color.lerp(Color.WHITE, _flash if k == flash_index else 0.0))
 			else:
-				_sb.bg_color = Color(1, 1, 1, 0.12)
-			draw_style_box(_sb, rect)
+				draw_rect(rect, Color(1, 1, 1, 0.12))
 
 
 ## Pulsing green "can upgrade" badge for tiles.

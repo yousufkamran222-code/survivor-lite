@@ -300,6 +300,8 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - Tests that run the bot must open banked level-ups and close chests, or they stall.
 - `test_bot_run_with_loot_is_stable` uses Classic because the Infection bot turtles and never dashes.
 - Screen-sized translucent fills cause phone frame drops; keep big fx as outlines.
+- **Every `draw_circle`/style box is its own draw call;** same-texture `draw_texture_rect` calls batch. In menus/UI that is drawn every frame, prefer a tinted disc texture (`ShapeTextures.disc`) and plain `draw_rect`. Check `RENDER_TOTAL_DRAW_CALLS_IN_FRAME` (menu ~65, shop ~150, fight ~56).
+- **Web canvas resolution:** the web build caps devicePixelRatio at 2 via `html/head_include` in `export_presets.cfg` (Godot otherwise renders at full device density). Web-only; the APK renders natively.
 - `UiKit.label` autowraps; turn it off in narrow containers.
 - **Scrolling lists:** use `DragScroll`. Buttons inside need `MOUSE_FILTER_PASS` and should ignore the press when `was_dragged()`; anything else that is `STOP` by default (ProgressBar, Panel) must be set to `IGNORE` or it blocks the drag.
 - Debug builds (no keystore secrets) can't update over each other. Tell Yousuf to uninstall first.
