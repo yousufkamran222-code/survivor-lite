@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **92 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **94 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg` (the repo's only branch, and the default branch).
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 92 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 94 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -139,6 +139,8 @@ scripts/ui/
   hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, owned-upgrade strip, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout
   icon_art.gd    (170)    All vector icons (upgrades, meta, modes, trophy, sound, gold)
   upgrade_icon.gd         Control wrapper for one icon
+  meta_shop.gd            Permanent-upgrade shop: tile grid + per-upgrade popup, buy VFX/sfx (MetaShop)
+  drag_scroll.gd          ScrollContainer you drag anywhere (momentum; was_dragged() guards taps)
   menu_background.gd      Animated menu backdrop + hero cell
 scripts/autoload/
   save_service.gd         "Save": Profile ↔ user://profile.json (+ .bak, legacy save.cfg import); old props as pass-throughs
@@ -148,7 +150,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (92 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (94 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -279,6 +281,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 9. Wanted more permanent upgrades with more tiers, including dash ones (he deferred strains and the "Lab" talent tree) → 15 upgrades / 96 tiers.
 10. Afterimage felt overpowered; the upgrade UI felt like plain text → decoy gets its own cooldown and smaller lure; IconArt icons, cards, VFX, chest icons, HUD strip.
 11. Accounts/progress/leaderboards → Play Games later; built local progress tracking, the `Online` stub, achievements and score. The main menu "looked bad" → redesigned.
+12. Upgrades shop didn't scroll (only via the thin scroll bar) and was hard to read ("0/2") → `DragScroll` (drag anywhere, momentum, drags never count as taps) + `MetaShop`: tile grid with tier bars, prices and "can buy" badges, a detail popup per upgrade with NOW → NEXT in words and a big green UPGRADE button with sound, haptics and VFX.
 
 ---
 
@@ -298,6 +301,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - `test_bot_run_with_loot_is_stable` uses Classic because the Infection bot turtles and never dashes.
 - Screen-sized translucent fills cause phone frame drops; keep big fx as outlines.
 - `UiKit.label` autowraps; turn it off in narrow containers.
+- **Scrolling lists:** use `DragScroll`. Buttons inside need `MOUSE_FILTER_PASS` and should ignore the press when `was_dragged()`; anything else that is `STOP` by default (ProgressBar, Panel) must be set to `IGNORE` or it blocks the drag.
 - Debug builds (no keystore secrets) can't update over each other. Tell Yousuf to uninstall first.
 - Analytics and the online stub print only in debug builds.
 - `balance.json` `debug.show_perf` is on for playtests. **Turn it off for release builds.** `debug.invincible` must stay false.

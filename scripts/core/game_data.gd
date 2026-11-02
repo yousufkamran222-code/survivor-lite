@@ -81,6 +81,8 @@ static func validate(d: Dictionary) -> Array:
 	for m in d.meta:
 		if m.costs.is_empty():
 			errors.append("meta %s has no costs" % m.id)
+		if str(m.get("label", "")) == "":
+			errors.append("meta %s needs a short 'label' for the shop" % m.id)
 		if not Upgrades.GLOBAL_STATS.has(m.stat):
 			errors.append("meta %s uses unknown stat '%s'" % [m.id, m.stat])
 		for k in range(1, m.costs.size()):

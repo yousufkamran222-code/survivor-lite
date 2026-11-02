@@ -74,3 +74,11 @@ func test_meta_dash_damage_enables_lunge() -> void:
 		w._rebuild_grid()
 		w._update_player(1.0 / 60.0, Vector2.RIGHT)
 	check(w.e_hp[0] < hp, "permanent Spiked Membrane makes the dash hurt")
+
+
+func test_meta_effect_text_reads_as_words() -> void:
+	var pct := {"per_level": 0.04, "fmt": "pct", "label": "damage"}
+	check_eq(Progression.meta_effect_text(pct, 3), "+12% damage")
+	check_eq(Progression.meta_effect_text(pct, 0), "None yet")
+	for m in data().meta:
+		check(str(m.get("label", "")) != "", "%s has a shop label" % m.id)

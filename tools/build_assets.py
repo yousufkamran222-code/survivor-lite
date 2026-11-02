@@ -105,6 +105,9 @@ def build_sfx() -> None:
     write("chest", seq(*[env(osc(f, f, 0.07, "tri"), decay_pow=0.9) for f in (392, 494, 587, 784, 988)]), 0.6)
     write("claim", seq(env(osc(330, 660, 0.12, "tri"), decay_pow=0.8), env(osc(660, 990, 0.16, "sine"), decay_pow=1.2)), 0.6)
     write("convert", env(mix(osc(300, 900, 0.22, "tri"), osc(450, 1350, 0.22, "sine") * 0.5), attack=0.01, decay_pow=1.1), 0.5)
+    # Meta shop: a bright rising chime with a sparkle tail; a soft low "nope".
+    write("upgrade", mix(seq(*[env(osc(f, f, 0.07, "tri"), decay_pow=0.9) for f in (523, 784, 1047)], env(osc(1568, 2093, 0.28, "sine"), decay_pow=1.4)), np.pad(env(noise(0.2, 0.6), decay_pow=2.5) * 0.25, (int(0.21 * RATE), 0))), 0.6)
+    write("deny", seq(env(osc(196, 180, 0.07, "square"), decay_pow=0.7), env(osc(147, 130, 0.12, "square"), decay_pow=1.0)), 0.35)
     write("evolve", mix(*[env(osc(f, f * 2, 0.9, "saw"), attack=0.02, decay_pow=1.2) * 0.4 for f in (262, 330, 392, 523)]), 0.8)
 
 

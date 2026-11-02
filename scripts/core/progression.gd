@@ -39,6 +39,13 @@ static func meta_total_text(meta_def: Dictionary, level: int) -> String:
 	return "+%s" % (str(roundi(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v)
 
 
+## What the upgrade gives at a level, in words: "+12% damage" ("None yet" at 0).
+static func meta_effect_text(meta_def: Dictionary, level: int) -> String:
+	if level <= 0:
+		return "None yet"
+	return "%s %s" % [meta_total_text(meta_def, level), meta_def.get("label", "")]
+
+
 ## Everything about a finished run that profiles, leaderboards and analytics
 ## need (one dictionary, no references into the World).
 static func run_summary(w: World, won: bool, mode_id: String, scoring: Dictionary) -> Dictionary:

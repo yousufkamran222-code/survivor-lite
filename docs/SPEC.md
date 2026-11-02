@@ -58,7 +58,7 @@ Max the weapon (Lv 5) and own its paired passive, then open a chest. Level-up ca
 | Nerve Spark + Metabolism | Neural Storm | 3 sparks at once, longer jumps |
 
 ## Meta-progression (`data/meta.json`)
-15 permanent upgrades with 96 tiers in total (about 17,000 gold to max everything), bought in a scrolling shop that shows each one's current total:
+15 permanent upgrades with 96 tiers in total (about 17,000 gold to max everything), bought in a drag-scrolling grid shop; tapping an upgrade opens a popup with "now → next" in words and a big UPGRADE button:
 - Survival: Thick Membrane (+10 HP ×10), Cell Wall (−2% damage ×8), Repair Enzymes (+0.1 HP/s ×6).
 - Offence: Potency (+4% damage ×10), Metabolism (−3% cooldowns ×8), Replication (+1 projectile ×2, expensive).
 - Utility: Mobility, Absorption, Growth, Greed.

@@ -442,9 +442,8 @@ func _show_profile() -> void:
 	col.add_child(UiKit.label("PROFILE", 52, pal.ui_accent))
 	var online := "Local profile" if not Online.is_signed_in() else Online.player_name()
 	col.add_child(UiKit.label(online + "  -  Play Games sync coming soon", 18, Color(pal.text, 0.5)))
-	var scroll := ScrollContainer.new()
+	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(600, 900)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 8)
@@ -497,6 +496,7 @@ func _show_profile() -> void:
 		var bar := ProgressBar.new()
 		bar.show_percentage = false
 		bar.custom_minimum_size = Vector2(0, 8)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE  # don't block drag-scrolling
 		bar.value = prog * 100.0
 		v.add_child(bar)
 		row.add_child(v)
@@ -523,37 +523,14 @@ func _select_mode(id: String) -> void:
 	_show_menu()
 
 
-## Permanent upgrades bought with gold (scrolls: there are many tiers).
+## Permanent upgrades bought with gold: tile grid + detail popup (MetaShop).
 func _show_shop() -> void:
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label("UPGRADES", 48, pal.ui_accent))
-	col.add_child(UiKit.label("Gold: %d" % Save.gold, 28))
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(600, 860)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 10)
-	scroll.add_child(list)
-	col.add_child(scroll)
-	for m in data.meta:
-		var lv := Save.meta_level(m.id)
-		var cost := Progression.meta_next_cost(m, lv)
-		var now := Progression.meta_total_text(m, lv)
-		var txt := "%s   %d/%d%s\n%s" % [m.name, lv, m.costs.size(), ("   (now " + now + ")") if now != "" else "", m.desc]
-		txt += ("   -  MAX" if cost < 0 else "   -  %d gold" % cost)
-		var b := UiKit.button(txt, _buy_meta.bind(m.id), 80)
-		b.add_theme_font_size_override("font_size", 21)
-		b.disabled = cost < 0 or Save.gold < cost
-		var mkey: String = IconArt.META_KEYS.get(m.stat, "")
-		var mdef := {"id": mkey}
-		var ic := UpgradeIcon.make(mkey, IconArt.color_for(mdef) if not str(m.stat).begins_with("dash") else IconArt.COLORS.dash, 56)
-		ic.position = Vector2(12, 12)
-		b.add_child(ic)
-		list.add_child(b)
-	col.add_child(UiKit.button("BACK", _show_menu, 90))
+	var shop := MetaShop.new()
+	shop.setup(data.meta, pal, _menu[0], _show_menu)
+	col.add_child(shop)
 
 
 ## "build abc1234 #12" from data/build_info.json (written by CI), else "dev build".
@@ -568,21 +545,6 @@ func _build_label() -> String:
 
 func world_length() -> float:
 	return float(bal.run_length_s)
-
-
-func _buy_meta(id: String) -> void:
-	for m in data.meta:
-		if m.id != id:
-			continue
-		var lv := Save.meta_level(id)
-		var cost := Progression.meta_next_cost(m, lv)
-		if cost >= 0 and Save.gold >= cost:
-			Save.gold -= cost
-			Save.meta_levels[id] = lv + 1
-			Save.profile.updated_at = Save.now()
-			Save.write()
-			Analytics.event("meta_buy", {"id": id, "level": lv + 1})
-	_show_shop()
 
 
 func _toggle_mute() -> void:

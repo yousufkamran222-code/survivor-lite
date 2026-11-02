@@ -196,3 +196,20 @@ func test_json_roundtrip_keeps_integers() -> void:
 	check_eq(typeof(q.record("classic").best_kills), TYPE_INT)
 	check_eq(typeof(q.record("classic").best_time), TYPE_FLOAT)
 	check_eq(str(q.stats.kills), "300")
+
+
+func test_buy_meta_spends_gold_and_respects_max() -> void:
+	var p := Profile.new()
+	var def := {"id": "meta_x", "costs": [30, 50]}
+	check_eq(p.buy_meta(def, 10), 0, "no gold: nothing bought")
+	check_eq(p.meta_level("meta_x"), 0)
+	p.gold = 100
+	check_eq(p.buy_meta(def, 11), 30)
+	check_eq(p.gold, 70)
+	check_eq(p.meta_level("meta_x"), 1)
+	check_eq(p.updated_at, 11)
+	check_eq(p.buy_meta(def, 12), 50)
+	check_eq(p.gold, 20)
+	check_eq(p.buy_meta(def, 13), 0, "maxed: nothing bought")
+	check_eq(p.gold, 20, "maxed: gold untouched")
+	check_eq(p.meta_level("meta_x"), 2)

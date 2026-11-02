@@ -95,6 +95,19 @@ func meta_level(id: String) -> int:
 	return int(meta_levels.get(id, 0))
 
 
+## Buys the next level of a permanent upgrade if it isn't maxed and the gold
+## covers it. Returns the gold spent (0 = nothing bought).
+func buy_meta(def: Dictionary, now: int) -> int:
+	var lv := meta_level(def.id)
+	if lv >= def.costs.size() or gold < int(def.costs[lv]):
+		return 0
+	var cost := int(def.costs[lv])
+	gold -= cost
+	meta_levels[def.id] = lv + 1
+	updated_at = now
+	return cost
+
+
 func best_time_any() -> float:
 	var best := 0.0
 	for m in records:

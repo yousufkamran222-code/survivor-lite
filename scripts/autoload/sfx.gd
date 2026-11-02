@@ -24,6 +24,8 @@ const SOUNDS := {
 	"evolve": preload("res://assets/processed/sfx/evolve.wav"),
 	"claim": preload("res://assets/processed/sfx/claim.wav"),
 	"convert": preload("res://assets/processed/sfx/convert.wav"),
+	"upgrade": preload("res://assets/processed/sfx/upgrade.wav"),
+	"deny": preload("res://assets/processed/sfx/deny.wav"),
 }
 const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90}
 const VOLUME_DB := {"shoot": -14.0, "hit": -12.0, "kill": -9.0, "pickup": -13.0, "chain": -10.0}
@@ -41,7 +43,7 @@ func _ready() -> void:
 		_players.append(p)
 
 
-func play(name: String, pitch_jitter: float = 0.08) -> void:
+func play(name: String, pitch_jitter: float = 0.08, pitch: float = 1.0) -> void:
 	if Save.muted or not SOUNDS.has(name):
 		return
 	var now := Time.get_ticks_msec()
@@ -52,5 +54,5 @@ func play(name: String, pitch_jitter: float = 0.08) -> void:
 	_next = (_next + 1) % _players.size()
 	p.stream = SOUNDS[name]
 	p.volume_db = float(VOLUME_DB.get(name, -6.0))
-	p.pitch_scale = 1.0 + randf_range(-pitch_jitter, pitch_jitter)
+	p.pitch_scale = pitch + randf_range(-pitch_jitter, pitch_jitter)
 	p.play()
