@@ -36,7 +36,7 @@
 | Upgrade | Type | Lv1 | Levels 2-5 |
 |---|---|---|---|
 | Pulse Bolt (start) | weapon | Shoots the nearest germ | +dmg, +1 bolt, faster, pierce |
-| Antibodies | weapon | 2 orbiting blobs | +1 orb, +dmg, wider, faster |
+| Antibodies | weapon | 2 orbiting blobs that also destroy enemy shots | +1 orb, +dmg, wider, faster |
 | Fever Pulse | weapon | Damage + knockback ring every 3 s | +radius, +dmg, faster |
 | Nerve Spark | weapon | Chain lightning, 2 jumps | +jumps, +dmg, faster |
 | Enzymes | passive | +12% damage | x5 |

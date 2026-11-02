@@ -1,0 +1,8 @@
+[
+  {"id": "infection", "name": "Infection", "tag": "NEW",
+   "desc": "A bounded dish. Loop out and back to claim land; your land slows and burns germs.",
+   "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
+  {"id": "classic", "name": "Classic", "tag": "",
+   "desc": "An endless field. Kite, build, survive 5:00.",
+   "overrides": {"territory": {"enabled": false}}}
+]

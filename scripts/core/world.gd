@@ -419,7 +419,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	var d: Dictionary = enemy_defs[t]
 	var hp := float(d.hp)
 	if not d.get("fixed_hp", false):
-		hp *= director.hp_mult(time)
+		hp *= director.hp_mult(time) * _pressure(float(bal.territory.get("pressure_hp_per_infected", 0.0)) if terr != null else 0.0)
 	var r := float(d.radius)
 	var spd := float(d.speed)
 	if elite:
@@ -690,6 +690,8 @@ func _update_weapons(dt: float) -> void:
 					var a := orbit_angle + TAU * k / n
 					var c: Vector2 = p_pos + Vector2(cos(a), sin(a)) * w.orbit_radius
 					orbit_points.append(c)
+					if w.get("blocks_shots", 0.0) > 0.0:
+						_block_shots(c, w.size)
 					for i: int in query(c, w.size):
 						if e_hitcd[i] <= 0.0 and e_hp[i] > 0.0:
 							e_hitcd[i] = w.hit_interval
@@ -733,6 +735,26 @@ func _update_weapons(dt: float) -> void:
 						if cur < 0:
 							break
 					_emit({"type": "chain", "points": pts, "evolved": evolved.has(id)})
+
+
+## Antibodies destroy enemy shots that touch them (counter to Spitters).
+func _block_shots(c: Vector2, size: float) -> void:
+	var r := size + 8.0
+	var r2 := r * r
+	var i := s_pos.size() - 1
+	while i >= 0:
+		if s_pos[i].distance_squared_to(c) < r2:
+			_emit({"type": "shot_blocked", "pos": s_pos[i]})
+			var last := s_pos.size() - 1
+			s_pos[i] = s_pos[last]
+			s_vel[i] = s_vel[last]
+			s_life[i] = s_life[last]
+			s_dmg[i] = s_dmg[last]
+			s_pos.resize(last)
+			s_vel.resize(last)
+			s_life.resize(last)
+			s_dmg.resize(last)
+		i -= 1
 
 
 func _fire_nova(w: Dictionary) -> void:
@@ -1050,7 +1072,15 @@ func _apply_pickup(kind: String, pos: Vector2) -> void:
 
 # ================================================================ territory
 
+## Holding more of the dish makes the infection fight back harder.
+func _pressure(per_infected: float) -> float:
+	if terr == null:
+		return 1.0
+	return 1.0 + per_infected * terr.infected_fraction()
+
+
 func _update_territory(dt: float) -> void:
+	director.budget_mult = _pressure(float(bal.territory.get("pressure_budget_per_infected", 0.0)))
 	var lost_before := terr.trails_lost
 	var claimed := terr.update_player(p_pos, dt)
 	if terr.trails_lost > lost_before:
@@ -1094,4 +1124,6 @@ func _on_claim(claimed: PackedInt32Array) -> void:
 		if set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
 			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
 	_process_dead()
+	# Bigger loops pay out: XP per claimed tile.
+	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain))
 	_emit({"type": "claim", "tiles": claimed.size(), "cells": claimed, "infected": terr.infected_fraction()})

@@ -84,3 +84,11 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Bot, territory on (seeds 600/700/800 × 8, no meta): win 13-38% (~30%), p10 2:08-2:55, p50 3:12-3:46, level p50 23-27, ~4.3 chests and ~1.1 evolutions per run, mean infected 6-10% (the bot's loops are small, so humans should claim far more).
 - Perf: 0.80 ms per step at 150+ enemies (was 0.60).
 - Open questions for the playtest: does claiming feel good while chased? Is erosion too fast? Should the grid be finer (64 → 96) for smoother edges?
+
+### 2026-11-02 game modes, Spitter fix, territory tuning
+- Modes: Infection (territory) and Classic, picked from the main menu. The upgrade shop moved to its own screen.
+- Antibodies destroy enemy shots on contact.
+- Infection tuning from the playtest (see ROADMAP). Bot, seeds 600/700/800 × 8:
+  - before (prototype 1): win ~30%, p50 3:12-3:46, level 23-27, infected 6-10%, ~1.1 evolutions
+  - after: win ~34% (0-63% by seed), p50 2:55-5:00, level 20-32, **infected 12-21%**, ~1 evolution; top killer: Lump (brute)
+- Classic after the Spitter fix (seed 600 × 8): win 25%, p50 4:52, level 15.

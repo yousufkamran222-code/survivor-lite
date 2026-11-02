@@ -4,8 +4,9 @@ extends SceneTree
 ##
 ## Usage:
 ##   godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 40 --seed 1000
-## Options: --runs N, --seed S, --meta (use maxed meta upgrades), --classic
-## (territory off), --json PATH
+## Options: --runs N, --seed S, --meta (use maxed meta upgrades),
+## --mode ID (data/modes.json, default: first mode), --classic (= --mode classic),
+## --json PATH
 
 const DT := 1.0 / 30.0
 
@@ -14,9 +15,11 @@ func _initialize() -> void:
 	var args := _parse(OS.get_cmdline_user_args())
 	var runs := int(args.get("runs", 30))
 	var seed0 := int(args.get("seed", 1000))
+	var mode_id := "classic" if args.has("classic") else str(args.get("mode", ""))
 	var d := GameData.load_all()
-	if args.has("classic"):
-		d.balance.territory.enabled = false
+	if mode_id == "":
+		mode_id = d.modes[0].id
+	d = GameData.apply_mode(d, mode_id)
 	var meta := {}
 	if args.has("meta"):
 		var levels := {}
@@ -30,6 +33,7 @@ func _initialize() -> void:
 	var ms := Time.get_ticks_msec() - t0
 	var report := _report(results, d)
 	report["runs"] = runs
+	report["mode"] = mode_id
 	report["sim_ms_per_run"] = ms / maxf(runs, 1)
 	print(JSON.stringify(report, "  "))
 	if args.has("json"):

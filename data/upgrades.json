@@ -11,13 +11,13 @@
 
   {"id": "orbit", "type": "weapon", "name": "Antibodies", "weight": 1.0,
    "levels": [
-     {"damage": 8, "count": 2, "orbit_radius": 85, "size": 14, "spin": 3.2, "hit_interval": 0.5, "knockback": 160},
+     {"damage": 8, "count": 2, "orbit_radius": 85, "size": 14, "spin": 3.2, "hit_interval": 0.5, "knockback": 160, "blocks_shots": 1},
      {"count": 1},
      {"damage": 5},
      {"count": 1, "orbit_radius": 15},
      {"damage": 6, "spin": 1.0}
    ],
-   "desc": ["Antibodies orbit you, hitting anything they touch.", "+1 antibody", "+5 damage", "+1 antibody, wider orbit", "+6 damage, spins faster"]},
+   "desc": ["Antibodies orbit you, hitting germs and destroying their shots.", "+1 antibody", "+5 damage", "+1 antibody, wider orbit", "+6 damage, spins faster"]},
 
   {"id": "nova", "type": "weapon", "name": "Fever Pulse", "weight": 0.9,
    "levels": [

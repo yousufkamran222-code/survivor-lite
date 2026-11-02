@@ -147,3 +147,28 @@ func test_bot_claims_land_in_a_run() -> void:
 			break
 		w.step(DT, bot.move(w))
 	check(w.terr.owned_count > start, "bot loops and claims land (%d -> %d)" % [start, w.terr.owned_count])
+
+
+func test_claim_grants_xp() -> void:
+	var w := _world()
+	var xp0 := w.xp
+	_walk(w, [Vector2(150, 0), Vector2(500, 0), Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
+	check(w.xp > xp0 + 10.0, "a big loop pays XP (%.1f)" % (w.xp - xp0))
+
+
+func test_more_land_means_more_pressure() -> void:
+	var w := _world()
+	w._update_territory(DT)
+	var low := w.director.budget_mult
+	var hp_low := 0.0
+	w._add_enemy("grunt", Vector2(900, 0))
+	hp_low = w.e_maxhp[0]
+	# Claim a big chunk directly.
+	for i in w.terr.n * w.terr.n:
+		if w.terr.tiles[i] == Territory.NEUTRAL and w.terr.center_of(i).x < 0.0:
+			w.terr.tiles[i] = Territory.OWNED
+			w.terr.owned_count += 1
+	w._update_territory(DT)
+	check(w.director.budget_mult > low + 0.5, "spawn budget grows with land")
+	w._add_enemy("grunt", Vector2(900, 0))
+	check(w.e_maxhp[1] > hp_low * 1.3, "enemy hp grows with land")

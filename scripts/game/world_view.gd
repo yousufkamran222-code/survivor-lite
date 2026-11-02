@@ -118,6 +118,8 @@ func consume(events: Array) -> void:
 				add_shake(float(juice.shake_nova))
 			"chain":
 				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain)}, max_fx + 4)
+			"shot_blocked":
+				_add_fx({"kind": "pop", "pos": ev.pos, "color": _wcolor("orbit", pal.orbit), "r": 10.0, "life": 0.2}, max_fx)
 			"dash":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 46.0, "life": 0.2, "color": pal.player}, max_fx + 4)
 			"elite_killed":

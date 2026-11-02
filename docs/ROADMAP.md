@@ -11,13 +11,21 @@ Together they form a light tower defence: converts garrison your land, and your 
 
 Positioning: "Plague Inc. meets Vampire Survivors", cartoon-cute. Don't borrow anyone's name or art.
 
-## Step 0: Spitter fix (small, data first)
+## Step 0: Spitter fix: **done 2026-11-02** (Antibodies destroy enemy shots they touch; Yousuf's choice)
 Diagnosis: Spitters hover at 290 px, beyond Antibodies' reach (85-150 px). Their shots scale with enemy damage growth (about 22 per shot at 4:00), and bolts target the nearest enemy, so ranged enemies get ignored.
 - Antibodies (and Immune Wall) destroy enemy shots they touch.
 - Cap Spitters at about 12 alive (`waves.pool` per-enemy `max_alive`).
 - Shot damage grows at half the melee rate.
 
-## Prototype 1: territory only (`balance.territory.enabled`): **built 2026-11-02, awaiting playtest**
+## Prototype 1: territory only: **built and playtested 2026-11-02; kept as the "Infection" game mode**
+Playtest verdict (Yousuf): it feels nice and the land is a real safe zone, but erosion was so fast that he turtled in a small radius (sub-10% infected) and still survived 5:00. Changes made:
+- Erosion slowed (0.35 → 0.12/s), and the home-turf advantage softened (enemies slowed 25% instead of 30%, DoT 2.5/s instead of 4).
+- **Claim XP:** 0.15 XP per tile claimed, so big loops pay off.
+- **Pressure:** the spawn budget (+200% at 100% infected) and enemy HP (+150%) scale with % infected, so expanding is a trade-off.
+- The Infection mode uses its own XP curve (the bounded dish yields about 3x the kills).
+- Next questions: is expanding now worth the risk? Is the grid too coarse (64 → 96)?
+
+**Game modes decision:** keep both, and future prototypes become modes too (`data/modes.json`).
 Test question: **does claiming feel good while being chased?**
 - A bounded dish (radius about 1500 px) with a 64x64 tile grid. The player and enemies stay inside.
 - You start with a home patch, and its small core can never be lost.
@@ -29,7 +37,7 @@ Test question: **does claiming feel good while being chased?**
 - A menu toggle switches between Classic and Territory so you can compare the two.
 - Done when: tests pass, the sim runs in both modes, and a phone playtest gives a verdict.
 
-## Prototype 2: conversion only (`balance.conversion.enabled`)
+## Prototype 2: conversion only (a new mode in `data/modes.json`, e.g. "Swarm")
 - Each kill has a convert chance (an upgrade raises it). Converts keep their type's behaviour, retarget enemies, have a lifetime or HP, and share the enemy cap (`conversion.max_allies`).
 - Allies are shown in your colour. Enemies target the nearest of the player or an ally.
 - New upgrades: Viral Load (convert chance), Hijack (convert stats), Incubation (a bigger cap).

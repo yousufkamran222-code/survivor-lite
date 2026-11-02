@@ -10,7 +10,8 @@ var best_time := 0.0
 var runs := 0
 var deaths := 0
 var muted := false
-var territory_mode := true  # prototype toggle: Territory vs Classic
+var mode := "infection"  # selected game mode id (data/modes.json)
+var best_times := {}  # mode id -> best survival time
 
 
 func _ready() -> void:
@@ -27,7 +28,10 @@ func load_save() -> void:
 	runs = int(cf.get_value("stats", "runs", 0))
 	deaths = int(cf.get_value("stats", "deaths", 0))
 	muted = bool(cf.get_value("settings", "muted", false))
-	territory_mode = bool(cf.get_value("settings", "territory_mode", true))
+	mode = str(cf.get_value("settings", "mode", "infection"))
+	if cf.has_section_key("settings", "territory_mode") and not cf.has_section_key("settings", "mode"):
+		mode = "infection" if bool(cf.get_value("settings", "territory_mode")) else "classic"
+	best_times = cf.get_value("progress", "best_times", {})
 
 
 func write() -> void:
@@ -38,7 +42,8 @@ func write() -> void:
 	cf.set_value("stats", "runs", runs)
 	cf.set_value("stats", "deaths", deaths)
 	cf.set_value("settings", "muted", muted)
-	cf.set_value("settings", "territory_mode", territory_mode)
+	cf.set_value("settings", "mode", mode)
+	cf.set_value("progress", "best_times", best_times)
 	cf.save(PATH)
 
 

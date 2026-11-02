@@ -165,7 +165,8 @@ func test_dash_moves_fast_with_iframes_and_cooldown() -> void:
 
 
 func test_bot_run_with_loot_is_stable() -> void:
-	var w := _world(11)
+	var w := World.new(GameData.apply_mode(data(), "classic"), 11)
+	w.emit_events = false
 	var bot := BalanceBot.new(11)
 	for i in int(120.0 / DT):
 		if w.state == "levelup":
@@ -177,3 +178,15 @@ func test_bot_run_with_loot_is_stable() -> void:
 		w.step(DT, bot.move(w))
 	check(w.elites_killed + w.c_pos.size() >= 1 or w.state == "dead", "an elite was met by 2:00")
 	check(w.dashes > 0, "bot dashes")
+
+
+func test_antibodies_destroy_enemy_shots() -> void:
+	var w := _world()
+	w.owned["orbit"] = 1
+	w._recompute_stats()
+	w._update_weapons(1.0 / 60.0)
+	var orb: Vector2 = w.orbit_points[0]
+	w._enemy_shot(orb + Vector2(2, 0), Vector2.RIGHT, 0.0, 10.0)
+	w._enemy_shot(w.p_pos + Vector2(600, 0), Vector2.RIGHT, 0.0, 10.0)
+	w._update_weapons(0.0)
+	check_eq(w.s_pos.size(), 1, "shot touching an antibody is destroyed, far one survives")

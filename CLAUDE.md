@@ -24,8 +24,8 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 
 ## Architecture (keep it this way)
 ```
-data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups), enemies, upgrades,
-                     evolutions, waves (incl. elites), meta. Tune here, not in code.
+data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory), enemies,
+                     upgrades, evolutions, waves (incl. elites), meta, modes. Tune here, not in code.
 scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
                      trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression,
                      GameData (load + validate), BalanceBot. Deterministic for a seed.
@@ -49,7 +49,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 5. **Never commit secrets**: keystores, passwords, service-account JSON, real AdMob IDs. CI injects them from GitHub secrets. Use AdMob **test IDs** in code.
 6. Assets: CC0 only, and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py`.
 7. Prefer data edits over code edits, and small diffs over refactors. Don't rename or move files without a reason.
-8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 10 upgrades, 4 evolutions (one per weapon), 1 mode (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
+8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 10 upgrades, 4 evolutions (one per weapon), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
 9. Turn playtest feedback ("dash feels floaty", "wave 4 too hard") into data changes first, using `balance.json` `juice` and `waves.json`.
 
 ## Performance budget (low-end Android is the target)
@@ -67,7 +67,8 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 - `android.yml`: manual run or a `v*` tag builds an APK artifact. Signed release if the keystore secrets exist, otherwise debug. An AAB via the Gradle build comes in M3.
 
 ## Direction
-`docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A). Territory is prototype 1, behind `balance.territory.enabled` (set from the menu's Mode toggle via `Save.territory_mode`). The sim's `--classic` flag turns it off.
+`docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A).
+**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New modes, like Prototype 2's conversion, should be a new entry here rather than a new toggle.
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone and next steps. Update it when you finish one.

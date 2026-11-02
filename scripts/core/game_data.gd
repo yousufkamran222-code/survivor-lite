@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -22,6 +22,24 @@ static func load_json(path: String) -> Variant:
 		push_error("GameData: invalid JSON in %s" % path)
 		return {}
 	return parsed
+
+
+## A copy of the game data with a game mode's overrides deep-merged into
+## balance. Unknown mode ids return an unmodified copy.
+static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
+	var out := d.duplicate(true)
+	for m in d.get("modes", []):
+		if m.id == mode_id:
+			_merge(out.balance, m.get("overrides", {}))
+	return out
+
+
+static func _merge(base: Dictionary, over: Dictionary) -> void:
+	for k in over:
+		if over[k] is Dictionary and base.get(k) is Dictionary:
+			_merge(base[k], over[k])
+		else:
+			base[k] = over[k]
 
 
 static func color(hex: String) -> Color:
@@ -75,6 +93,14 @@ static func validate(d: Dictionary) -> Array:
 		if evolved_weapons.has(ev.weapon):
 			errors.append("weapon %s has more than one evolution" % ev.weapon)
 		evolved_weapons[ev.weapon] = true
+	var mode_ids := {}
+	for m in d.get("modes", []):
+		if mode_ids.has(m.id):
+			errors.append("duplicate mode id '%s'" % m.id)
+		mode_ids[m.id] = true
+		for k in m.get("overrides", {}):
+			if not d.balance.has(k):
+				errors.append("mode %s overrides unknown balance key '%s'" % [m.id, k])
 	if d.waves.has("elites"):
 		for t in d.waves.elites.types:
 			if not enemy_ids.has(t):

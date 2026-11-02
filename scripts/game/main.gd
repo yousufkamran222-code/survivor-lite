@@ -233,14 +233,13 @@ func _handle_events(events: Array) -> void:
 
 func _start_run() -> void:
 	var meta := Progression.meta_bonus(data.meta, Save.meta_levels)
-	data.balance.territory.enabled = Save.territory_mode
-	world = World.new(data, randi(), meta)
+	world = World.new(GameData.apply_mode(data, _current_mode().id), randi(), meta)
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
 	Save.runs += 1
 	Save.write()
-	Analytics.event("run_start", {"run": Save.runs, "territory": Save.territory_mode})
+	Analytics.event("run_start", {"run": Save.runs, "mode": _current_mode().id})
 	if world.terr != null:
 		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
 	_hide_all()
@@ -270,10 +269,51 @@ func _show_menu() -> void:
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	col.add_child(UiKit.label(str(bal.title).to_upper(), 64, pal.ui_accent))
-	col.add_child(UiKit.label("Survive %s. Drag anywhere to move." % UiKit.fmt_time(world_length()), 26, Color(pal.text, 0.8)))
-	col.add_child(UiKit.label("Gold: %d     Best: %s" % [Save.gold, UiKit.fmt_time(Save.best_time)], 28))
+	col.add_child(UiKit.label("Gold: %d" % Save.gold, 28))
+	col.add_child(UiKit.label("MODE", 24, Color(pal.text, 0.7)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var current := _current_mode()
+	for m in data.modes:
+		var label: String = str(m.name).to_upper() + ("  " + m.tag if m.get("tag", "") != "" else "")
+		var b := UiKit.button(label, _select_mode.bind(m.id), 80)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 24)
+		if m.id == current.id:
+			b.add_theme_stylebox_override("normal", UiKit._box(pal.ui_button_pressed, 18))
+			b.add_theme_color_override("font_color", pal.ui_accent)
+		row.add_child(b)
+	col.add_child(row)
+	col.add_child(UiKit.label(current.desc, 24, Color(pal.text, 0.85)))
+	col.add_child(UiKit.label("Best: %s" % UiKit.fmt_time(float(Save.best_times.get(current.id, 0.0))), 26))
 	col.add_child(UiKit.button("PLAY", _start_run, 130))
-	col.add_child(UiKit.label("UPGRADES", 28, pal.ui_accent))
+	col.add_child(UiKit.button("UPGRADES", _show_shop, 90))
+	var mute := UiKit.button("Sound: %s" % ("OFF" if Save.muted else "ON"), _toggle_mute, 64)
+	mute.add_theme_font_size_override("font_size", 22)
+	col.add_child(mute)
+	col.add_child(UiKit.label(_build_label(), 18, Color(pal.text, 0.4)))
+	_menu[0].visible = true
+
+
+func _current_mode() -> Dictionary:
+	for m in data.modes:
+		if m.id == Save.mode:
+			return m
+	return data.modes[0]
+
+
+func _select_mode(id: String) -> void:
+	Save.mode = id
+	Save.write()
+	_show_menu()
+
+
+## Permanent upgrades bought with gold.
+func _show_shop() -> void:
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	col.add_child(UiKit.label("UPGRADES", 48, pal.ui_accent))
+	col.add_child(UiKit.label("Gold: %d" % Save.gold, 28))
 	for m in data.meta:
 		var lv := Save.meta_level(m.id)
 		var cost := Progression.meta_next_cost(m, lv)
@@ -283,14 +323,7 @@ func _show_menu() -> void:
 		b.add_theme_font_size_override("font_size", 22)
 		b.disabled = cost < 0 or Save.gold < cost
 		col.add_child(b)
-	var mode := UiKit.button("Mode: %s" % ("TERRITORY (prototype)" if Save.territory_mode else "CLASSIC"), _toggle_mode, 64)
-	mode.add_theme_font_size_override("font_size", 22)
-	col.add_child(mode)
-	var mute := UiKit.button("Sound: %s" % ("OFF" if Save.muted else "ON"), _toggle_mute, 64)
-	mute.add_theme_font_size_override("font_size", 22)
-	col.add_child(mute)
-	col.add_child(UiKit.label(_build_label(), 18, Color(pal.text, 0.4)))
-	_menu[0].visible = true
+	col.add_child(UiKit.button("BACK", _show_menu, 90))
 
 
 ## "build abc1234 #12" from data/build_info.json (written by CI), else "dev build".
@@ -318,13 +351,7 @@ func _buy_meta(id: String) -> void:
 			Save.meta_levels[id] = lv + 1
 			Save.write()
 			Analytics.event("meta_buy", {"id": id, "level": lv + 1})
-	_show_menu()
-
-
-func _toggle_mode() -> void:
-	Save.territory_mode = not Save.territory_mode
-	Save.write()
-	_show_menu()
+	_show_shop()
 
 
 func _toggle_mute() -> void:
@@ -498,6 +525,8 @@ func _show_results(won: bool) -> void:
 	if not won:
 		Save.deaths += 1
 	Save.best_time = maxf(Save.best_time, world.time)
+	var mid: String = _current_mode().id
+	Save.best_times[mid] = maxf(float(Save.best_times.get(mid, 0.0)), world.time)
 	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0})
 	_build_results(won)
 
