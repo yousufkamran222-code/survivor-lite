@@ -5,7 +5,8 @@
     {"id": "score_infection", "name": "Infection: best score",     "mode": "infection", "metric": "score"},
     {"id": "infected_pct",    "name": "Infection: most infected",  "mode": "infection", "metric": "infected_pct"},
     {"id": "score_swarm",     "name": "Swarm: best score",         "mode": "swarm",     "metric": "score"},
-    {"id": "conversions",     "name": "Swarm: most converted",     "mode": "swarm",     "metric": "conversions"}
+    {"id": "conversions",     "name": "Swarm: most converted",     "mode": "swarm",     "metric": "conversions"},
+    {"id": "score_nucleus",   "name": "Nucleus: best score",       "mode": "nucleus",   "metric": "score"}
   ],
   "achievements": [
     {"id": "first_blood",   "name": "First Blood",      "desc": "Kill 100 germs",                 "stat": "kills",              "goal": 100},
@@ -13,7 +14,7 @@
     {"id": "pandemic",      "name": "Pandemic",         "desc": "Kill 50,000 germs",              "stat": "kills",              "goal": 50000},
     {"id": "survivor",      "name": "Survivor",         "desc": "Survive a full run",             "stat": "wins",               "goal": 1},
     {"id": "veteran",       "name": "Veteran",          "desc": "Win 10 runs",                    "stat": "wins",               "goal": 10},
-    {"id": "all_modes",     "name": "Adaptable",        "desc": "Win in every game mode",         "stat": "modes_won",          "goal": 3},
+    {"id": "all_modes",     "name": "Adaptable",        "desc": "Win in every game mode",         "stat": "modes_won",          "goal": 4},
     {"id": "regular",       "name": "Regular",          "desc": "Play 25 runs",                   "stat": "runs",               "goal": 25},
     {"id": "elite_hunter",  "name": "Elite Hunter",     "desc": "Kill 25 elites",                 "stat": "elites",             "goal": 25},
     {"id": "mother_slayer", "name": "Mother Slayer",    "desc": "Kill the Mother Cell",           "stat": "bosses",             "goal": 1},

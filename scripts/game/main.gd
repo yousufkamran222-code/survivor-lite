@@ -245,6 +245,25 @@ func _handle_events(events: Array) -> void:
 			"evolution_ready":
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
 				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
+			"wave_start":
+				Sfx.play("elite", 0.0)
+				hud.toast("BOSS WAVE!" if ev.boss else "WAVE %d" % ev.wave, pal.core, 1.6)
+			"wave_clear":
+				Sfx.play("level_up", 0.0)
+				hud.toast("WAVE %d CLEARED  +%d biomass" % [ev.wave, ev.bonus], pal.pad, 1.6)
+				Analytics.event("wave_clear", {"wave": ev.wave, "t": int(world.time), "core": roundi(world.core_hp)})
+			"core_hit":
+				Sfx.play("hurt", 0.2, 0.7)
+			"tower_built", "tower_upgraded":
+				Sfx.play("upgrade", 0.0, 1.0 + 0.08 * ev.level)
+				Input.vibrate_handheld(40)
+				hud.toast("%s %s" % [str(ev.name).to_upper(), "BUILT" if ev.type == "tower_built" else "LV %d" % ev.level], GameData.color(ev.color), 1.4)
+				Analytics.event("tower_build", {"level": ev.level, "wave": world.wave})
+			"player_down":
+				Sfx.play("death", 0.0)
+				Input.vibrate_handheld(200)
+			"respawn":
+				Sfx.play("heal", 0.0)
 			"pickup_item":
 				match ev.kind:
 					"vacuum":
@@ -748,7 +767,9 @@ func _reroll() -> void:
 func _on_death() -> void:
 	_set_screen("dead")
 	Analytics.event("death", {"t": int(world.time), "level": world.level, "cause": world.death_cause})
-	var can_revive := world.revives_used < int(bal.revive.max_per_run) and Ads.is_rewarded_available()
+	# Nucleus mode: the run ends with the nucleus (the player respawns), so
+	# there is nothing to revive (a nucleus-repair ad comes in step 3).
+	var can_revive := not world.def_on and world.revives_used < int(bal.revive.max_per_run) and Ads.is_rewarded_available()
 	if not can_revive:
 		_show_results(false)
 		return
@@ -793,12 +814,17 @@ func _show_results(won: bool) -> void:
 func _build_results(won: bool) -> void:
 	var col: VBoxContainer = _results[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label("YOU SURVIVED!" if won else "RUN OVER", 56, pal.ui_accent))
+	var head := "YOU SURVIVED!" if won else "RUN OVER"
+	if world.def_on:
+		head = "NUCLEUS DEFENDED!" if won else "NUCLEUS LOST"
+	col.add_child(UiKit.label(head, 56, pal.ui_accent))
 	col.add_child(UiKit.label("Time %s    Level %d    Kills %d" % [UiKit.fmt_time(world.time), world.level, world.kills], 28))
 	if world.terr != null:
 		col.add_child(UiKit.label("Dish infected: %d%%" % roundi(world.terr.infected_fraction() * 100.0), 32, pal.player_nucleus))
 	if world.conv_on:
 		col.add_child(UiKit.label("Germs converted: %d" % world.conversions, 32, pal.player_nucleus))
+	if world.def_on:
+		col.add_child(UiKit.label("Waves cleared: %d / %d    Towers: %d" % [world.waves_cleared, world.wave_count, world.towers_built], 30, pal.core))
 	col.add_child(UiKit.label("Score %d%s" % [int(_summary.score), "   NEW BEST!" if _new_best else ""], 32, pal.ui_accent if _new_best else pal.text))
 	for a in _new_achievements:
 		col.add_child(UiKit.label("Achievement: %s" % a.name, 26, pal.gem_medium))

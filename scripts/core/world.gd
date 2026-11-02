@@ -34,6 +34,7 @@ var events: Array = []
 var time := 0.0
 var run_length := 300.0
 var state := "playing"  # playing | levelup | chest | dead | won
+var dish_r := 0.0  # bounded dish radius (Infection or Nucleus); 0 = open field
 
 # --- Player ---
 var p_pos := Vector2.ZERO
@@ -153,6 +154,32 @@ var conversions := 0
 var _ally_tick := 0.0
 var _max_er := 72.0
 
+# --- Nucleus mode (tower defence; off unless balance.defense.enabled) ---
+var def_on := false
+var dcfg: Dictionary = {}  # balance.defense
+var core_pos := Vector2.ZERO
+var core_hp := 0.0
+var core_max := 0.0
+var core_r := 0.0
+var biomass := 0.0
+var wave := 0  # current wave (1-based); 0 before the first
+var wave_count := 0
+var wave_state := "breather"  # breather | spawning | fighting
+var wave_t := 0.0  # breather: time left; fighting: time since spawning ended
+var waves_cleared := 0
+var tower_defs: Array = []
+var pad_pos := PackedVector2Array()
+var pad_tower := PackedInt32Array()  # tower type index, -1 = empty pad
+var pad_level := PackedInt32Array()
+var pad_cd := PackedFloat32Array()
+var pad_progress := PackedFloat32Array()  # build ring, 0..1
+var _pad_latch := -1  # pad just built on: needs stepping off before the next build
+var vent_pos := PackedVector2Array()
+var vents_active := PackedInt32Array()  # this wave's vents (next wave's during a breather)
+var p_down := 0.0  # > 0 while the player is reforming at the nucleus
+var towers_built := 0
+var _core_tick := 0.0
+
 
 func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> void:
 	data = game_data
@@ -180,6 +207,9 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	director = SpawnDirector.new(data.waves, by_id, rng)
 	if bal.has("territory") and bal.territory.get("enabled", false):
 		terr = Territory.new(bal.territory)
+		dish_r = terr.radius
+	if bal.has("defense") and bal.defense.get("enabled", false):
+		_setup_defense()
 	p_radius = float(bal.player.radius)
 	xp_next = Progression.xp_needed(bal, 1)
 	owned[bal.start_weapon] = 1
@@ -194,25 +224,42 @@ func step(dt: float, move: Vector2) -> void:
 	if state != "playing":
 		return
 	time += dt
-	if time >= run_length:
+	if time >= run_length and not def_on:
 		state = "won"
 		_emit({"type": "victory"})
 		return
-	_update_player(dt, move)
+	if p_down > 0.0:
+		_update_down(dt)
+	else:
+		_update_player(dt, move)
 	if terr != null:
 		_update_territory(dt)
-	_spawn(dt)
+	if def_on:
+		_update_pads(dt)
+		_update_waves(dt)
+		if state != "playing":
+			return
+	else:
+		_spawn(dt)
 	_rebuild_grid()
 	_update_enemies(dt)
 	if ally_count > 0:
 		_update_ally_combat(dt)
-	_update_weapons(dt)
+	if p_down <= 0.0:
+		_update_weapons(dt)
+	else:
+		orbit_points.clear()
+	if def_on:
+		_update_towers(dt)
 	_update_bullets(dt)
 	_update_enemy_shots(dt)
 	_process_dead()
 	_contact_damage()
-	_update_gems(dt)
-	_update_pickups()
+	if def_on:
+		_update_core(dt)
+	if p_down <= 0.0:
+		_update_gems(dt)
+		_update_pickups()
 	if pending_levelups > 0 and state == "playing" and not _banking():
 		_open_levelup()
 
@@ -252,7 +299,7 @@ func close_levelup() -> void:
 
 ## Starts a dash if it is off cooldown. Returns true if it dashed.
 func dash() -> bool:
-	if state != "playing" or p_dash_charges <= 0:
+	if state != "playing" or p_dash_charges <= 0 or p_down > 0.0:
 		return false
 	var pl: Dictionary = bal.player
 	p_dash_dir = p_move.normalized() if p_move.length_squared() > 0.01 else p_facing
@@ -448,8 +495,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 	if m.length_squared() > 0.01:
 		p_facing = m.normalized()
 	var regen := float(bal.player.regen) + float(stats.regen)
+	p_pos = _in_dish(p_pos, p_radius)
 	if terr != null:
-		p_pos = terr.clamp_inside(p_pos, p_radius)
 		p_on_land = terr.is_owned(p_pos)
 		if p_on_land:
 			regen += float(bal.territory.player_regen)
@@ -460,6 +507,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 
 
 func _spawn_point() -> Vector2:
+	if def_on:
+		return _vent_point()
 	var a := rng.randf() * TAU
 	var d := rng.randf_range(float(bal.perf.spawn_min_distance), float(bal.perf.spawn_max_distance))
 	var p := p_pos + Vector2(cos(a), sin(a)) * d
@@ -514,7 +563,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	var d: Dictionary = enemy_defs[t]
 	var hp := float(d.hp)
 	if not d.get("fixed_hp", false):
-		hp *= director.hp_mult(time) * _pressure(float(bal.territory.get("pressure_hp_per_infected", 0.0)) if terr != null else 0.0)
+		hp *= _hp_mult() * _pressure(float(bal.territory.get("pressure_hp_per_infected", 0.0)) if terr != null else 0.0)
 	var r := float(d.radius)
 	var spd := float(d.speed)
 	if elite:
@@ -603,11 +652,15 @@ func _update_enemies(dt: float) -> void:
 	var phase := _frame % SEP_EVERY
 	_ally_slot = 0
 	_ally_slots = maxi(ally_count, 1)
+	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
 	for i in e_pos.size():
 		var t := e_type[i]
 		var beh := _tbeh[t]
 		var pos := e_pos[i]
-		var to_p := p_pos - pos
+		var tgt := p_pos
+		if def_on and (p_down > 0.0 or pos.distance_squared_to(p_pos) > aggro2):
+			tgt = core_pos  # march on the nucleus unless the player is close
+		var to_p := tgt - pos
 		var dist2 := to_p.length_squared()
 		var dist := sqrt(dist2)
 		var dir := to_p / dist if dist > 0.001 else Vector2.ZERO
@@ -665,10 +718,15 @@ func _update_enemies(dt: float) -> void:
 			pos += vel * dt
 		if sep != Vector2.ZERO:
 			pos += sep.limit_length(12.0)
-		if dist2 > despawn2 and beh != BEH_BOSS:
+		if dist2 > despawn2 and beh != BEH_BOSS and not def_on:
 			pos = _spawn_point() if e_team[i] == 0 else p_pos + to_p.normalized() * -60.0
-		if terr != null:
-			pos = terr.clamp_inside(pos, e_rad[i])
+		pos = _in_dish(pos, e_rad[i])
+		if def_on:
+			# Germs crowd the nucleus membrane instead of walking into it.
+			var oc := pos - core_pos
+			var mr := core_r + e_rad[i]
+			if oc.length_squared() < mr * mr:
+				pos = core_pos + (oc.normalized() if oc != Vector2.ZERO else Vector2.RIGHT) * mr
 		e_pos[i] = pos
 		if e_flash[i] > 0.0:
 			e_flash[i] -= dt
@@ -879,10 +937,10 @@ func _fire_nova(w: Dictionary) -> void:
 	_emit({"type": "nova", "pos": p_pos, "radius": w.area})
 
 
-func _spawn_bullet(vel: Vector2, w: Dictionary) -> void:
+func _spawn_bullet(vel: Vector2, w: Dictionary, from: Vector2 = Vector2.INF) -> void:
 	if b_pos.size() >= int(bal.perf.max_projectiles):
 		return
-	b_pos.append(p_pos)
+	b_pos.append(p_pos if from == Vector2.INF else from)
 	b_vel.append(vel)
 	b_dmg.append(w.damage)
 	b_pierce.append(int(w.pierce))
@@ -943,10 +1001,13 @@ func _update_enemy_shots(dt: float) -> void:
 		s_pos[i] = s_pos[i] + s_vel[i] * dt
 		s_life[i] -= dt
 		var gone := s_life[i] <= 0.0
-		if not gone and s_pos[i].distance_squared_to(p_pos) < hit_r * hit_r:
+		if not gone and p_down <= 0.0 and s_pos[i].distance_squared_to(p_pos) < hit_r * hit_r:
 			gone = true
 			if p_iframes <= 0.0:
 				_hurt(s_dmg[i], "shot")
+		elif not gone and def_on and s_pos[i].distance_squared_to(core_pos) < core_r * core_r:
+			gone = true
+			_hurt_core(s_dmg[i] * float(dcfg.core_shot_mult) * _dmg_mult())
 		if gone:
 			var last := s_pos.size() - 1
 			s_pos[i] = s_pos[last]
@@ -979,6 +1040,13 @@ func _process_dead() -> void:
 			continue
 		kills += 1
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
+		if def_on:
+			if elite:
+				biomass += float(dcfg.biomass_elite)
+			elif d.behavior == "boss":
+				biomass += float(dcfg.biomass_boss)
+			else:
+				biomass += float(d.cost) * float(dcfg.biomass_per_cost)
 		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite})
 		if elite:
 			elites_killed += 1
@@ -1009,18 +1077,24 @@ func _process_dead() -> void:
 func _hurt(amount: float, cause: String) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
-	p_hp -= amount * director.damage_mult(time) * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
+	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
 	_emit({"type": "hurt", "amount": amount})
 	if p_hp <= 0.0:
 		p_hp = 0.0
+		if def_on:
+			# Nucleus mode: you reform at the nucleus; only losing it ends the run.
+			p_down = float(dcfg.respawn_s)
+			p_dash_t = 0.0
+			_emit({"type": "player_down", "cause": cause})
+			return
 		state = "dead"
 		death_cause = cause
 		_emit({"type": "death"})
 
 
 func _contact_damage() -> void:
-	if p_iframes > 0.0 or state != "playing":
+	if p_iframes > 0.0 or state != "playing" or p_down > 0.0:
 		return
 	for i: int in query(p_pos, p_radius):
 		if e_hp[i] > 0.0:
@@ -1338,7 +1412,7 @@ func _ally_block_shots(i: int, pos: Vector2) -> void:
 	var k := s_pos.size() - 1
 	while k >= 0:
 		if s_pos[k].distance_squared_to(pos) < r2:
-			e_hp[i] -= s_dmg[k] * director.damage_mult(time)
+			e_hp[i] -= s_dmg[k] * _dmg_mult()
 			e_flash[i] = 0.06
 			if e_hp[i] <= 0.0:
 				_dead[i] = true
@@ -1356,7 +1430,7 @@ func _ally_block_shots(i: int, pos: Vector2) -> void:
 
 
 func _ally_power() -> float:
-	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power) * director.damage_mult(time)
+	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power) * _dmg_mult()
 
 
 func _ally_shot(from: Vector2, dir: Vector2, dmg: float) -> void:
@@ -1381,7 +1455,7 @@ func _update_ally_combat(dt: float) -> void:
 		return
 	_ally_tick -= tick
 	var power := _ally_power()
-	var hostile_mult := director.damage_mult(time)
+	var hostile_mult := _dmg_mult()
 	for i in e_pos.size():
 		if e_team[i] != 1 or e_hp[i] <= 0.0:
 			continue
@@ -1406,7 +1480,7 @@ func _update_ally_combat(dt: float) -> void:
 
 ## Damage scaled like the enemies' HP so dash upgrades stay relevant late.
 func _dash_power(base: float) -> float:
-	return base * (1.0 + float(stats.might)) * director.hp_mult(time)
+	return base * (1.0 + float(stats.might)) * _hp_mult()
 
 
 ## Lunge: everything the dash passes through takes damage once per dash.
@@ -1426,3 +1500,251 @@ func _decoy_blast() -> void:
 	for i: int in query(decoy_pos, float(pl.decoy_blast_radius)):
 		_damage(i, dmg, (e_pos[i] - decoy_pos).normalized() * 220.0)
 	_emit({"type": "nova", "pos": decoy_pos, "radius": float(pl.decoy_blast_radius)})
+
+
+# ============================================================ Nucleus mode
+
+func _setup_defense() -> void:
+	def_on = true
+	dcfg = bal.defense
+	dish_r = float(dcfg.dish_radius)
+	core_r = float(dcfg.core_radius)
+	core_max = float(dcfg.core_hp)
+	core_hp = core_max
+	biomass = float(dcfg.start_biomass)
+	tower_defs = data.get("towers", [])
+	wave_count = data.waves.defense.waves.size()
+	var n := int(dcfg.pads)
+	for k in n:
+		var a := -PI / 2.0 + TAU * k / n
+		pad_pos.append(Vector2(cos(a), sin(a)) * float(dcfg.pad_radius))
+		pad_tower.append(-1)
+		pad_level.append(0)
+		pad_cd.append(0.0)
+		pad_progress.append(0.0)
+	var nv := int(dcfg.vents)
+	for k in nv:
+		var a := -PI / 2.0 + PI / nv + TAU * k / nv  # between the pads' axes
+		vent_pos.append(Vector2(cos(a), sin(a)) * (dish_r - 70.0))
+	p_pos = core_pos + Vector2(0, core_r + 60.0)
+	wave_state = "breather"
+	wave_t = float(dcfg.first_breather_s)
+	_set_vents(0)
+
+
+func _set_vents(wave_index: int) -> void:
+	vents_active.clear()
+	if wave_index < wave_count:
+		for v in data.waves.defense.waves[wave_index].vents:
+			vents_active.append(int(v))
+
+
+func _vent_point() -> Vector2:
+	var v := vent_pos[vents_active[rng.randi() % vents_active.size()]] if not vents_active.is_empty() else vent_pos[0]
+	return v + Vector2(rng.randf_range(-50, 50), rng.randf_range(-50, 50))
+
+
+## Enemy HP and damage growth: over time normally, per wave in Nucleus mode
+## (so stalling a wave doesn't make the next one tankier).
+func _hp_mult() -> float:
+	if def_on:
+		return 1.0 + float(dcfg.hp_growth_per_wave) * maxi(wave - 1, 0)
+	return director.hp_mult(time)
+
+
+func _dmg_mult() -> float:
+	if def_on:
+		return 1.0 + float(dcfg.damage_growth_per_wave) * maxi(wave - 1, 0)
+	return director.damage_mult(time)
+
+
+func _in_dish(p: Vector2, r: float) -> Vector2:
+	if terr != null:
+		return terr.clamp_inside(p, r)
+	if dish_r > 0.0 and p.length_squared() > (dish_r - r) * (dish_r - r):
+		return p.normalized() * (dish_r - r)
+	return p
+
+
+func _update_down(dt: float) -> void:
+	p_down -= dt
+	if p_down > 0.0:
+		return
+	p_down = 0.0
+	p_pos = core_pos + Vector2(0, core_r + 40.0)
+	p_hp = p_max_hp
+	p_iframes = float(dcfg.respawn_iframes_s)
+	_emit({"type": "respawn", "pos": p_pos})
+
+
+## Wave flow: breather (countdown) -> spawning (budget released at the vents)
+## -> fighting (until nearly clear, or a max wait so turtling can't stall).
+func _update_waves(dt: float) -> void:
+	match wave_state:
+		"breather":
+			core_hp = minf(core_max, core_hp + float(dcfg.core_regen_breather) * dt)
+			wave_t -= dt
+			if wave_t <= 0.0:
+				_start_wave()
+		"spawning":
+			for order in director.update_wave(dt, hostile_count()):
+				var c := _vent_point()
+				for k in int(order.count):
+					_add_enemy(order.id, c + Vector2(rng.randf_range(-40, 40), rng.randf_range(-40, 40)))
+			if director.wave_spawned():
+				wave_state = "fighting"
+				wave_t = 0.0
+		"fighting":
+			wave_t += dt
+			var last := wave >= wave_count
+			var left := hostile_count()
+			if left == 0 or (not last and (left <= int(dcfg.clear_left) or wave_t >= float(dcfg.max_wave_wait_s))):
+				_wave_cleared()
+
+
+func _start_wave() -> void:
+	var def: Dictionary = data.waves.defense.waves[wave]
+	wave += 1
+	wave_state = "spawning"
+	director.start_wave(def)
+	var el: Dictionary = data.waves.elites
+	var choices := []
+	for e in def.enemies:
+		if el.types.has(e):
+			choices.append(e)
+	for k in int(def.get("elites", 0)):
+		if choices.is_empty():
+			break
+		var id: String = choices[rng.randi() % choices.size()]
+		_add_enemy(id, _vent_point(), true)
+		_emit({"type": "elite_spawn", "id": id})
+	if def.get("boss", false):
+		_add_enemy("boss", _vent_point())
+		_emit({"type": "boss_spawn"})
+	_emit({"type": "wave_start", "wave": wave, "of": wave_count, "boss": def.get("boss", false)})
+
+
+func _wave_cleared() -> void:
+	waves_cleared += 1
+	var bonus := float(dcfg.wave_bonus) + float(dcfg.wave_bonus_per_wave) * (wave - 1)
+	biomass += bonus
+	_emit({"type": "wave_clear", "wave": wave, "bonus": roundi(bonus)})
+	if wave >= wave_count:
+		state = "won"
+		_emit({"type": "victory"})
+		return
+	wave_state = "breather"
+	wave_t = float(dcfg.breather_s)
+	_set_vents(wave)
+
+
+## Germs touching the nucleus damage it on a short tick.
+func _update_core(dt: float) -> void:
+	_core_tick += dt
+	var tick := float(dcfg.core_tick_s)
+	if _core_tick < tick:
+		return
+	_core_tick -= tick
+	var dmg := 0.0
+	for i: int in query(core_pos, core_r + 6.0):
+		if e_hp[i] <= 0.0:
+			continue
+		var d: Dictionary = enemy_defs[e_type[i]]
+		dmg += float(d.damage) * (float(data.waves.elites.damage_mult) if e_elite[i] == 1 else 1.0)
+	if dmg > 0.0:
+		_hurt_core(dmg * float(dcfg.core_damage_mult) * _dmg_mult() * tick / 0.5)
+
+
+func _hurt_core(amount: float) -> void:
+	if state != "playing" or bal.get("debug", {}).get("invincible", false):
+		return
+	core_hp -= amount
+	_emit({"type": "core_hit", "amount": amount})
+	if core_hp <= 0.0:
+		core_hp = 0.0
+		state = "dead"
+		death_cause = "nucleus"
+		_emit({"type": "death"})
+
+
+## Cost of the next build/upgrade on a pad, or -1 if its tower is maxed.
+## Empty pads build the first tower type (step 1: Bolt Spire only).
+func pad_next_cost(k: int) -> int:
+	var t: Dictionary = tower_defs[maxi(pad_tower[k], 0)]
+	if pad_level[k] >= t.levels.size():
+		return -1
+	return int(t.levels[pad_level[k]].cost)
+
+
+## The pad the player stands on, or -1.
+func pad_under_player() -> int:
+	if p_down > 0.0:
+		return -1
+	var r := float(dcfg.pad_size)
+	for k in pad_pos.size():
+		if p_pos.distance_squared_to(pad_pos[k]) < r * r:
+			return k
+	return -1
+
+
+## Standing on a pad fills its ring; when full it builds or upgrades, if the
+## biomass covers it. Step off and back on for the next level.
+func _update_pads(dt: float) -> void:
+	var on := pad_under_player()
+	if on != _pad_latch:
+		_pad_latch = -1
+	for k in pad_pos.size():
+		if k != on or k == _pad_latch:
+			pad_progress[k] = maxf(0.0, pad_progress[k] - dt * 2.0)
+	if on < 0 or on == _pad_latch:
+		return
+	var cost := pad_next_cost(on)
+	if cost < 0 or biomass < float(cost):
+		pad_progress[on] = maxf(0.0, pad_progress[on] - dt * 2.0)
+		return
+	pad_progress[on] += dt / float(dcfg.build_s)
+	if pad_progress[on] >= 1.0:
+		pad_progress[on] = 0.0
+		_pad_latch = on
+		_build(on, cost)
+
+
+func _build(k: int, cost: int) -> void:
+	biomass -= float(cost)
+	var fresh := pad_tower[k] < 0
+	if fresh:
+		pad_tower[k] = 0
+		towers_built += 1
+	pad_level[k] += 1
+	pad_cd[k] = 0.3
+	var t: Dictionary = tower_defs[pad_tower[k]]
+	_emit({"type": "tower_built" if fresh else "tower_upgraded", "pad": k, "pos": pad_pos[k], "name": t.name, "level": pad_level[k], "color": t.get("color", "#ffffff")})
+
+
+## A tower's stats at its level, with the player's might and haste applied.
+func tower_stats(k: int) -> Dictionary:
+	var w: Dictionary = tower_defs[pad_tower[k]].levels[pad_level[k] - 1].duplicate()
+	w.damage = float(w.damage) * (1.0 + float(stats.might))
+	w.cooldown = maxf(0.1, float(w.cooldown) * maxf(0.35, 1.0 - float(stats.haste)))
+	return w
+
+
+func _update_towers(dt: float) -> void:
+	for k in pad_pos.size():
+		if pad_tower[k] < 0:
+			continue
+		pad_cd[k] -= dt
+		if pad_cd[k] > 0.0:
+			continue
+		var w := tower_stats(k)
+		var tgt := _priority_target(pad_pos[k], float(w.range))
+		if tgt < 0:
+			pad_cd[k] = 0.0
+			continue
+		pad_cd[k] = float(w.cooldown)
+		var base := (e_pos[tgt] - pad_pos[k]).normalized()
+		var n := int(w.get("count", 1))
+		for j in n:
+			var ang := deg_to_rad(9.0) * (j - (n - 1) / 2.0)
+			_spawn_bullet(base.rotated(ang) * float(w.speed), w, pad_pos[k])
+		_emit({"type": "shoot", "tower": k})

@@ -70,6 +70,21 @@ func move(w: World) -> Vector2:
 			dir = (dir * 0.6 + home * 1.4).normalized()
 		if w.p_pos.length() > w.terr.radius - 250.0:
 			dir = (dir - w.p_pos.normalized() * 0.8).normalized()
+	# Nucleus: build/upgrade when the biomass allows, otherwise defend close
+	# to the nucleus instead of wandering off after gems.
+	if w.def_on:
+		if w.p_down > 0.0:
+			return Vector2.ZERO
+		var pad := _affordable_pad(w)
+		if pad >= 0:
+			var to_pad := w.pad_pos[pad] - w.p_pos
+			var safety := clampf(1.0 - away.length() / 0.03, 0.2, 1.0)
+			dir = (dir * (1.0 - safety) + to_pad.normalized() * 1.6 * safety).normalized() if to_pad.length() > 8.0 else Vector2.ZERO
+		elif w.p_pos.distance_to(w.core_pos) > 380.0:
+			dir = (dir + (w.core_pos - w.p_pos).normalized() * 1.2).normalized()
+	var rim := w.dish_r
+	if w.terr == null and rim > 0.0 and w.p_pos.length() > rim - 250.0:
+		dir = (dir - w.p_pos.normalized() * 0.8).normalized()
 	# Dash out when something is about to touch us.
 	if w.can_dash() and away.length() > 0.05:
 		w.p_move = dir
@@ -85,3 +100,18 @@ func pick(w: World) -> String:
 	if not weapons.is_empty() and rng.randf() < 0.6:
 		return weapons[rng.randi() % weapons.size()]
 	return w.offers[rng.randi() % w.offers.size()]
+
+
+## Cheapest pad action the biomass covers (new towers before upgrades), or -1.
+func _affordable_pad(w: World) -> int:
+	var best := -1
+	var best_cost := INF
+	for k in w.pad_pos.size():
+		var c := w.pad_next_cost(k)
+		if c < 0 or float(c) > w.biomass:
+			continue
+		var score := float(c) + (0.0 if w.pad_tower[k] < 0 else 30.0)
+		if score < best_cost:
+			best_cost = score
+			best = k
+	return best

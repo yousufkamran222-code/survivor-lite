@@ -70,10 +70,60 @@ func update(dt: float, t: float, alive: int) -> Array:
 			_done_events[i] = true
 			out.append({"id": ev.enemy, "count": int(ev.count), "pattern": ev.get("pattern", "ring")})
 	budget = minf(budget + budget_rate(t) * budget_mult * dt, float(waves.max_budget_bank))
-	var cap := int(waves.max_alive)
-	var pool := pool_at(t)
-	if pool.is_empty():
+	_spend(pool_at(t), alive, out)
+	return out
+
+
+# ------------------------------------------------- Nucleus mode: wave table
+
+var _wave: Dictionary = {}
+var _wave_pool: Array = []
+var _wave_left := 0.0  # budget still to release this wave
+
+
+## Starts a wave from waves.defense.waves: its budget is released evenly over
+## its duration and spent on its enemies (weights and groups from waves.pool).
+func start_wave(def: Dictionary) -> void:
+	_wave = def
+	_wave_left = float(def.budget)
+	budget = 0.0
+	_next_pick = {}
+	_wave_pool = []
+	for p in waves.pool:
+		if def.enemies.has(p.enemy):
+			_wave_pool.append(p)
+
+
+## Spawn orders for this tick of the current wave.
+func update_wave(dt: float, alive: int) -> Array:
+	var out := []
+	if _wave.is_empty():
 		return out
+	var rel := minf(_wave_left, float(_wave.budget) / maxf(float(_wave.duration), 0.1) * dt)
+	_wave_left -= rel
+	budget += rel
+	_spend(_wave_pool, alive, out)
+	return out
+
+
+## True once the wave's budget is released and nothing more can be bought.
+func wave_spawned() -> bool:
+	if _wave_left > 0.0:
+		return false
+	# Spending waits for the enemy it already picked; if the leftover can't
+	# pay for that one, the wave is done (else it would wait forever).
+	if not _next_pick.is_empty():
+		return float(enemies[_next_pick.enemy].cost) * int(_next_pick.get("group", 1)) > budget
+	for p in _wave_pool:
+		if float(enemies[p.enemy].cost) * int(p.get("group", 1)) <= budget:
+			return false
+	return true
+
+
+func _spend(pool: Array, alive: int, out: Array) -> void:
+	var cap := int(waves.max_alive)
+	if pool.is_empty():
+		return
 	var guard := 0
 	while alive < cap and guard < 64:
 		guard += 1
@@ -87,7 +137,6 @@ func update(dt: float, t: float, alive: int) -> Array:
 		out.append({"id": _next_pick.enemy, "count": n, "pattern": "cluster"})
 		alive += n
 		_next_pick = {}
-	return out
 
 
 func _weighted(pool: Array) -> Dictionary:

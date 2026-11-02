@@ -1,4 +1,20 @@
 {
+  "defense": {
+    "waves": [
+      {"duration": 12, "budget": 14, "enemies": ["grunt"], "vents": [0], "elites": 0},
+      {"duration": 14, "budget": 22, "enemies": ["grunt", "swarm"], "vents": [2], "elites": 0},
+      {"duration": 15, "budget": 32, "enemies": ["grunt", "swarm", "runner"], "vents": [1, 3], "elites": 0},
+      {"duration": 16, "budget": 45, "enemies": ["grunt", "swarm", "runner", "spitter"], "vents": [0, 2], "elites": 0},
+      {"duration": 18, "budget": 60, "enemies": ["grunt", "swarm", "runner", "brute"], "vents": [1, 3], "elites": 1},
+      {"duration": 18, "budget": 75, "enemies": ["grunt", "swarm", "runner", "spitter", "charger"], "vents": [0, 1, 2], "elites": 0},
+      {"duration": 20, "budget": 95, "enemies": ["grunt", "swarm", "runner", "brute", "splitter"], "vents": [1, 2, 3], "elites": 1},
+      {"duration": 20, "budget": 115, "enemies": ["grunt", "swarm", "runner", "spitter", "charger", "splitter"], "vents": [0, 2], "elites": 1},
+      {"duration": 22, "budget": 140, "enemies": ["grunt", "swarm", "runner", "spitter", "brute", "charger", "splitter"], "vents": [0, 1, 2, 3], "elites": 1},
+      {"duration": 22, "budget": 165, "enemies": ["grunt", "swarm", "runner", "spitter", "brute", "charger", "splitter"], "vents": [0, 1, 2, 3], "elites": 2},
+      {"duration": 24, "budget": 195, "enemies": ["grunt", "swarm", "runner", "spitter", "brute", "charger", "splitter"], "vents": [0, 1, 2, 3], "elites": 2},
+      {"duration": 20, "budget": 150, "enemies": ["grunt", "swarm", "runner", "spitter", "brute", "charger", "splitter"], "vents": [0, 1, 2, 3], "elites": 1, "boss": true}
+    ]
+  },
   "budget_curve": [[0, 2.4], [45, 3.8], [90, 5.5], [150, 8.5], [210, 13.0], [270, 17.0], [300, 20.0]],
   "max_budget_bank": 12,
   "max_alive": 170,

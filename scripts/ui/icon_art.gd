@@ -140,6 +140,13 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 			for t in 6:
 				var a := TAU * t / 6.0
 				ci.draw_arc(c + Vector2(cos(a), sin(a)) * k * 0.78, k * 0.2, 0, TAU, 12, col, lw * 0.8)
+		"mode_nucleus":
+			# The nucleus ringed by tower pads.
+			ci.draw_circle(c, k * 0.42, col)
+			ci.draw_circle(c, k * 0.18, w)
+			for t in 6:
+				var a := -PI / 2.0 + TAU * t / 6.0
+				ci.draw_arc(c + Vector2(cos(a), sin(a)) * k * 0.8, k * 0.14, 0, TAU, 10, w, lw * 0.8)
 		"mode_classic":
 			ci.draw_arc(c, k * 0.7, 0, TAU, 24, col, lw)
 			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:

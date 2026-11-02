@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -129,6 +129,7 @@ static func validate(d: Dictionary) -> Array:
 			ach_ids[a.id] = true
 			if float(a.goal) <= 0.0:
 				errors.append("achievement %s needs a positive goal" % a.id)
+	_validate_defense(d, enemy_ids, errors)
 	if d.waves.has("elites"):
 		for t in d.waves.elites.types:
 			if not enemy_ids.has(t):
@@ -136,3 +137,45 @@ static func validate(d: Dictionary) -> Array:
 			elif float(enemy_ids[t].radius) * float(d.waves.elites.radius_mult) > float(d.balance.perf.max_enemy_radius):
 				errors.append("elite %s radius exceeds perf.max_enemy_radius" % t)
 	return errors
+
+
+## Nucleus (tower defence) mode: towers and the wave table.
+static func _validate_defense(d: Dictionary, enemy_ids: Dictionary, errors: Array) -> void:
+	var tower_ids := {}
+	for t in d.get("towers", []):
+		if tower_ids.has(t.id):
+			errors.append("duplicate tower '%s'" % t.id)
+		tower_ids[t.id] = true
+		if not (t.get("weapon", "") in ["bolt"]):
+			errors.append("tower %s uses unsupported weapon '%s'" % [t.id, t.get("weapon", "")])
+		if t.levels.is_empty():
+			errors.append("tower %s has no levels" % t.id)
+		for k in t.levels.size():
+			for key in ["cost", "damage", "cooldown", "range"]:
+				if not t.levels[k].has(key):
+					errors.append("tower %s level %d missing '%s'" % [t.id, k + 1, key])
+			if k > 0 and int(t.levels[k].cost) <= int(t.levels[k - 1].cost):
+				errors.append("tower %s costs must increase" % t.id)
+	if not d.waves.has("defense"):
+		return
+	var pool_ids := {}
+	for p in d.waves.pool:
+		pool_ids[p.enemy] = true
+	var vents := int(d.balance.get("defense", {}).get("vents", 0))
+	var waves: Array = d.waves.defense.waves
+	if waves.is_empty():
+		errors.append("waves.defense has no waves")
+	if d.get("towers", []).is_empty():
+		errors.append("the Nucleus mode needs at least one tower")
+	for k in waves.size():
+		var wv: Dictionary = waves[k]
+		for e in wv.enemies:
+			if not pool_ids.has(e):
+				errors.append("defense wave %d: '%s' is not in waves.pool" % [k + 1, e])
+		if wv.vents.is_empty():
+			errors.append("defense wave %d has no vents" % [k + 1])
+		for v in wv.vents:
+			if int(v) < 0 or int(v) >= vents:
+				errors.append("defense wave %d uses vent %d (only %d)" % [k + 1, int(v), vents])
+		if float(wv.duration) <= 0.0 or float(wv.budget) <= 0.0:
+			errors.append("defense wave %d needs a positive duration and budget" % [k + 1])

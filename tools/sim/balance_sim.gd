@@ -86,6 +86,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
+		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0),
 	}
 
@@ -110,7 +111,13 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var infected := 0.0
 	var convs := 0
 	var allies := 0
+	var waves := []
+	var towers := 0
+	var core_left := 0.0
 	for r in results:
+		waves.append(r.waves_cleared)
+		towers += r.towers
+		core_left += r.core_left
 		times.append(r.time)
 		levels.append(r.level)
 		peak = maxi(peak, r.peak_enemies)
@@ -129,6 +136,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 			bosses += 1
 	times.sort()
 	levels.sort()
+	waves.sort()
 	# Upgrade impact: mean survival time of runs that owned each upgrade.
 	var impact := {}
 	for u in d.upgrades:
@@ -157,6 +165,10 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
 		"mean_chests": snappedf(float(chests) / maxf(results.size(), 1), 0.1),
 		"mean_evolutions": snappedf(float(evos) / maxf(results.size(), 1), 0.01),
+		"waves_cleared_p50": _pct(waves, 0.5),
+		"waves_cleared_p10": _pct(waves, 0.1),
+		"mean_towers": snappedf(float(towers) / maxf(results.size(), 1), 0.1),
+		"mean_core_left": snappedf(core_left / maxf(results.size(), 1), 0.01),
 		"peak_enemies": peak,
 		"death_causes": causes,
 		"death_time_buckets": buckets,

@@ -37,6 +37,7 @@ var _terr_img: Image
 var _terr_tex: ImageTexture
 var _land_color := Color(0.36, 0.88, 0.9, 0.3)
 var _blob_scale := 1.0
+var _core_flash := 0.0
 
 
 func setup(game_data: Dictionary) -> void:
@@ -159,6 +160,24 @@ func consume(events: Array) -> void:
 			"hurt":
 				add_shake(float(juice.shake_hurt))
 				_hurt_t = float(bal.player.iframes_s)
+			"core_hit":
+				_core_flash = 0.2
+				add_shake(2.5)
+			"tower_built", "tower_upgraded":
+				var tc := GameData.color(ev.color)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 110.0, "life": 0.45, "color": tc}, max_fx + 4)
+				for n in 12:
+					var a := TAU * n / 12.0
+					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * 260.0, "color": tc, "r": 6.0, "life": 0.45}, max_fx + 16)
+				add_shake(5.0)
+			"respawn":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.5, "color": pal.player}, max_fx + 4)
+			"player_down":
+				_add_fx({"kind": "pop", "pos": world.p_pos, "color": pal.player_hurt, "r": 40.0, "life": 0.4}, max_fx + 4)
+				add_shake(8.0)
+			"wave_start":
+				for v in world.vents_active:
+					_add_fx({"kind": "ring", "pos": world.vent_pos[v], "r": 150.0, "life": 0.5, "color": pal.vent}, max_fx + 4)
 			"boss_killed":
 				add_shake(float(juice.shake_boss_kill))
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 260.0, "life": 0.6}, max_fx + 4)
@@ -194,11 +213,12 @@ func _process(delta: float) -> void:
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
+	_core_flash = maxf(0.0, _core_flash - delta)
 	if world.p_dash_t > 0.0:
 		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(pal.player, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
 	shake = maxf(0.0, shake - float(juice.shake_decay) * delta)
 	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
-	cam.position = world.p_pos + off
+	cam.position = (world.core_pos if world.p_down > 0.0 else world.p_pos) + off
 	var vp := get_viewport_rect().size
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)
 	_fill_gems(view)
@@ -224,6 +244,10 @@ func _draw() -> void:
 	draw_texture_rect(BG_TILE, Rect2(origin, size), true)
 	if world.terr != null:
 		_draw_territory()
+	elif world.dish_r > 0.0:
+		_draw_rim(world.dish_r)
+	if world.def_on:
+		_draw_defense()
 
 
 func _draw_territory() -> void:
@@ -234,9 +258,61 @@ func _draw_territory() -> void:
 		t.dirty.clear()
 		_terr_tex.update(_terr_img)
 	draw_texture_rect(_terr_tex, Rect2(t.origin, Vector2.ONE * t.cell * t.n), false)
-	# Darken everything outside the dish and draw the glass rim.
-	draw_arc(Vector2.ZERO, t.radius + 700.0, 0, TAU, 96, Color(0.04, 0.02, 0.08, 0.9), 1400.0)
-	draw_arc(Vector2.ZERO, t.radius, 0, TAU, 128, Color(0.75, 0.85, 1.0, 0.35), 10.0)
+	_draw_rim(t.radius)
+
+
+## Darken everything outside the dish and draw the glass rim.
+func _draw_rim(radius: float) -> void:
+	draw_arc(Vector2.ZERO, radius + 700.0, 0, TAU, 96, Color(0.04, 0.02, 0.08, 0.9), 1400.0)
+	draw_arc(Vector2.ZERO, radius, 0, TAU, 128, Color(0.75, 0.85, 1.0, 0.35), 10.0)
+
+
+## Nucleus mode: vents, build pads and towers, and the nucleus itself. Drawn
+## under the enemies (only a handful of shapes).
+func _draw_defense() -> void:
+	var w := world
+	var now := Time.get_ticks_msec() / 1000.0
+	var pulse := 0.5 + 0.5 * sin(now * (7.0 if w.wave_state == "breather" else 3.0))
+	for v in w.vents_active:
+		var vp := w.vent_pos[v]
+		draw_circle(vp, 70.0 + 12.0 * pulse, Color(pal.vent, 0.10 + 0.12 * pulse))
+		draw_arc(vp, 52.0, 0, TAU, 32, Color(pal.vent, 0.5 + 0.4 * pulse), 5.0)
+	var on := w.pad_under_player()
+	var ps := float(w.dcfg.pad_size)
+	for k in w.pad_pos.size():
+		var pos := w.pad_pos[k]
+		var cost := w.pad_next_cost(k)
+		var afford := cost >= 0 and w.biomass >= float(cost)
+		var lv := w.pad_level[k]
+		if w.pad_tower[k] < 0:
+			draw_circle(pos, ps, Color(pal.pad, 0.10 if afford else 0.05))
+			draw_arc(pos, ps, 0, TAU, 32, Color(pal.pad, 0.75 if afford else 0.3), 4.0)
+			draw_string(font, pos + Vector2(-40, 9), str(cost), HORIZONTAL_ALIGNMENT_CENTER, 80, 26, Color(1, 1, 1, 0.9 if afford else 0.45))
+		else:
+			var t: Dictionary = w.tower_defs[w.pad_tower[k]]
+			var tc := GameData.color(t.get("color", "#ffffff"))
+			var maxed := cost < 0
+			draw_circle(pos, ps * 0.78, Color(0, 0, 0, 0.35))
+			draw_circle(pos, ps * 0.66, Color("#3d2d6b"))
+			draw_arc(pos, ps * 0.66, 0, TAU, 28, pal.ui_accent if maxed else tc, 4.0)
+			var h := 12.0 + 4.0 * lv
+			draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -h), pos + Vector2(h * 0.6, 0), pos + Vector2(0, h * 0.7), pos + Vector2(-h * 0.6, 0)]), tc)
+			for j in lv:
+				draw_circle(pos + Vector2((j - (lv - 1) / 2.0) * 13.0, ps * 0.66 + 12.0), 4.5, pal.ui_accent if maxed else tc)
+			if k == on or w.p_pos.distance_squared_to(pos) < 160.0 * 160.0:
+				var label := "MAX" if maxed else "UP %d" % cost
+				draw_string(font, pos + Vector2(-60, -ps - 10), label, HORIZONTAL_ALIGNMENT_CENTER, 120, 22, Color(pal.pad if afford else Color(1, 1, 1, 0.5)) if not maxed else pal.ui_accent)
+		if w.pad_progress[k] > 0.0:
+			draw_arc(pos, ps + 8.0, -PI / 2.0, -PI / 2.0 + TAU * minf(w.pad_progress[k], 1.0), 32, pal.pad, 7.0)
+	# The nucleus: soft glow, membrane, nucleus; flashes when hit.
+	var c := w.core_pos
+	var r := w.core_r * (1.0 + 0.025 * sin(now * 2.0))
+	var hpf := w.core_hp / maxf(w.core_max, 1.0)
+	var body: Color = pal.core.lerp(pal.player_hurt, clampf(_core_flash * 5.0, 0.0, 1.0))
+	draw_circle(c, r + 22.0, Color(pal.core, 0.10))
+	draw_circle(c, r + 8.0, Color(body, 0.35))
+	draw_circle(c, r, body)
+	draw_circle(c + Vector2(cos(now * 0.6), sin(now * 0.8)) * 5.0, r * 0.45, pal.core_nucleus.darkened(0.4 * (1.0 - hpf)))
 
 
 func _fill_gems(view: Rect2) -> void:
@@ -379,6 +455,8 @@ func _draw_top() -> void:
 
 
 func _draw_player(ci: CanvasItem) -> void:
+	if world.p_down > 0.0:
+		return  # reforming at the nucleus
 	var p := world.p_pos
 	var r := world.p_radius
 	var body: Color = pal.player

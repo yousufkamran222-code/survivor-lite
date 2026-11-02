@@ -1,0 +1,3 @@
+[
+  {"id": "bolt_spire", "name": "Bolt Spire", "weapon": "bolt", "color": "#5ce1e6", "desc": "Shoots the nearest germ, elites first", "levels": [{"cost": 25, "damage": 8, "cooldown": 0.8, "count": 1, "pierce": 0, "speed": 650, "size": 7, "range": 480, "knockback": 80}, {"cost": 45, "damage": 13, "cooldown": 0.6, "count": 1, "pierce": 0, "speed": 700, "size": 8, "range": 520, "knockback": 90}, {"cost": 80, "damage": 18, "cooldown": 0.5, "count": 2, "pierce": 1, "speed": 750, "size": 9, "range": 560, "knockback": 100}]}
+]

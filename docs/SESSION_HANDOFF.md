@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **94 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **110 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg` (the repo's only branch, and the default branch).
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 94 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 110 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -150,7 +150,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (94 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (110 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -245,7 +245,8 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **upgrades.json:** 4 weapons (bolt/orbit/nova/chain, 5 levels each; orbit has `blocks_shots`), passives might/haste/swift/vitality/magnet/multishot(2)/regen(3), dash cards flagella2/lunge/afterimage/adrenaline, Swarm-only viral/hive/incubate. Each level row is stat deltas; `desc` is per level, or one string.
 - **evolutions.json:** storm (bolt + multishot), wall (orbit + vitality, heal_on_hit), fever (nova + regen, pulses 2), neural (chain + haste, forks 3).
 - **meta.json:** 15 entries `{id, name, stat, per_level, desc, fmt pct|flat, costs[]}`; costs must strictly increase (validated).
-- **modes.json:** infection/swarm/classic with overrides plus menu card fields.
+- **modes.json:** infection/swarm/nucleus/classic with overrides plus menu card fields.
+- **balance.json `defense`** (Nucleus mode): nucleus hp/radius/damage taken, aggro_radius, pads, build_s, biomass rates, vents, breathers, max wave wait, respawn, per-wave enemy growth. **towers.json:** towers with per-level stats (`weapon` must be one World knows how to fire: `bolt` for now). **waves.json `defense.waves`:** duration, budget, enemies, vents, elites, boss.
 - **online.json:** `score` weights; 5 `leaderboards` {id, name, mode, metric score|infected_pct|conversions|kills|time}; 18 `achievements` {id, name, desc, stat (a key of `Profile.flat()`), goal}.
 
 ---
@@ -318,7 +319,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 2. **Theme and name are still open** (working title "Petri Panic"; tagline "You are the infection"). Raise this before store work (M4).
 
 **Planned features (agreed or proposed):**
-0. **Nucleus (tower defence) mode: planned and agreed, next to build.** Full spec and build order in `docs/ROADMAP.md` "Prototype 3" (D-013). Start with step 1 (core loop, Bolt Spire only) and get a playtest verdict before step 2.
+0. **Nucleus (tower defence) mode: step 1 built 2026-11-02, awaiting Yousuf's playtest.** Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). Next: step 2 (4 towers + pick popup, countdown polish, boss wave, win → COLLECT / KEEP GOING Free Mode) after his verdict.
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:
    - Leukocyte / Spore Burst
    - Virus / Hijack

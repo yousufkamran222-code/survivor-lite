@@ -25,8 +25,9 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 ## Architecture (keep it this way)
 ```
 data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory, conversion), enemies,
-                     upgrades, evolutions, waves (incl. elites), meta, modes, online (leaderboards,
-                     achievements, score formula). Tune here, not in code.
+                     upgrades, evolutions, waves (incl. elites + the Nucleus wave table), meta, modes,
+                     towers (Nucleus mode), online (leaderboards, achievements, score formula).
+                     Tune here, not in code.
 scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
                      trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression
                      (XP, gold, run summary + score), Profile (persistent progress: stats, records,
@@ -55,7 +56,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 5. **Never commit secrets**: keystores, passwords, service-account JSON, real AdMob IDs. CI injects them from GitHub secrets. Use AdMob **test IDs** in code.
 6. Assets: CC0 only, and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py`.
 7. Prefer data edits over code edits, and small diffs over refactors. Don't rename or move files without a reason.
-8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 15 shared upgrades (incl. 4 dash cards), 4 evolutions (one per weapon), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
+8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 15 shared upgrades (incl. 4 dash cards), 4 evolutions (one per weapon), up to 4 tower types (Nucleus mode only, reusing the weapons), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
 9. Turn playtest feedback ("dash feels floaty", "wave 4 too hard") into data changes first, using `balance.json` `juice` and `waves.json`.
 
 ## Performance budget (low-end Android is the target)
@@ -74,7 +75,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 
 ## Direction
 `docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A).
-**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1` that hold a bodyguard ring around the player; `query()` and the targeting helpers only return hostiles by default, and anything that loops over `e_pos` must skip allies itself), Classic. Upgrades can be limited to modes with `"modes": [...]`.
+**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1` that hold a bodyguard ring around the player; `query()` and the targeting helpers only return hostiles by default, and anything that loops over `e_pos` must skip allies itself), Classic. **Nucleus** (tower defence, `balance.defense` + `data/towers.json` + `waves.defense.waves`): germs march on a central nucleus from rim vents (switching to the player within `aggro_radius`), kills give biomass, standing on a pad builds/upgrades a tower, the player respawns, only the nucleus dying ends the run; 12 waves; enemy HP/damage grow per wave, not per minute. Upgrades can be limited to modes with `"modes": [...]`.
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone, and `docs/SESSION_HANDOFF.md` §10 for the prioritised backlog and open questions. Update both when you finish something.

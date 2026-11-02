@@ -104,6 +104,8 @@ func _draw() -> void:
 	if world.terr != null:
 		var pct := roundi(world.terr.infected_fraction() * 100.0)
 		draw_string(font, Vector2(0, 96), "INFECTED %d%%" % pct, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
+	if world.def_on:
+		_draw_defense(w)
 	# Boss bar.
 	if world.boss_index >= 0 and world.boss_index < world.e_hp.size():
 		var f := world.e_hp[world.boss_index] / world.e_maxhp[world.boss_index]
@@ -148,6 +150,8 @@ func _draw_arrows() -> void:
 			targets.append([world.e_pos[i], elite_color, false])
 	if world.boss_index >= 0 and world.boss_index < world.e_pos.size():
 		targets.append([world.e_pos[world.boss_index], pal.hp_bar, false])
+	if world.def_on:
+		targets.append([world.core_pos, pal.core, false])
 	for tg in targets:
 		var sp: Vector2 = tg[0] - cam_pos + half
 		if Rect2(Vector2.ZERO, size).grow(-10).has_point(sp):
@@ -219,3 +223,31 @@ func _draw_owned() -> void:
 			draw_string(font, c + Vector2(px * 0.3, px * 0.55), str(world.owned[u.id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.85))
 			y += px + 8.0
 		y += 6.0
+
+
+## Nucleus mode: wave counter / countdown, nucleus health, biomass, the pad
+## you're standing on, and the respawn countdown.
+func _draw_defense(w: float) -> void:
+	var wd := world
+	var txt := ""
+	if wd.wave_state == "breather":
+		txt = "WAVE %d IN %d" % [wd.wave + 1, ceili(wd.wave_t)] if wd.wave < wd.wave_count else ""
+	else:
+		txt = "FINAL WAVE" if wd.wave >= wd.wave_count else "WAVE %d / %d" % [wd.wave, wd.wave_count]
+	draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, pal.core)
+	draw_string(font, Vector2(16, 128), "BIOMASS %d" % floori(wd.biomass), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, pal.pad)
+	var f := wd.core_hp / maxf(wd.core_max, 1.0)
+	var r := Rect2(60, 150, w - 120, 16)
+	draw_rect(r, Color(0, 0, 0, 0.55))
+	var low := f < 0.3 and fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
+	draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.player_hurt if low else pal.core)
+	draw_string(font, Vector2(0, 145), "NUCLEUS", HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color(pal.text, 0.8))
+	var pad := wd.pad_under_player()
+	if pad >= 0:
+		var cost := wd.pad_next_cost(pad)
+		var hint := "Fully upgraded" if cost < 0 else ("Hold to build" if wd.pad_tower[pad] < 0 else "Hold to upgrade") if wd.biomass >= cost else "Need %d biomass" % cost
+		draw_string_outline(font, Vector2(0, size.y * 0.5 - 70.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, 6, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, size.y * 0.5 - 70.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, pal.pad if cost >= 0 and wd.biomass >= cost else Color(pal.text, 0.75))
+	if wd.p_down > 0.0:
+		draw_string_outline(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, 8, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, pal.player)

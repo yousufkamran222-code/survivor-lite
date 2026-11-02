@@ -59,7 +59,7 @@ Original plan:
 - New upgrades: Viral Load (convert chance), Hijack (convert stats), Incubation (a bigger cap).
 - Test question: does a growing swarm feel like power without hiding the danger?
 
-## Prototype 3: "Nucleus" mode (tower defence): **planned 2026-11-02, not built yet**
+## Prototype 3: "Nucleus" mode (tower defence): **step 1 built 2026-11-02, awaiting playtest**
 Yousuf's choices (2026-11-02): germs go for the nucleus but switch to you when close; build by **standing on a pad**; **12 numbered waves**, then on a win you may **continue into endless Free Mode**; only the **nucleus dying** ends the run (you respawn).
 
 ### The mode in one paragraph
@@ -93,6 +93,13 @@ A big host **nucleus** sits at the centre of a bounded dish. Germs pour in from 
 - Bot: walk to a pad when biomass covers the next build/upgrade, otherwise fight near the nucleus. Sim report: waves cleared, nucleus HP left, towers built, win rate, best free-mode wave.
 - Tests: nucleus damage and loss condition, aggro switch, pad build cost/progress, tower fires from its pad, wave table determinism, free-mode scaling, respawn, save loads without `best_wave`.
 - Scope: CLAUDE.md rule 8 gets "4 tower types (Nucleus mode only, reusing the weapons)". Perf: at most 6 towers; their shots go through the existing bullet caps.
+
+### Step 1 as built (2026-11-02)
+- Everything in "Rules" above except the tower-pick popup (empty pads build the Bolt Spire), Free Mode, the boss-wave intro and the repair ad. 6 pads, 4 vents (each wave lists its vents; they pulse during the countdown), 12 waves.
+- Building: stand on a pad, the ring fills in 0.9 s; step off and back on for the next level. HUD: "WAVE 3 / 12" or "WAVE 4 IN 3", nucleus bar, biomass, "Hold to build / Need 45 biomass", "REFORMING 5", and an off-screen arrow to the nucleus.
+- **Enemy scaling is per wave in this mode** (`defense.hp_growth_per_wave` 0.5, `damage_growth_per_wave` 0.08) instead of per minute: runs last ~6 min, and stalling a wave shouldn't make the next one tankier.
+- Bot (builds the cheapest affordable pad, otherwise defends near the nucleus), seeds 600/700/800 × 8: win 63% / 13% / 13% (~30%, like Classic), p50 3:17-5:50, waves cleared p50 6-12, level 11-13. Bimodal: runs either win or fall at wave 6-7 (first Lumps + Mitosis + an elite). Tuning path on the way: time-based growth 9% win → per-wave 0.25: 96% → 0.45: 58% → 0.55: 25% → 0.5.
+- Perf: 0.72 ms per step at 150+ enemies (same as the other modes).
 
 ### Build order (each step ends with a phone playtest)
 1. **Core loop:** dish without claiming, nucleus + targeting + core damage + loss, respawn, 3 vents, 6 pads, biomass, **Bolt Spire only**, a simple 12-wave table, HUD. Test question: *is defending fun, and does standing on pads feel good?*
