@@ -145,6 +145,15 @@ func consume(events: Array) -> void:
 			"claim":
 				_add_fx({"kind": "claim", "cells": ev.cells, "life": 0.5}, max_fx + 4)
 				add_shake(minf(3.0 + ev.tiles * 0.05, 12.0))
+			"level_gained":
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 70.0, "life": 0.35, "color": pal.ui_accent}, max_fx + 4)
+			"upgrade":
+				# Pick burst in the upgrade's colour, right on the player.
+				var uc := IconArt.color_for(world.upgrade_defs[ev.id])
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 130.0, "life": 0.45, "color": uc}, max_fx + 4)
+				for n in 10:
+					var a := TAU * n / 10.0
+					_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2(cos(a), sin(a)) * 240.0, "color": uc, "r": 6.0, "life": 0.45}, max_fx + 14)
 			"evolution":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 320.0, "life": 0.7, "color": _wcolor(ev.weapon, pal.ui_accent)}, max_fx + 4)
 			"hurt":

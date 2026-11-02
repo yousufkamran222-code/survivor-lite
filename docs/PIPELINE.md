@@ -115,3 +115,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-03 deeper permanent upgrades
 - `data/meta.json`: 6 upgrades / 22 tiers → 15 upgrades / 96 tiers (~17k gold total), including 4 dash upgrades and a Swarm one. The shop scrolls and shows current totals. Validation checks stats and that costs increase. Runs now start with full dash charges.
 - New-player balance is unchanged (no meta). All meta maxed, Classic, seeds 600/700 × 8: before (old shop) 88-100% win; after 100% win, level 41. That's expected for a fully maxed account; harder difficulty tiers are the long-term answer.
+
+### 2026-11-03 Afterimage nerf and upgrade polish
+- Afterimage felt overpowered in play. Cause: with a 2 s dash and charges, a decoy could be up almost constantly. Fix: its own 6 s cooldown (4.5 s at Lv2), lure 2.0 → 1.5 s, radius 360 → 260 px, elites ignore it. The bot doesn't exploit decoys, so its numbers barely move (Classic 3 × 8: win 29% → 34%, within noise).
+- Polish: `IconArt` vector icons for every upgrade, evolution and permanent upgrade (no image files). Level-up cards show an icon, level pips and a category-coloured border, with a staggered pop-in. Picking gives a coloured burst and a note. Level-ups flash the XP bar and pulse a ring. Chests spin through icons and land on the reward (evolutions get a star). The HUD has an owned-upgrades strip on the left edge, and the shop shows icons.

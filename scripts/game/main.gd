@@ -197,6 +197,10 @@ func _handle_events(events: Array) -> void:
 			"level_gained":
 				Sfx.play("level_up", 0.0)
 				hud.notice("LEVEL %d  +1 upgrade" % ev.level)
+				hud.flash_xp()
+			"upgrade":
+				var def: Dictionary = world.upgrade_defs[ev.id]
+				hud.notice("%s  Lv %d" % [def.name, ev.level])
 			"boss_spawn":
 				Sfx.play("boss", 0.0)
 				Analytics.event("boss_spawn", {"t": int(world.time)})
@@ -350,6 +354,11 @@ func _show_shop() -> void:
 		var b := UiKit.button(txt, _buy_meta.bind(m.id), 80)
 		b.add_theme_font_size_override("font_size", 21)
 		b.disabled = cost < 0 or Save.gold < cost
+		var mkey: String = IconArt.META_KEYS.get(m.stat, "")
+		var mdef := {"id": mkey}
+		var ic := UpgradeIcon.make(mkey, IconArt.color_for(mdef) if not str(m.stat).begins_with("dash") else IconArt.COLORS.dash, 56)
+		ic.position = Vector2(12, 12)
+		b.add_child(ic)
 		list.add_child(b)
 	col.add_child(UiKit.button("BACK", _show_menu, 90))
 
@@ -397,17 +406,19 @@ func _show_levelup() -> void:
 	col.add_child(UiKit.label("UPGRADE", 56, pal.ui_accent))
 	col.add_child(UiKit.label("Choose one  -  %d to spend" % world.pending_levelups, 26, Color(pal.text, 0.8)))
 	var buttons: Array[Button] = []
+	var k := 0
 	for id in world.offers:
 		var def: Dictionary = world.upgrade_defs[id]
 		var nl := world.next_level_of(id)
-		var tag := "NEW " + ("WEAPON" if def.type == "weapon" else "PASSIVE") if nl == 1 else "Lv %d" % nl
-		var txt := "%s   (%s)\n%s" % [def.name, tag, Upgrades.describe(def, nl)]
-		var hint := _evolution_hint(id, nl)
-		if hint != "":
-			txt += "\n" + hint
-		var b := UiKit.button(txt, _pick.bind(id), 150)
+		var tag := ("NEW " + ("WEAPON" if def.type == "weapon" else "PASSIVE")) if nl == 1 else "Lv %d" % nl
+		var accent := IconArt.color_for(def)
+		var icon := UpgradeIcon.make(id, accent, 96)
+		var b := UiKit.icon_card(icon, "%s   %s" % [def.name, tag], Upgrades.describe(def, nl), _evolution_hint(id, nl),
+			nl - 1, nl, Upgrades.max_level(def), accent, _pick.bind(id), 160)
 		col.add_child(b)
 		buttons.append(b)
+		_pop_in(b, k * 0.07)
+		k += 1
 	var reroll := UiKit.button("Reroll  (watch ad)", _reroll, 80)
 	reroll.add_theme_font_size_override("font_size", 24)
 	reroll.visible = Ads.is_rewarded_available()
@@ -452,10 +463,22 @@ func _show_chest() -> void:
 	UiKit.clear(col)
 	col.add_child(UiKit.label("CHEST!", 60, pal.gem_large))
 	var slots: Array[Label] = []
+	var icons: Array[UpgradeIcon] = []
+	var keys := []
+	for u in data.upgrades:
+		keys.append(u.id)
 	for r in rewards:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 18)
+		var ic := UpgradeIcon.make(keys[0], pal.ui_accent, 104)
+		row.add_child(ic)
+		icons.append(ic)
 		var l := UiKit.label("?", 36, pal.text)
-		l.custom_minimum_size = Vector2(0, 120)
-		col.add_child(l)
+		l.custom_minimum_size = Vector2(380, 120)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
+		col.add_child(row)
 		slots.append(l)
 	_chest[0].visible = true
 	var names := []
@@ -469,6 +492,9 @@ func _show_chest() -> void:
 		for k in slots.size():
 			if is_instance_valid(slots[k]):
 				slots[k].text = names[randi() % names.size()]
+				icons[k].key = keys[randi() % keys.size()]
+				icons[k].color = IconArt.color_for(world.upgrade_defs[icons[k].key])
+				icons[k].queue_redraw()
 		Sfx.play("click", 0.3)
 		await get_tree().create_timer(delay).timeout
 		delay *= 1.13
@@ -480,6 +506,24 @@ func _show_chest() -> void:
 		var head := "EVOLUTION!\n" if evo else ""
 		var lvl := "  Lv %d" % r.level if r.kind == "upgrade" else ""
 		slots[k].text = "%s%s%s\n%s" % [head, r.name, lvl, r.desc]
+		var ic := icons[k]
+		ic.evolved = evo
+		if evo:
+			for ev in data.evolutions:
+				if ev.id == r.id:
+					ic.key = ev.weapon
+					ic.color = GameData.color(ev.color)
+		elif r.kind == "upgrade":
+			ic.key = r.id
+			ic.color = IconArt.color_for(world.upgrade_defs[r.id])
+		else:
+			ic.key = "regen"
+			ic.color = pal.gem_medium
+		ic.queue_redraw()
+		var tw := ic.create_tween()
+		ic.pivot_offset = ic.size / 2.0
+		ic.scale = Vector2(1.35, 1.35)
+		tw.tween_property(ic, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		slots[k].add_theme_color_override("font_color", pal.ui_accent if evo else pal.text)
 		slots[k].add_theme_font_size_override("font_size", 40 if evo else 32)
 		if evo:
@@ -514,6 +558,16 @@ func _later() -> void:
 	world.close_levelup()
 	_levelup[0].visible = false
 	_set_screen("playing")
+
+
+## Card entrance: fade and scale in, staggered.
+func _pop_in(c: Control, delay: float) -> void:
+	c.modulate.a = 0.0
+	c.scale = Vector2(0.9, 0.9)
+	c.resized.connect(func() -> void: c.pivot_offset = c.size / 2.0)
+	var tw := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "modulate:a", 1.0, 0.18).set_delay(delay)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.25).set_delay(delay)
 
 
 func _pick(id: String) -> void:

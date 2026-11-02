@@ -14,8 +14,10 @@
     "dash_s": 0.16,
     "dash_cooldown_s": 2.0,
     "dash_iframes_s": 0.22,
-    "decoy_s": 2.0,
-    "decoy_radius": 360,
+    "decoy_s": 1.5,
+    "decoy_cooldown_s": 6.0,
+    "decoy_cooldown_per_level": 1.5,
+    "decoy_radius": 260,
     "decoy_blast_radius": 160,
     "decoy_blast_damage": 25
   },

@@ -258,3 +258,31 @@ func test_adrenaline_elite_kill_refills_dash() -> void:
 	w._damage(0, 1.0e6, Vector2.ZERO)
 	w._process_dead()
 	check(w.can_dash(), "elite kill refilled the dash")
+
+
+func test_afterimage_has_its_own_cooldown() -> void:
+	var w := _world()
+	w.owned["afterimage"] = 1
+	w.owned["flagella2"] = 2
+	w._recompute_stats()
+	w.p_dash_charges = w.dash_max_charges()
+	w.dash()
+	check(w.decoy_t > 0.0, "first dash leaves a decoy")
+	w.decoy_t = 0.0
+	w.dash()
+	check_near(w.decoy_t, 0.0, 0.001, "an immediate second dash does not")
+	check(w.decoy_cd > 4.0, "decoy cooldown is separate and long")
+
+
+func test_elites_ignore_the_decoy() -> void:
+	var w := _world()
+	w.owned["afterimage"] = 1
+	w._recompute_stats()
+	w.dash()
+	var decoy := w.decoy_pos
+	w.p_pos = decoy + Vector2(0, -600)
+	w._add_enemy("grunt", decoy + Vector2(0, 150), true)
+	w._rebuild_grid()
+	var before := w.e_pos[0]
+	w._update_enemies(DT * 5)
+	check(w.e_pos[0].y < before.y, "elite keeps chasing the player (upwards), not the decoy")

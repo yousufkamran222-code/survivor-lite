@@ -21,6 +21,11 @@ var elite_color := Color("#ffd166")
 var toasts: Array = []  # {text, color, t, life}
 var _notice_text := ""
 var _notice_t := 0.0
+var _xp_flash := 0.0
+
+
+func flash_xp() -> void:
+	_xp_flash = 0.4
 
 
 ## Big centred message, e.g. "ELITE GERM!" or "EVOLUTION READY".
@@ -65,6 +70,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
+	_xp_flash = maxf(0.0, _xp_flash - delta)
 	var i := 0
 	while i < toasts.size():
 		toasts[i].t += delta
@@ -84,6 +90,9 @@ func _draw() -> void:
 	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
 	draw_rect(Rect2(0, 0, w, 16), Color(0, 0, 0, 0.5))
 	draw_rect(Rect2(0, 0, w * xp_f, 16), pal.xp_bar)
+	if _xp_flash > 0.0:
+		draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
+	_draw_owned()
 	draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
 	draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
 	draw_string(font, Vector2(16, 96), "%d kills" % world.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
@@ -194,3 +203,19 @@ func _draw_upgrade_button() -> void:
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
 		draw_string(font, c + Vector2(-dash_radius, -dash_radius - 18.0), _notice_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(accent, a))
+
+
+## Left-edge column of owned upgrades: icon plus level number (weapons
+## first, evolved ones starred).
+func _draw_owned() -> void:
+	var y := 152.0
+	var px := 34.0
+	for pass_type in ["weapon", "passive"]:
+		for u in world.upgrade_list:
+			if u.type != pass_type or not world.owned.has(u.id):
+				continue
+			var c := Vector2(10.0 + px / 2.0, y)
+			IconArt.draw(self, u.id, c, px, IconArt.color_for(u), world.evolved.has(u.id))
+			draw_string(font, c + Vector2(px * 0.3, px * 0.55), str(world.owned[u.id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.85))
+			y += px + 8.0
+		y += 6.0

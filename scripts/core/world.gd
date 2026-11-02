@@ -68,6 +68,7 @@ var p_dash_charges := 1
 var _dash_hits := {}  # enemy uids Lunge already hit during this dash
 var decoy_pos := Vector2.ZERO  # Afterimage decoy (enemies nearby chase it)
 var decoy_t := 0.0
+var decoy_cd := 0.0  # Afterimage has its own cooldown, separate from the dash
 
 # --- Evolutions ---
 var evolution_defs := {}  # weapon id -> evolution def
@@ -261,9 +262,14 @@ func dash() -> bool:
 	p_iframes = maxf(p_iframes, float(pl.dash_iframes_s))
 	_dash_hits = {}
 	dashes += 1
-	if float(stats.get("dash_decoy", 0.0)) > 0.0:
+	var decoy_lv := float(stats.get("dash_decoy", 0.0))
+	if decoy_lv > 0.0 and decoy_cd <= 0.0:
 		decoy_pos = p_pos
 		decoy_t = float(pl.decoy_s)
+		# Level 2+ (Afterimage card) shortens the cooldown; meta Ghost Trail
+		# alone (0.5 per level) keeps the base cooldown.
+		var cut := float(pl.decoy_cooldown_per_level) * clampf(floorf(decoy_lv) - 1.0, 0.0, 1.0)
+		decoy_cd = float(pl.decoy_cooldown_s) - cut
 		_emit({"type": "decoy", "pos": p_pos})
 	_emit({"type": "dash", "pos": p_pos, "dir": p_dash_dir})
 	return true
@@ -424,6 +430,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 			p_dash_cd = dash_cooldown() if p_dash_charges < dash_max_charges() else 0.0
 	else:
 		p_dash_cd = 0.0
+	if decoy_cd > 0.0:
+		decoy_cd -= dt
 	if decoy_t > 0.0:
 		decoy_t -= dt
 		if decoy_t <= 0.0:
@@ -612,7 +620,7 @@ func _update_enemies(dt: float) -> void:
 				vel = Vector2.ZERO
 			beh = BEH_CHASE  # never treated as a boss below
 		else:
-			if decoy_t > 0.0 and beh != BEH_BOSS and pos.distance_squared_to(decoy_pos) < float(bal.player.decoy_radius) ** 2:
+			if decoy_t > 0.0 and beh != BEH_BOSS and e_elite[i] == 0 and pos.distance_squared_to(decoy_pos) < float(bal.player.decoy_radius) ** 2:
 				dir = (decoy_pos - pos).normalized()
 			if terr != null and terr.is_owned(pos):
 				spd *= 1.0 - float(bal.territory.enemy_slow)
