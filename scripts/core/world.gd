@@ -103,6 +103,8 @@ var e_hitcd := PackedFloat32Array()
 var e_rad := PackedFloat32Array()  # per enemy (elites are bigger)
 var e_spd := PackedFloat32Array()
 var e_elite := PackedByteArray()
+var e_team := PackedByteArray()  # 0 = enemy, 1 = ally (converted, Swarm mode)
+var e_life := PackedFloat32Array()  # ally lifetime left
 var _next_uid := 1
 var _dead := {}
 
@@ -133,6 +135,12 @@ var _grid := {}
 var terr: Territory = null
 var p_on_land := false
 var _terr_tick := 0.0
+
+# --- Conversion (prototype 2, Swarm mode; off unless balance.conversion.enabled) ---
+var conv_on := false
+var ally_count := 0
+var conversions := 0
+var _ally_tick := 0.0
 var _max_er := 72.0
 
 
@@ -147,9 +155,13 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 		enemy_idx[e.id] = enemy_defs.size()
 		enemy_defs.append(e)
 		_tbeh.append(int(BEHAVIORS.get(e.behavior, BEH_CHASE)))
-	upgrade_list = data.upgrades
-	for u in upgrade_list:
+	var mode_id: String = str(bal.get("mode_id", ""))
+	upgrade_list = []
+	for u in data.upgrades:
 		upgrade_defs[u.id] = u
+		if not u.has("modes") or u.modes.has(mode_id):
+			upgrade_list.append(u)
+	conv_on = bal.has("conversion") and bal.conversion.get("enabled", false)
 	for ev in data.get("evolutions", []):
 		evolution_defs[ev.weapon] = ev
 	var by_id := {}
@@ -181,6 +193,8 @@ func step(dt: float, move: Vector2) -> void:
 	_spawn(dt)
 	_rebuild_grid()
 	_update_enemies(dt)
+	if ally_count > 0:
+		_update_ally_combat(dt)
 	_update_weapons(dt)
 	_update_bullets(dt)
 	_update_enemy_shots(dt)
@@ -277,12 +291,22 @@ func enemy_count() -> int:
 	return e_pos.size()
 
 
+## Hostile enemies only (excludes converted allies).
+func hostile_count() -> int:
+	return e_pos.size() - ally_count
+
+
+func is_ally(i: int) -> bool:
+	return e_team[i] == 1
+
+
 func enemy_radius(i: int) -> float:
 	return e_rad[i]
 
 
 ## Indices of enemies whose circle overlaps the circle (center, radius).
-func query(center: Vector2, radius: float) -> Array:
+## team 0 = hostile enemies (default), 1 = allies.
+func query(center: Vector2, radius: float, team: int = 0) -> Array:
 	var out := []
 	var r := radius + _max_er
 	var x0 := floori((center.x - r) / CELL)
@@ -295,6 +319,8 @@ func query(center: Vector2, radius: float) -> Array:
 			if cell == null:
 				continue
 			for i: int in cell:
+				if e_team[i] != team:
+					continue
 				var rr := radius + e_rad[i]
 				if e_pos[i].distance_squared_to(center) <= rr * rr:
 					out.append(i)
@@ -392,7 +418,7 @@ func _valid_spawn(p: Vector2) -> Vector2:
 
 
 func _spawn(dt: float) -> void:
-	for order in director.update(dt, time, e_pos.size()):
+	for order in director.update(dt, time, hostile_count()):
 		var n := int(order.count)
 		match order.pattern:
 			"ring":
@@ -430,6 +456,8 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	e_rad.append(r)
 	e_spd.append(spd)
 	e_elite.append(1 if elite else 0)
+	e_team.append(0)
+	e_life.append(0.0)
 	e_type.append(t)
 	e_uid.append(_next_uid)
 	_next_uid += 1
@@ -461,6 +489,10 @@ func _remove_enemy(i: int) -> void:
 		e_rad[i] = e_rad[last]
 		e_spd[i] = e_spd[last]
 		e_elite[i] = e_elite[last]
+		e_team[i] = e_team[last]
+		e_life[i] = e_life[last]
+	e_team.resize(last)
+	e_life.resize(last)
 	e_rad.resize(last)
 	e_spd.resize(last)
 	e_elite.resize(last)
@@ -509,11 +541,16 @@ func _update_enemies(dt: float) -> void:
 		var dist := sqrt(dist2)
 		var dir := to_p / dist if dist > 0.001 else Vector2.ZERO
 		var spd := e_spd[i]
-		if terr != null and terr.is_owned(pos):
-			spd *= 1.0 - float(bal.territory.enemy_slow)
-		var vel := dir * spd
-		if beh != BEH_CHASE:
-			vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
+		var vel := Vector2.ZERO
+		if e_team[i] == 1:
+			vel = _ally_velocity(i, t, beh, pos, to_p, dist, dt)
+			beh = BEH_CHASE  # never treated as a boss below
+		else:
+			if terr != null and terr.is_owned(pos):
+				spd *= 1.0 - float(bal.territory.enemy_slow)
+			vel = dir * spd
+			if beh != BEH_CHASE:
+				vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
 		# Soft separation so swarms read as a crowd, not one blob. Each enemy
 		# resolves overlaps every SEP_EVERY frames, with a matching push strength.
 		var sep := Vector2.ZERO
@@ -552,7 +589,7 @@ func _update_enemies(dt: float) -> void:
 		if sep != Vector2.ZERO:
 			pos += sep.limit_length(12.0)
 		if dist2 > despawn2 and beh != BEH_BOSS:
-			pos = _spawn_point()
+			pos = _spawn_point() if e_team[i] == 0 else p_pos + to_p.normalized() * -60.0
 		if terr != null:
 			pos = terr.clamp_inside(pos, e_rad[i])
 		e_pos[i] = pos
@@ -640,7 +677,7 @@ func _priority_target(from: Vector2, max_range: float) -> int:
 	var best := -1
 	var best_d := max_range * max_range
 	for i in e_pos.size():
-		if e_hp[i] <= 0.0 or (e_elite[i] == 0 and _tbeh[e_type[i]] != BEH_BOSS):
+		if e_hp[i] <= 0.0 or e_team[i] == 1 or (e_elite[i] == 0 and _tbeh[e_type[i]] != BEH_BOSS):
 			continue
 		var d2 := e_pos[i].distance_squared_to(from)
 		if d2 < best_d:
@@ -653,7 +690,7 @@ func _nearest_enemy(from: Vector2, max_range: float, exclude: Dictionary = {}) -
 	var best := -1
 	var best_d := max_range * max_range
 	for i in e_pos.size():
-		if e_hp[i] <= 0.0 or exclude.has(e_uid[i]):
+		if e_hp[i] <= 0.0 or e_team[i] == 1 or exclude.has(e_uid[i]):
 			continue
 		var d2 := e_pos[i].distance_squared_to(from)
 		if d2 < best_d:
@@ -856,6 +893,11 @@ func _process_dead() -> void:
 		var d: Dictionary = enemy_defs[e_type[i]]
 		var pos := e_pos[i]
 		var elite := e_elite[i] == 1
+		if e_team[i] == 1:
+			ally_count -= 1
+			_emit({"type": "ally_lost", "pos": pos})
+			_remove_enemy(i)
+			continue
 		kills += 1
 		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite})
 		if elite:
@@ -871,6 +913,8 @@ func _process_dead() -> void:
 		else:
 			_drop_gem(pos, float(d.xp))
 			_roll_pickup(pos)
+			if _try_convert(i, d):
+				continue
 		_remove_enemy(i)
 		if d.has("split_into"):
 			for k in int(d.split_count):
@@ -1098,6 +1142,8 @@ func _update_territory(dt: float) -> void:
 	var erode := float(t.erosion_per_s) * tick
 	var lost := 0
 	for i in e_pos.size():
+		if e_team[i] == 1:
+			continue
 		var ti := terr.index_of(e_pos[i])
 		if ti < 0 or terr.tiles[ti] != Territory.OWNED:
 			continue
@@ -1121,9 +1167,117 @@ func _on_claim(claimed: PackedInt32Array) -> void:
 		set[i] = true
 	var frac := float(bal.territory.claim_burst_frac)
 	for i in e_pos.size():
-		if set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
+		if e_team[i] == 0 and set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
 			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
 	_process_dead()
 	# Bigger loops pay out: XP per claimed tile.
 	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain))
 	_emit({"type": "claim", "tiles": claimed.size(), "cells": claimed, "infected": terr.infected_fraction()})
+
+
+# =============================================================== conversion
+
+func _ally_cap() -> int:
+	return int(bal.conversion.max_allies) + int(stats.get("ally_cap", 0.0))
+
+
+## A killed (non-elite, non-boss) enemy may rise again on our side.
+func _try_convert(i: int, d: Dictionary) -> bool:
+	if not conv_on or d.behavior == "boss" or ally_count >= _ally_cap():
+		return false
+	var chance := float(bal.conversion.base_chance) + float(stats.get("convert", 0.0))
+	if rng.randf() >= chance:
+		return false
+	var c: Dictionary = bal.conversion
+	var power := 1.0 + float(stats.get("ally_power", 0.0))
+	e_team[i] = 1
+	e_hp[i] = e_maxhp[i] * float(c.ally_hp_mult) * power
+	e_maxhp[i] = e_hp[i]
+	e_spd[i] = float(d.speed) * float(c.ally_speed_mult)
+	e_life[i] = float(c.ally_lifetime_s) * (1.0 + float(stats.get("ally_cap", 0.0)) / 20.0)
+	e_knock[i] = Vector2.ZERO
+	e_timer[i] = 0.5
+	e_flash[i] = 0.2
+	ally_count += 1
+	conversions += 1
+	_emit({"type": "convert", "pos": e_pos[i]})
+	return true
+
+
+## Allies chase the nearest enemy near them (staying leashed to the player),
+## otherwise trail behind the player. Ranged allies shoot instead of closing in.
+func _ally_velocity(i: int, t: int, beh: int, pos: Vector2, to_p: Vector2, dist: float, dt: float) -> Vector2:
+	var c: Dictionary = bal.conversion
+	var spd := e_spd[i]
+	e_life[i] -= dt
+	if e_life[i] <= 0.0 and e_hp[i] > 0.0:
+		e_hp[i] = 0.0
+		_dead[i] = true
+	var target := -1
+	if dist < float(c.leash):
+		var best := INF
+		for j: int in query(pos, float(c.aggro_radius)):
+			var d2 := e_pos[j].distance_squared_to(pos)
+			if d2 < best:
+				best = d2
+				target = j
+	if target >= 0:
+		var to_t := e_pos[target] - pos
+		if beh == BEH_RANGED:
+			e_timer[i] -= dt
+			if e_timer[i] <= 0.0:
+				var d: Dictionary = enemy_defs[t]
+				e_timer[i] = float(d.fire_cooldown) * 0.6
+				_ally_shot(pos, to_t.normalized(), float(d.shot_damage) * _ally_power())
+			return Vector2.ZERO if to_t.length() < 220.0 else to_t.normalized() * spd
+		return to_t.normalized() * spd
+	if dist > float(c.follow_radius):
+		return to_p / maxf(dist, 0.001) * spd * clampf(dist / 200.0, 0.4, 1.3)
+	return Vector2.ZERO
+
+
+func _ally_power() -> float:
+	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0))) * director.damage_mult(time)
+
+
+func _ally_shot(from: Vector2, dir: Vector2, dmg: float) -> void:
+	if b_pos.size() >= int(bal.perf.max_projectiles):
+		return
+	var c: Dictionary = bal.conversion
+	b_pos.append(from)
+	b_vel.append(dir * float(c.ally_shot_speed))
+	b_dmg.append(dmg)
+	b_pierce.append(0)
+	b_life.append(float(c.ally_shot_range) / float(c.ally_shot_speed))
+	b_rad.append(6.0)
+	b_knock.append(60.0)
+	b_hits.append({})
+
+
+## Melee between allies and the enemies touching them, on a short tick.
+func _update_ally_combat(dt: float) -> void:
+	_ally_tick += dt
+	var tick := float(bal.conversion.tick_s)
+	if _ally_tick < tick:
+		return
+	_ally_tick -= tick
+	var power := _ally_power()
+	var hostile_mult := director.damage_mult(time)
+	for i in e_pos.size():
+		if e_team[i] != 1 or e_hp[i] <= 0.0:
+			continue
+		var hits := query(e_pos[i], e_rad[i] + 2.0)
+		if hits.is_empty():
+			continue
+		var j: int = hits[0]
+		var mine: Dictionary = enemy_defs[e_type[i]]
+		var theirs: Dictionary = enemy_defs[e_type[j]]
+		_damage(j, float(mine.damage) * power * tick, (e_pos[j] - e_pos[i]).normalized() * 40.0, false)
+		var taken := float(theirs.damage) * hostile_mult * tick
+		if e_elite[j] == 1:
+			taken *= float(data.waves.elites.damage_mult)
+		e_hp[i] -= taken
+		e_flash[i] = 0.06
+		if e_hp[i] <= 0.0:
+			_dead[i] = true
+	_process_dead()

@@ -31,6 +31,7 @@ static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
 	for m in d.get("modes", []):
 		if m.id == mode_id:
 			_merge(out.balance, m.get("overrides", {}))
+			out.balance["mode_id"] = mode_id
 	return out
 
 
@@ -94,6 +95,13 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("weapon %s has more than one evolution" % ev.weapon)
 		evolved_weapons[ev.weapon] = true
 	var mode_ids := {}
+	for m in d.get("modes", []):
+		mode_ids[m.id] = true
+	for u in d.upgrades:
+		for mid in u.get("modes", []):
+			if not mode_ids.has(mid):
+				errors.append("upgrade %s lists unknown mode '%s'" % [u.id, mid])
+	mode_ids = {}
 	for m in d.get("modes", []):
 		if mode_ids.has(m.id):
 			errors.append("duplicate mode id '%s'" % m.id)

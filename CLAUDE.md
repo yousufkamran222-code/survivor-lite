@@ -24,7 +24,7 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 
 ## Architecture (keep it this way)
 ```
-data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory), enemies,
+data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory, conversion), enemies,
                      upgrades, evolutions, waves (incl. elites), meta, modes. Tune here, not in code.
 scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
                      trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression,
@@ -68,7 +68,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 
 ## Direction
 `docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A).
-**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New modes, like Prototype 2's conversion, should be a new entry here rather than a new toggle.
+**Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1`; `query()` and the targeting helpers only return hostiles by default), Classic. Upgrades can be limited to modes with `"modes": [...]`.
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone and next steps. Update it when you finish one.

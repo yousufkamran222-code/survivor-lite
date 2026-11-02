@@ -92,3 +92,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - before (prototype 1): win ~30%, p50 3:12-3:46, level 23-27, infected 6-10%, ~1.1 evolutions
   - after: win ~34% (0-63% by seed), p50 2:55-5:00, level 20-32, **infected 12-21%**, ~1 evolution; top killer: Lump (brute)
 - Classic after the Spitter fix (seed 600 × 8): win 25%, p50 4:52, level 15.
+
+### 2026-11-02 prototype 2: Swarm mode (conversion)
+- Built per ROADMAP; see its Prototype 2 section for rules and numbers.
+- Tuning: base chance 0.06 → 0.09 and ally lifetime 30 → 40 s. Before: win ~25%, peak allies 6-10. After: win ~25%, p50 4:22-5:00, peak allies 10-15.

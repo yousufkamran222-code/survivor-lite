@@ -118,6 +118,10 @@ func consume(events: Array) -> void:
 				add_shake(float(juice.shake_nova))
 			"chain":
 				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain)}, max_fx + 4)
+			"convert":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
+			"ally_lost":
+				_add_fx({"kind": "pop", "pos": ev.pos, "color": pal.player_nucleus, "r": 14.0, "life": 0.25}, max_fx)
 			"shot_blocked":
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": _wcolor("orbit", pal.orbit), "r": 10.0, "life": 0.2}, max_fx)
 			"dash":
@@ -259,6 +263,15 @@ func _fill_enemies(view: Rect2) -> void:
 			continue
 		var t := world.e_type[i]
 		var c: Color = enemy_colors[t]
+		if world.e_team[i] == 1:
+			# Allies: our colour (type still hinted), looking outward, fading out.
+			c = c.lerp(pal.player_nucleus, 0.7)
+			if world.e_flash[i] > 0.0:
+				c = white
+			if world.e_life[i] < 3.0 and fmod(world.time, 0.3) < 0.15:
+				c.a = 0.4
+			_enemies.add(p, r * _blob_scale, c, (p - pp).angle())
+			continue
 		if world.e_flash[i] > 0.0:
 			c = white
 		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
@@ -300,7 +313,11 @@ func _draw_top() -> void:
 	_draw_trail(ci, now)
 	_draw_loot(ci, now)
 	# Elite aura: pulsing ring so they read as "big target, big reward".
+	# Ally ring: thin outline in our colour so the swarm reads as ours.
 	for i in world.e_pos.size():
+		if world.ally_count > 0 and world.is_ally(i):
+			ci.draw_arc(world.e_pos[i], world.enemy_radius(i) + 5.0, 0, TAU, 20, Color(pal.player, 0.7), 2.5)
+			continue
 		if world.is_elite(i):
 			var r := world.enemy_radius(i) * 1.25 + 4.0 * sin(now * 8.0)
 			ci.draw_arc(world.e_pos[i], r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)

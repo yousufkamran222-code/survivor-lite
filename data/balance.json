@@ -36,6 +36,21 @@
     "elite_erosion_mult": 4.0,
     "boss_erosion_mult": 10.0
   },
+  "conversion": {
+    "enabled": false,
+    "base_chance": 0.09,
+    "max_allies": 20,
+    "ally_hp_mult": 2.0,
+    "ally_damage_mult": 1.2,
+    "ally_speed_mult": 1.25,
+    "ally_lifetime_s": 40,
+    "aggro_radius": 280,
+    "leash": 380,
+    "follow_radius": 110,
+    "tick_s": 0.25,
+    "ally_shot_speed": 520,
+    "ally_shot_range": 420
+  },
   "chests": {
     "pickup_radius": 34,
     "elite_items": 1,

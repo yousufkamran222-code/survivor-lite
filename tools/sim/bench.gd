@@ -2,7 +2,7 @@ extends SceneTree
 ## Performance benchmark for World.step: plays a "kiting" run (player keeps
 ## running, so enemies pile up behind) and reports the time per subsystem.
 ##
-## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200]
+## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200] [--mode swarm]
 
 const DT := 1.0 / 60.0
 
@@ -13,7 +13,11 @@ func _initialize() -> void:
 	var i := args.find("--seconds")
 	if i >= 0 and i + 1 < args.size():
 		seconds = float(args[i + 1])
-	var w := World.new(GameData.load_all(), 7)
+	var mode := "classic"
+	var mi := args.find("--mode")
+	if mi >= 0 and mi + 1 < args.size():
+		mode = args[mi + 1]
+	var w := World.new(GameData.apply_mode(GameData.load_all(), mode), 7)
 	var parts := ["spawn", "grid", "enemies", "weapons", "bullets", "shots", "dead", "contact", "gems"]
 	var cost := {}
 	for p in parts:
@@ -53,7 +57,7 @@ func _initialize() -> void:
 			dense_steps += 1
 			dense_us += t10 - t0
 	var total := Time.get_ticks_usec() - t_all
-	print("steps: %d  enemies at end: %d  total: %.1f ms" % [steps, w.enemy_count(), total / 1000.0])
+	print("mode %s  steps: %d  enemies at end: %d (allies %d)  total: %.1f ms" % [mode, steps, w.enemy_count(), w.ally_count, total / 1000.0])
 	print("avg step: %.3f ms   avg step with 150+ enemies: %.3f ms (%d steps)" % [total / 1000.0 / steps, dense_us / 1000.0 / maxi(dense_steps, 1), dense_steps])
 	for p in parts:
 		print("  %-8s %6.3f ms/step" % [p, cost[p] / 1000.0 / steps])

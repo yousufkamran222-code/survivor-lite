@@ -63,6 +63,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	w.emit_events = false
 	var bot := BalanceBot.new(seed_value)
 	var peak_enemies := 0
+	var peak_allies := 0
 	var hp_at_boss := -1.0
 	while w.state in ["playing", "levelup", "chest"]:
 		if w.state == "levelup":
@@ -73,6 +74,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 			continue
 		w.step(DT, bot.move(w))
 		peak_enemies = maxi(peak_enemies, w.enemy_count())
+		peak_allies = maxi(peak_allies, w.ally_count)
 		if hp_at_boss < 0.0 and w.boss_index >= 0:
 			hp_at_boss = w.p_hp / w.p_max_hp
 	return {
@@ -81,6 +83,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"peak_enemies": peak_enemies, "boss_killed": w.boss_killed,
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
+		"conversions": w.conversions, "peak_allies": peak_allies,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0),
 	}
 
@@ -103,6 +106,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var evos := 0
 	var chests := 0
 	var infected := 0.0
+	var convs := 0
+	var allies := 0
 	for r in results:
 		times.append(r.time)
 		levels.append(r.level)
@@ -112,6 +117,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		evos += r.evolutions
 		chests += r.chests
 		infected += r.infected
+		convs += r.conversions
+		allies += r.peak_allies
 		if r.won:
 			wins += 1
 		else:
@@ -144,6 +151,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_kills": snappedf(float(kills) / maxf(results.size(), 1), 0.1),
 		"mean_gold": snappedf(float(gold) / maxf(results.size(), 1), 0.1),
 		"mean_infected": snappedf(infected / maxf(results.size(), 1), 0.001),
+		"mean_conversions": snappedf(float(convs) / maxf(results.size(), 1), 0.1),
+		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
 		"mean_chests": snappedf(float(chests) / maxf(results.size(), 1), 0.1),
 		"mean_evolutions": snappedf(float(evos) / maxf(results.size(), 1), 0.01),
 		"peak_enemies": peak,

@@ -9,7 +9,11 @@ func test_data_validates() -> void:
 func test_scope_caps() -> void:
 	var d := data()
 	check(d.enemies.size() <= 8, "v1 scope: at most 8 enemy types")
-	check(d.upgrades.size() <= 12, "v1 scope: about 10 upgrades")
+	var general := 0
+	for u in d.upgrades:
+		if not u.has("modes"):
+			general += 1
+	check(general <= 12, "v1 scope: about 10 upgrades shared by all modes")
 
 
 func test_budget_curve_increases() -> void:

@@ -37,7 +37,16 @@ Test question: **does claiming feel good while being chased?**
 - A menu toggle switches between Classic and Territory so you can compare the two.
 - Done when: tests pass, the sim runs in both modes, and a phone playtest gives a verdict.
 
-## Prototype 2: conversion only (a new mode in `data/modes.json`, e.g. "Swarm")
+## Prototype 2: conversion only: **built 2026-11-02 as the "Swarm" mode, awaiting playtest**
+As built:
+- Killed enemies (not elites or the boss) convert at 9% base (+3% per Viral Load level) into allies, up to 20 (+6 per Incubation level).
+- Allies are stored in the same arrays as enemies with a team flag. They have 2x HP and 1.25x speed, chase enemies near them (leashed to you) or trail behind you, fight on a 0.25 s melee tick, and expire after 40 s.
+- Converted Spitters shoot for you. Weapons, contact damage, territory and spawn caps all ignore allies.
+- Swarm-only upgrades are marked with `"modes": ["swarm"]` in `upgrades.json`.
+- Bot (seeds 600/700/800 × 8): win ~25%, p50 4:22-5:00, ~76 conversions and 10-15 peak allies per run, 0 evolutions (the Swarm passives dilute the pool; revisit). Perf: 0.81 ms per step at 150+ enemies.
+- Not yet done: enemies retargeting allies (they still chase you, and allies intercept them), elite conversion.
+
+Original plan:
 - Each kill has a convert chance (an upgrade raises it). Converts keep their type's behaviour, retarget enemies, have a lifetime or HP, and share the enemy cap (`conversion.max_allies`).
 - Allies are shown in your colour. Enemies target the nearest of the player or an ally.
 - New upgrades: Viral Load (convert chance), Hijack (convert stats), Incubation (a bigger cap).

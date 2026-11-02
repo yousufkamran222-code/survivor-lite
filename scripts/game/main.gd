@@ -204,6 +204,8 @@ func _handle_events(events: Array) -> void:
 				Input.vibrate_handheld(30)
 				if ev.tiles >= 25:
 					hud.toast("CLAIMED +%d%%" % maxi(1, roundi(float(ev.tiles) / world.terr.dish_count * 100.0)), pal.player_nucleus, 1.2)
+			"convert":
+				Sfx.play("convert", 0.1)
 			"trail_lost":
 				Sfx.play("hurt", 0.0)
 				hud.toast("Trail lost", pal.player_hurt, 1.0)
@@ -242,6 +244,8 @@ func _start_run() -> void:
 	Analytics.event("run_start", {"run": Save.runs, "mode": _current_mode().id})
 	if world.terr != null:
 		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
+	if world.conv_on:
+		hud.toast("Kills can join your swarm", pal.player_nucleus, 3.0)
 	_hide_all()
 	_set_screen("playing")
 
@@ -527,7 +531,7 @@ func _show_results(won: bool) -> void:
 	Save.best_time = maxf(Save.best_time, world.time)
 	var mid: String = _current_mode().id
 	Save.best_times[mid] = maxf(float(Save.best_times.get(mid, 0.0)), world.time)
-	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0})
+	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0, "conversions": world.conversions, "mode": _current_mode().id})
 	_build_results(won)
 
 
@@ -538,6 +542,8 @@ func _build_results(won: bool) -> void:
 	col.add_child(UiKit.label("Time %s    Level %d    Kills %d" % [UiKit.fmt_time(world.time), world.level, world.kills], 28))
 	if world.terr != null:
 		col.add_child(UiKit.label("Dish infected: %d%%" % roundi(world.terr.infected_fraction() * 100.0), 32, pal.player_nucleus))
+	if world.conv_on:
+		col.add_child(UiKit.label("Germs converted: %d" % world.conversions, 32, pal.player_nucleus))
 	col.add_child(UiKit.label("+%d gold" % _results_gold, 48, pal.gem_large))
 	if not _results_doubled and Ads.is_rewarded_available():
 		col.add_child(UiKit.button("DOUBLE GOLD  (watch ad)", func() -> void:

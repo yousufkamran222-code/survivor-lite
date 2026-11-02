@@ -68,6 +68,8 @@ func _draw() -> void:
 	draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
 	draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
 	draw_string(font, Vector2(16, 96), "%d kills" % world.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
+	if world.conv_on:
+		draw_string(font, Vector2(0, 96), "SWARM %d/%d" % [world.ally_count, world._ally_cap()], HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
 	if world.terr != null:
 		var pct := roundi(world.terr.infected_fraction() * 100.0)
 		draw_string(font, Vector2(0, 96), "INFECTED %d%%" % pct, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)

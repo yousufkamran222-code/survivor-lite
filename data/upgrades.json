@@ -63,6 +63,18 @@
    "levels": [{"amount": 1}, {"amount": 1}],
    "desc": ["+1 bolt, antibody and spark jump"]},
 
+  {"id": "viral", "type": "passive", "name": "Viral Load", "weight": 1.1, "modes": ["swarm"],
+   "levels": [{"convert": 0.03}, {"convert": 0.03}, {"convert": 0.03}, {"convert": 0.03}, {"convert": 0.03}],
+   "desc": ["+3% chance kills convert into allies"]},
+
+  {"id": "hijack", "type": "passive", "name": "Hijack", "weight": 1.0, "modes": ["swarm"],
+   "levels": [{"ally_power": 0.25}, {"ally_power": 0.25}, {"ally_power": 0.25}, {"ally_power": 0.25}, {"ally_power": 0.25}],
+   "desc": ["Allies +25% damage and health"]},
+
+  {"id": "incubate", "type": "passive", "name": "Incubation", "weight": 0.9, "modes": ["swarm"],
+   "levels": [{"ally_cap": 6}, {"ally_cap": 6}, {"ally_cap": 6}],
+   "desc": ["+6 max allies, and they last 30% longer"]},
+
   {"id": "regen", "type": "passive", "name": "Repair", "weight": 0.8,
    "levels": [{"regen": 0.4}, {"regen": 0.4}, {"regen": 0.4}],
    "desc": ["Regenerate 0.4 HP per second"]}
