@@ -22,7 +22,6 @@ var _dead: Array
 var _results: Array
 var _pause: Array
 var _chest: Array
-var _tower: Array  # Nucleus: tower-pick popup
 var _victory: Array  # Nucleus: COLLECT or KEEP GOING
 var _countdown := 0
 var _evo_by_passive := {}  # passive id -> evolution def
@@ -86,7 +85,6 @@ func _ready() -> void:
 	_results = UiKit.overlay(ui_root)
 	_pause = UiKit.overlay(ui_root)
 	_chest = UiKit.overlay(ui_root, 0.8)
-	_tower = UiKit.overlay(ui_root, 0.75)
 	_victory = UiKit.overlay(ui_root, 0.8)
 	_show_menu()
 
@@ -102,7 +100,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_E, KEY_TAB]:
 		_open_banked()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and world.def_on and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_4:
+		_build_tower(event.physical_keycode - KEY_1)
+		return
 	if event is InputEventScreenTouch:
+		# Nucleus tower bar first (any finger), so a build tap never dashes.
+		if event.pressed and world.def_on:
+			var tb := hud.tower_button_at(event.position)
+			if tb >= 0:
+				_build_tower(tb)
+				return
 		# Dash: tap the DASH button, or tap with a second finger while steering.
 		if event.pressed and hud.in_upgrade_button(event.position):
 			_open_banked()
@@ -180,8 +187,6 @@ func _process(delta: float) -> void:
 	if world.def_on:
 		_tick_countdown()
 	match world.state:
-		"tower_pick":
-			_show_tower_pick()
 		"defense_won":
 			_show_defense_won()
 		"levelup":
@@ -317,7 +322,7 @@ func _start_run() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
-	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "tower_pick", "defense_won"]
+	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
 	view.visible = s != "menu"
@@ -326,7 +331,7 @@ func _set_screen(s: String) -> void:
 
 
 func _hide_all() -> void:
-	for o in [_menu, _levelup, _dead, _results, _pause, _chest, _tower, _victory]:
+	for o in [_menu, _levelup, _dead, _results, _pause, _chest, _victory]:
 		o[0].visible = false
 
 
@@ -909,41 +914,12 @@ func _tick_countdown() -> void:
 			Input.vibrate_handheld(15)
 
 
-## Built on an empty pad: pick one of the towers (the game is paused).
-func _show_tower_pick() -> void:
-	_set_screen("tower_pick")
-	var col: VBoxContainer = _tower[1]
-	UiKit.clear(col)
-	col.add_child(UiKit.label("BUILD A TOWER", 52, pal.pad))
-	col.add_child(UiKit.label("Biomass: %d" % floori(world.biomass), 26, pal.pad))
-	for t in world.tower_defs.size():
-		var d: Dictionary = world.tower_defs[t]
-		var cost := world.tower_cost(t)
-		var ok := world.biomass >= float(cost)
-		var tc := GameData.color(d.get("color", "#ffffff"))
-		var card := UiKit.icon_card(UpgradeIcon.make(d.weapon, tc, 84), d.name, d.desc,
-			("%d biomass" % cost) if ok else ("Need %d biomass" % cost), 0, 0, 1, tc, _choose_tower.bind(t), 132)
-		if not ok:
-			card.modulate = Color(1, 1, 1, 0.45)
-		col.add_child(card)
-		_pop_in(card, 0.04 * t)
-	col.add_child(UiKit.button("Not now", _cancel_tower_pick, 80))
-	_tower[0].visible = true
-
-
-func _choose_tower(t: int) -> void:
-	if not world.choose_tower(t):
+## Tower bar tap (or keys 1-4): build on the empty pad you're standing on.
+## The game keeps running.
+func _build_tower(t: int) -> void:
+	if not world.build_tower(t):
 		Sfx.play("deny", 0.0)
 		Input.vibrate_handheld(25)
-		return
-	_tower[0].visible = false
-	_set_screen("playing")
-
-
-func _cancel_tower_pick() -> void:
-	world.cancel_tower_pick()
-	_tower[0].visible = false
-	_set_screen("playing")
 
 
 ## Wave 12 cleared: take the win or keep going into endless waves.

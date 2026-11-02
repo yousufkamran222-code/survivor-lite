@@ -75,6 +75,8 @@ func move(w: World) -> Vector2:
 	if w.def_on:
 		if w.p_down > 0.0:
 			return Vector2.ZERO
+		if w.empty_pad_under_player() >= 0:
+			w.build_tower(pick_tower(w))
 		var pad := _affordable_pad(w)
 		if pad >= 0:
 			var to_pad := w.pad_pos[pad] - w.p_pos
@@ -117,7 +119,7 @@ func _affordable_pad(w: World) -> int:
 	return best
 
 
-## Tower-pick popup: spread the types (a different one per new tower), the
+## Tower bar: spread the types (a different one per new tower), the
 ## cheapest affordable if that one is too expensive.
 func pick_tower(w: World) -> int:
 	var n := w.tower_defs.size()

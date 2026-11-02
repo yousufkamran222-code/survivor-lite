@@ -93,7 +93,7 @@ func test_player_death_respawns_at_nucleus() -> void:
 	check(w.p_pos.distance_to(w.core_pos) < 200.0, "reforms next to the nucleus")
 
 
-func test_standing_on_pad_builds_then_needs_stepping_off() -> void:
+func test_tower_bar_builds_then_ring_upgrades() -> void:
 	var w := _world()
 	var cost := w.pad_next_cost(0)
 	check(cost > 0)
@@ -101,11 +101,12 @@ func test_standing_on_pad_builds_then_needs_stepping_off() -> void:
 	w.wave_t = 999.0  # stay in the breather
 	var pad := w.pad_pos[0]
 	w.p_pos = pad
-	_steps(w, float(w.bal.defense.build_s) + 0.1)
-	check_eq(w.state, "tower_pick", "an empty pad asks which tower to build")
-	check_eq(w.pick_pad, 0)
+	_steps(w, float(w.bal.defense.build_s) + 0.5)
+	check_eq(w.state, "playing", "no pause on an empty pad")
+	check_eq(w.pad_tower[0], -1, "standing alone doesn't build: the HUD bar does")
+	check_eq(w.empty_pad_under_player(), 0)
 	var spark := 3
-	check(w.choose_tower(spark))
+	check(w.build_tower(spark))
 	check_eq(w.state, "playing")
 	check_eq(w.pad_tower[0], spark, "the chosen tower stands on the pad")
 	check_eq(w.pad_level[0], 1)
@@ -241,23 +242,37 @@ func test_boss_wave_gets_a_longer_breather() -> void:
 	check(w.wave_t > float(w.bal.defense.breather_s), "extra time before the boss")
 
 
-func test_tower_pick_needs_biomass_and_can_be_cancelled() -> void:
+func test_tower_bar_needs_biomass_and_an_empty_pad() -> void:
 	var w := _world()
 	w.biomass = float(w.tower_cost(0))
 	w.wave_t = 999.0
+	w.p_pos = Vector2(0, 600)
+	check(not w.build_tower(0), "not standing on a pad")
 	w.p_pos = w.pad_pos[0]
-	_steps(w, float(w.bal.defense.build_s) + 0.1)
-	check_eq(w.state, "tower_pick")
 	var dear := 0
 	for t in w.tower_defs.size():
 		if w.tower_cost(t) > w.tower_cost(dear):
 			dear = t
-	check(not w.choose_tower(dear), "can't pick what you can't afford")
-	w.cancel_tower_pick()
-	check_eq(w.state, "playing")
-	check_eq(w.pad_tower[0], -1)
-	_steps(w, 2.0)
-	check_eq(w.state, "playing", "no re-prompt until you step off the pad")
+	check(not w.build_tower(dear), "can't build what you can't afford")
+	check(w.build_tower(0))
+	check_eq(w.empty_pad_under_player(), -1, "the pad is taken now")
+	w.biomass = 999.0
+	check(not w.build_tower(1), "no second tower on the same pad")
+
+
+func test_towers_grow_with_waves_and_free_mode_compounds() -> void:
+	var w := _tower_world(0)
+	var early := float(w.tower_stats(0).damage)
+	w.wave = 8
+	check(float(w.tower_stats(0).damage) > early * 2.0, "tower damage keeps pace with the waves")
+	var hp12 := w._hp_mult()
+	w.wave = w.wave_count
+	hp12 = w._hp_mult()
+	w.free_mode = true
+	w.wave = w.wave_count + 4
+	var linear := 1.0 + float(w.bal.defense.hp_growth_per_wave) * (w.wave - 1)
+	check(w._hp_mult() > linear * 1.5, "Free Mode compounds enemy HP")
+	check(w._hp_mult() > hp12)
 
 
 func _tower_world(type: int, level: int = 1) -> World:
@@ -338,9 +353,6 @@ func test_bot_defends_and_builds() -> void:
 			w.choose_upgrade(bot.pick(w))
 		elif w.state == "chest":
 			w.close_chest()
-		elif w.state == "tower_pick":
-			if not w.choose_tower(bot.pick_tower(w)):
-				w.cancel_tower_pick()
 		elif w.state != "playing":
 			break
 		w.step(DT, bot.move(w))

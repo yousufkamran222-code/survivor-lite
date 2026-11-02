@@ -108,6 +108,14 @@ A big host **nucleus** sits at the centre of a bounded dish. Germs pour in from 
 - **Win → COLLECT / KEEP GOING:** clearing wave 12 sets state `defense_won`. COLLECT ends the run as a win; KEEP GOING starts **Free Mode**: waves 13+ generated from the last table wave (budget ×1.12 per wave, every vent, 2+ elites, a Mother Cell every 5th wave with growing HP), the run counts as a win whenever the nucleus falls; results show the wave reached.
 - Bot picks a different tower type per build. Sims (seeds 600/700/800 × 8): step 1 63% / 13% / 13% → step 2 38% / 38% / 13% (~30% either way, steadier across seeds), p50 3:47-3:54, waves cleared p50 7, level 12-13. The sim collects at the win screen (Free Mode isn't simmed). Classic and Swarm sims identical before/after (the chain refactor is behaviour-neutral).
 
+### Step 2 playtest → changes (2026-11-02)
+Yousuf: towers "all kinda bad compared to the player"; the pick popup broke the smooth building of step 1; countdown "a little" tense; in Free Mode he got "pretty damn op", maxed every upgrade and wasn't going to lose.
+- **Non-pausing tower bar** (his choice over fixed pad types or cycling): standing on an empty pad shows 4 tower buttons (icon, name, cost) above DASH/UPGRADE; tap one (second finger, or keys 1-4) and it builds while the game keeps running. The bar takes the touch before dash/joystick. Upgrades keep the ring. The `tower_pick` state is gone (`World.build_tower()`).
+- **Stronger towers:** base damage ×1.5-1.6, plus `tower_growth_per_wave` 0.1 so towers keep pace with the waves.
+- **Harder waves to match:** `hp_growth_per_wave` 0.5 → 0.9; wave budgets ×1.2 (waves 1-4) to ×1.5 (7-12), waves 5-6 smoothed (75, 98).
+- **Free Mode ramps hard:** enemy HP ×1.15 and damage ×1.08 compounding per Free wave, budget ×1.18 per wave (was 1.12), elites +1 per 2 waves.
+- Bot sims (seeds 600/700/800 × 8): before (step 2) win 38% / 38% / 13%, p50 3:47-3:54, waves p50 7; after win 38% / 50% / 25% (~38%), p50 3:25-5:57, waves p50 6-12, level 12-13. Tuning path: buffs alone 100% win (nucleus ~98% intact) → +enemy HP 0.75: 100% → budgets ×1.5: 100% → tower growth 0.25 → 0.1: 79% → HP 0.9 + gentler early budgets: 38%. Free Mode (`--free`, 2 × 6): runs that win die by ~7.7 min (≈ wave 15-16) instead of never.
+
 ### Build order (each step ends with a phone playtest)
 1. **Core loop:** dish without claiming, nucleus + targeting + core damage + loss, respawn, 3 vents, 6 pads, biomass, **Bolt Spire only**, a simple 12-wave table, HUD. Test question: *is defending fun, and does standing on pads feel good?*
 2. **Depth:** all 4 towers with 3 levels and the pick popup, wave breathers/countdown and vent telegraphs, boss wave, win → COLLECT / KEEP GOING, Free Mode scaling.

@@ -256,12 +256,61 @@ func _draw_defense(w: float) -> void:
 			var num := str(ceili(wd.wave_t))
 			draw_string_outline(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 12, Color(0, 0, 0, 0.55 * (1.0 - frac * 0.5)))
 			draw_string(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pal.core, 1.0 - frac * 0.5))
+	if tower_bar_visible():
+		_draw_tower_bar()
 	var pad := wd.pad_under_player()
-	if pad >= 0:
+	if pad >= 0 and wd.pad_tower[pad] >= 0:
 		var cost := wd.pad_next_cost(pad)
-		var hint := "Fully upgraded" if cost < 0 else ("Hold to build" if wd.pad_tower[pad] < 0 else "Hold to upgrade") if wd.biomass >= cost else "Need %d biomass" % cost
+		var hint := "Fully upgraded" if cost < 0 else "Hold to upgrade" if wd.biomass >= cost else "Need %d biomass" % cost
 		draw_string_outline(font, Vector2(0, size.y * 0.5 + 100.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, 6, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, size.y * 0.5 + 100.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, pal.pad if cost >= 0 and wd.biomass >= cost else Color(pal.text, 0.75))
 	if wd.p_down > 0.0:
 		draw_string_outline(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, 8, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, pal.player)
+
+
+# ---------------------------------------------------- Nucleus tower bar
+
+const BAR_W := 150.0
+const BAR_H := 124.0
+const BAR_GAP := 10.0
+
+
+## Shown while standing on an empty pad: tap a tower to build it (no pause).
+func tower_bar_visible() -> bool:
+	return world != null and world.def_on and world.state == "playing" and world.empty_pad_under_player() >= 0
+
+
+func _tower_rect(i: int) -> Rect2:
+	var n := world.tower_defs.size()
+	var total := n * BAR_W + (n - 1) * BAR_GAP
+	var x0 := (size.x - total) / 2.0
+	return Rect2(x0 + i * (BAR_W + BAR_GAP), size.y - 380.0, BAR_W, BAR_H)
+
+
+## Index of the tower button under a screen point, or -1.
+func tower_button_at(p: Vector2) -> int:
+	if not tower_bar_visible():
+		return -1
+	for i in world.tower_defs.size():
+		if _tower_rect(i).grow(6).has_point(p):
+			return i
+	return -1
+
+
+func _draw_tower_bar() -> void:
+	var first := _tower_rect(0)
+	draw_string_outline(font, Vector2(0, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, 6, Color(0, 0, 0, 0.6))
+	draw_string(font, Vector2(0, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, pal.pad)
+	for i in world.tower_defs.size():
+		var d: Dictionary = world.tower_defs[i]
+		var r := _tower_rect(i)
+		var cost := world.tower_cost(i)
+		var ok := world.biomass >= float(cost)
+		var tc := GameData.color(d.get("color", "#ffffff"))
+		var a := 1.0 if ok else 0.4
+		draw_rect(r, Color(0.16, 0.11, 0.29, 0.9))
+		draw_rect(r, Color(tc, 0.85 * a), false, 3.0)
+		IconArt.draw(self, d.weapon, r.position + Vector2(r.size.x / 2.0, 40), 52, Color(tc, a))
+		draw_string(font, r.position + Vector2(0, 88), str(d.name), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18, Color(1, 1, 1, a))
+		draw_string(font, r.position + Vector2(0, 113), str(cost), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color(pal.pad, a) if ok else Color("#ff9a9a"))

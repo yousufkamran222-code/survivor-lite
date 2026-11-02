@@ -33,7 +33,7 @@ var events: Array = []
 
 var time := 0.0
 var run_length := 300.0
-var state := "playing"  # playing | levelup | chest | tower_pick | defense_won | dead | won
+var state := "playing"  # playing | levelup | chest | defense_won | dead | won
 var dish_r := 0.0  # bounded dish radius (Infection or Nucleus); 0 = open field
 
 # --- Player ---
@@ -178,7 +178,6 @@ var _pad_latch := -1  # pad just built on: needs stepping off before the next bu
 var vent_pos := PackedVector2Array()
 var vents_active := PackedInt32Array()  # this wave's vents (next wave's during a breather)
 var p_down := 0.0  # > 0 while the player is reforming at the nucleus
-var pick_pad := -1  # pad waiting for a tower choice (state "tower_pick")
 var free_mode := false  # endless waves after winning
 var tower_orbs := PackedVector2Array()  # Antibody Post orbs (for drawing)
 var tower_orb_r := PackedFloat32Array()
@@ -1578,7 +1577,7 @@ func wave_def(index: int) -> Dictionary:
 	return {
 		"duration": last.duration, "enemies": last.enemies, "vents": vents,
 		"budget": float(last.budget) * pow(float(dcfg.free_budget_growth), n),
-		"elites": int(dcfg.free_elites) + n / 3,
+		"elites": int(dcfg.free_elites) + n / 2,
 		"boss": (index + 1) % int(dcfg.free_boss_every) == 0,
 	}
 
@@ -1597,14 +1596,19 @@ func _vent_point() -> Vector2:
 ## (so stalling a wave doesn't make the next one tankier).
 func _hp_mult() -> float:
 	if def_on:
-		return 1.0 + float(dcfg.hp_growth_per_wave) * maxi(wave - 1, 0)
+		return (1.0 + float(dcfg.hp_growth_per_wave) * maxi(wave - 1, 0)) * pow(float(dcfg.free_hp_compound), _free_waves())
 	return director.hp_mult(time)
 
 
 func _dmg_mult() -> float:
 	if def_on:
-		return 1.0 + float(dcfg.damage_growth_per_wave) * maxi(wave - 1, 0)
+		return (1.0 + float(dcfg.damage_growth_per_wave) * maxi(wave - 1, 0)) * pow(float(dcfg.free_damage_compound), _free_waves())
 	return director.damage_mult(time)
+
+
+## Free Mode waves played so far (compounding difficulty), 0 before.
+func _free_waves() -> int:
+	return maxi(wave - wave_count, 0) if free_mode else 0
 
 
 func _in_dish(p: Vector2, r: float) -> Vector2:
@@ -1772,37 +1776,34 @@ func _update_pads(dt: float) -> void:
 	if on < 0 or on == _pad_latch:
 		return
 	var cost := pad_next_cost(on)
-	if cost < 0 or biomass < float(cost):
+	if pad_tower[on] < 0 or cost < 0 or biomass < float(cost):
+		# Empty pads are built from the HUD's tower bar (build_tower), not the ring.
 		pad_progress[on] = maxf(0.0, pad_progress[on] - dt * 2.0)
 		return
 	pad_progress[on] += dt / float(dcfg.build_s)
 	if pad_progress[on] >= 1.0:
 		pad_progress[on] = 0.0
 		_pad_latch = on
-		if pad_tower[on] < 0 and tower_defs.size() > 1:
-			pick_pad = on
-			state = "tower_pick"  # pauses like a level-up; Main shows the cards
-			_emit({"type": "tower_pick", "pad": on})
-		else:
-			_build(on, cost if pad_tower[on] >= 0 else tower_cost(0))
+		_build(on, cost)
 
 
-## Tower-pick popup: build `type` on the waiting pad if affordable.
-func choose_tower(type: int) -> bool:
-	if state != "tower_pick" or type < 0 or type >= tower_defs.size() or biomass < float(tower_cost(type)):
+## The empty pad the player stands on (the HUD shows the tower bar), or -1.
+func empty_pad_under_player() -> int:
+	var k := pad_under_player()
+	return k if k >= 0 and pad_tower[k] < 0 else -1
+
+
+## Tower bar tap: build tower `type` on the empty pad under the player. The
+## game keeps running (no pause). Returns false if it can't.
+func build_tower(type: int) -> bool:
+	var k := empty_pad_under_player()
+	if state != "playing" or k < 0 or type < 0 or type >= tower_defs.size() or biomass < float(tower_cost(type)):
 		return false
-	pad_tower[pick_pad] = type
-	pad_level[pick_pad] = 0
-	_build(pick_pad, tower_cost(type), true)
-	pick_pad = -1
-	state = "playing"
+	pad_tower[k] = type
+	pad_level[k] = 0
+	_build(k, tower_cost(type), true)
+	_pad_latch = k  # no instant upgrade: step off and back on for the ring
 	return true
-
-
-func cancel_tower_pick() -> void:
-	if state == "tower_pick":
-		pick_pad = -1
-		state = "playing"
 
 
 func _build(k: int, cost: int, fresh: bool = false) -> void:
@@ -1821,7 +1822,8 @@ func _build(k: int, cost: int, fresh: bool = false) -> void:
 ## A tower's stats at its level, with the player's might and haste applied.
 func tower_stats(k: int) -> Dictionary:
 	var w: Dictionary = tower_defs[pad_tower[k]].levels[pad_level[k] - 1].duplicate()
-	w.damage = float(w.damage) * (1.0 + float(stats.might))
+	# Towers grow with the waves (enemy HP does too), plus the player's might.
+	w.damage = float(w.damage) * (1.0 + float(stats.might)) * (1.0 + float(dcfg.tower_growth_per_wave) * maxi(wave - 1, 0))
 	w.cooldown = maxf(0.1, float(w.cooldown) * maxf(0.35, 1.0 - float(stats.haste)))
 	return w
 

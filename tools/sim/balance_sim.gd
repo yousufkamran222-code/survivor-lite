@@ -6,7 +6,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 40 --seed 1000
 ## Options: --runs N, --seed S, --meta (use maxed meta upgrades),
 ## --mode ID (data/modes.json, default: first mode), --classic (= --mode classic),
-## --json PATH
+## --json PATH, --free (Nucleus: keep going into Free Mode after the win)
 
 const DT := 1.0 / 30.0
 
@@ -16,6 +16,7 @@ func _initialize() -> void:
 	var runs := int(args.get("runs", 30))
 	var seed0 := int(args.get("seed", 1000))
 	var mode_id := "classic" if args.has("classic") else str(args.get("mode", ""))
+	free = args.has("free")
 	var d := GameData.load_all()
 	if mode_id == "":
 		mode_id = d.modes[0].id
@@ -58,6 +59,9 @@ func _parse(argv: PackedStringArray) -> Dictionary:
 	return out
 
 
+var free := false  # --free: Nucleus runs continue into Free Mode after the win
+
+
 func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var w := World.new(d, seed_value, meta)
 	w.emit_events = false
@@ -65,13 +69,13 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var peak_enemies := 0
 	var peak_allies := 0
 	var hp_at_boss := -1.0
-	while w.state in ["playing", "levelup", "chest", "tower_pick", "defense_won"]:
-		if w.state == "tower_pick":
-			if not w.choose_tower(bot.pick_tower(w)):
-				w.cancel_tower_pick()
+	while w.state in ["playing", "levelup", "chest", "defense_won"] and w.time < 1800.0:
 		if w.state == "defense_won":
-			w.collect_win()
-			break
+			if free:
+				w.start_free_mode()
+			else:
+				w.collect_win()
+				break
 		if w.pending_levelups > 0 and w.state == "playing":
 			w.open_banked()
 		if w.state == "levelup":

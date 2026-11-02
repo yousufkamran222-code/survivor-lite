@@ -146,3 +146,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-02 Nucleus mode, step 2
 - Yousuf's step-1 verdict: "feels nice". Step 2: Antibody Post, Fever Node (slow) and Spark Coil towers; tower-pick popup; 3-2-1 countdown, boss warning and longer pre-boss breather; win screen with COLLECT or KEEP GOING into endless Free Mode. Details and sim numbers in ROADMAP "Step 2 as built". 115 tests.
+
+### 2026-11-02 Nucleus step-2 playtest fixes
+- Non-pausing tower bar replaces the pick popup; stronger towers that grow per wave; harder waves; Free Mode compounds. Sim `--free` flag. Numbers in ROADMAP "Step 2 playtest → changes". 116 tests.
