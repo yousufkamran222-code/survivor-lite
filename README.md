@@ -4,7 +4,7 @@ A survivor-lite roguelite for Android: one thumb, 5-minute runs, swarms of germs
 
 - **Play the latest web playtest build:** GitHub Pages for this repo (see `docs/SETUP.md` §1 to enable it).
 - **Spec:** `docs/SPEC.md` · **Pipeline and milestones:** `docs/PIPELINE.md` · **Your setup steps:** `docs/SETUP.md`
-- **For Claude Code sessions:** start with `CLAUDE.md`.
+- **For Claude Code sessions:** start with `CLAUDE.md`, then `docs/SESSION_HANDOFF.md`.
 
 ```bash
 godot --headless --path . --import

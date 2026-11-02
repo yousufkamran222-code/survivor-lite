@@ -1,6 +1,6 @@
 # CLAUDE.md: Petri Panic (survivor-lite roguelite)
 
-Read this first. With `docs/SPEC.md` and `docs/PIPELINE.md` it should be enough to pick up the project cold.
+Read this first, then **`docs/SESSION_HANDOFF.md`** (full working context: owner, workflow, architecture, gotchas, balance, feedback history, backlog). With `docs/SPEC.md`, `docs/PIPELINE.md` and `docs/ROADMAP.md` that is enough to pick up the project cold. (`docs/HANDOFF.md` is the original pre-code planning handoff, kept for history.)
 
 ## What this is
 A solo-dev mobile survivor-lite: drag to move, auto-attack, swarms, pick 1 of 3 upgrades per level, 5:00 runs, gold meta-progression between runs. Ships as a **native Android app**. The web build is a playtest tool only.
@@ -76,4 +76,4 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 **Game modes** (`data/modes.json`): each mode is a set of `overrides` deep-merged into `balance` by `GameData.apply_mode()` (e.g. Infection = territory on + its own XP curve; Classic = territory off). The menu picks the mode (`Save.mode`). Per-mode best times are in `Save.best_times`. Sim: `--mode <id>` (`--classic` still works). New features should be a new mode entry rather than a new toggle. Modes: Infection (territory), Swarm (conversion: allies are enemies with `e_team == 1` that hold a bodyguard ring around the player; `query()` and the targeting helpers only return hostiles by default, and anything that loops over `e_pos` must skip allies itself), Classic. Upgrades can be limited to modes with `"modes": [...]`.
 
 ## Where things stand
-See `docs/PIPELINE.md` "Milestones" for the current milestone and next steps. Update it when you finish one.
+See `docs/PIPELINE.md` "Milestones" for the current milestone, and `docs/SESSION_HANDOFF.md` §10 for the prioritised backlog and open questions. Update both when you finish something.
