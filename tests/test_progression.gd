@@ -32,3 +32,45 @@ func test_meta_bonus_and_cost() -> void:
 	# Levels beyond the max are clamped.
 	var over := Progression.meta_bonus(meta, {hp_def.id: 99})
 	check_near(over[hp_def.stat], float(hp_def.per_level) * hp_def.costs.size())
+
+
+func test_meta_shop_is_deep() -> void:
+	var meta: Array = data().meta
+	var tiers := 0
+	var dash := 0
+	for m in meta:
+		tiers += m.costs.size()
+		if str(m.stat).begins_with("dash_"):
+			dash += 1
+	check(meta.size() >= 12, "plenty of permanent upgrades")
+	check(tiers >= 80, "many tiers in total")
+	check(dash >= 3, "dash-based permanent upgrades exist")
+
+
+func test_meta_total_text() -> void:
+	var pct := {"per_level": 0.04, "fmt": "pct"}
+	var flat := {"per_level": 10, "fmt": "flat"}
+	check_eq(Progression.meta_total_text(pct, 3), "+12%")
+	check_eq(Progression.meta_total_text(flat, 2), "+20")
+	check_eq(Progression.meta_total_text(flat, 0), "")
+
+
+func test_meta_dash_charge_starts_full() -> void:
+	var meta := Progression.meta_bonus(data().meta, {"meta_dash_charge": 1})
+	var w := World.new(data(), 1, meta)
+	check_eq(w.dash_max_charges(), 2)
+	check_eq(w.p_dash_charges, 2, "run starts with both charges")
+
+
+func test_meta_dash_damage_enables_lunge() -> void:
+	var meta := Progression.meta_bonus(data().meta, {"meta_dash_dmg": 2})
+	var w := World.new(data(), 1, meta)
+	w.emit_events = false
+	w._add_enemy("brute", w.p_pos + Vector2(60, 0))
+	var hp := w.e_hp[0]
+	w.p_move = Vector2.RIGHT
+	w.dash()
+	for i in 10:
+		w._rebuild_grid()
+		w._update_player(1.0 / 60.0, Vector2.RIGHT)
+	check(w.e_hp[0] < hp, "permanent Spiked Membrane makes the dash hurt")

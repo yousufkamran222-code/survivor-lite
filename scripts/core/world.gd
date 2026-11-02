@@ -183,6 +183,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	owned[bal.start_weapon] = 1
 	_recompute_stats()
 	p_hp = p_max_hp
+	p_dash_charges = dash_max_charges()  # permanent extra charges start full
 
 
 # ===================================================================== API

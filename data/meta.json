@@ -1,8 +1,17 @@
 [
-  {"id": "meta_hp",     "name": "Thick Membrane", "stat": "max_hp",  "per_level": 10,   "desc": "+10 max HP",        "costs": [40, 80, 140, 220, 320]},
-  {"id": "meta_might",  "name": "Potency",        "stat": "might",   "per_level": 0.05, "desc": "+5% damage",        "costs": [50, 100, 170, 260, 380]},
-  {"id": "meta_move",   "name": "Mobility",       "stat": "move",    "per_level": 0.04, "desc": "+4% move speed",    "costs": [40, 90, 160]},
-  {"id": "meta_magnet", "name": "Absorption",     "stat": "magnet",  "per_level": 0.15, "desc": "+15% pickup range", "costs": [30, 70, 120]},
-  {"id": "meta_growth", "name": "Growth",         "stat": "xp_gain", "per_level": 0.08, "desc": "+8% XP",            "costs": [60, 120, 200]},
-  {"id": "meta_greed",  "name": "Greed",          "stat": "gold_gain","per_level": 0.10, "desc": "+10% gold",         "costs": [50, 110, 190]}
+  {"id": "meta_hp", "name": "Thick Membrane", "stat": "max_hp", "per_level": 10, "desc": "+10 max HP", "fmt": "flat", "costs": [30, 40, 55, 70, 95, 125, 165, 220, 295, 390]},
+  {"id": "meta_might", "name": "Potency", "stat": "might", "per_level": 0.04, "desc": "+4% damage", "fmt": "pct", "costs": [40, 55, 70, 95, 125, 165, 220, 295, 390, 520]},
+  {"id": "meta_haste", "name": "Metabolism", "stat": "haste", "per_level": 0.03, "desc": "Weapons recharge 3% faster", "fmt": "pct", "costs": [45, 60, 80, 110, 150, 200, 270, 370]},
+  {"id": "meta_armor", "name": "Cell Wall", "stat": "armor", "per_level": 0.02, "desc": "Take 2% less damage", "fmt": "pct", "costs": [50, 70, 90, 125, 165, 225, 305, 410]},
+  {"id": "meta_regen", "name": "Repair Enzymes", "stat": "regen", "per_level": 0.1, "desc": "+0.1 HP regenerated per second", "fmt": "flat", "costs": [60, 85, 120, 165, 230, 325]},
+  {"id": "meta_move", "name": "Mobility", "stat": "move", "per_level": 0.03, "desc": "+3% move speed", "fmt": "pct", "costs": [35, 45, 60, 80, 110, 145, 195, 260]},
+  {"id": "meta_magnet", "name": "Absorption", "stat": "magnet", "per_level": 0.12, "desc": "+12% pickup range", "fmt": "pct", "costs": [25, 35, 45, 60, 80, 105, 140, 185]},
+  {"id": "meta_growth", "name": "Growth", "stat": "xp_gain", "per_level": 0.05, "desc": "+5% XP", "fmt": "pct", "costs": [50, 70, 90, 125, 165, 225, 305, 410]},
+  {"id": "meta_greed", "name": "Greed", "stat": "gold_gain", "per_level": 0.08, "desc": "+8% gold", "fmt": "pct", "costs": [40, 55, 75, 100, 135, 180, 240, 325]},
+  {"id": "meta_amount", "name": "Replication", "stat": "amount", "per_level": 1, "desc": "+1 bolt, antibody and spark jump", "fmt": "flat", "costs": [600, 1200]},
+  {"id": "meta_dash_cd", "name": "Flagella Training", "stat": "dash_cd", "per_level": 0.05, "desc": "Dash recharges 5% faster", "fmt": "pct", "costs": [40, 55, 80, 110, 155, 215]},
+  {"id": "meta_dash_charge", "name": "Extra Flagellum", "stat": "dash_charges", "per_level": 1, "desc": "+1 dash charge", "fmt": "flat", "costs": [900]},
+  {"id": "meta_dash_dmg", "name": "Spiked Membrane", "stat": "dash_damage", "per_level": 8, "desc": "Your dash damages what it passes through (+8)", "fmt": "flat", "costs": [80, 115, 170, 245, 355]},
+  {"id": "meta_dash_decoy", "name": "Ghost Trail", "stat": "dash_decoy", "per_level": 0.5, "desc": "Dashing leaves a small decoy (+50% burst)", "fmt": "pct", "costs": [150, 240, 385]},
+  {"id": "meta_convert", "name": "Viral Memory", "stat": "convert", "per_level": 0.01, "desc": "Swarm mode: +1% convert chance", "fmt": "pct", "costs": [60, 85, 120, 165, 230]}
 ]

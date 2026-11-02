@@ -327,21 +327,30 @@ func _select_mode(id: String) -> void:
 	_show_menu()
 
 
-## Permanent upgrades bought with gold.
+## Permanent upgrades bought with gold (scrolls: there are many tiers).
 func _show_shop() -> void:
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	col.add_child(UiKit.label("UPGRADES", 48, pal.ui_accent))
 	col.add_child(UiKit.label("Gold: %d" % Save.gold, 28))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(600, 860)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 10)
+	scroll.add_child(list)
+	col.add_child(scroll)
 	for m in data.meta:
 		var lv := Save.meta_level(m.id)
 		var cost := Progression.meta_next_cost(m, lv)
-		var txt := "%s  %d/%d\n%s" % [m.name, lv, m.costs.size(), m.desc]
+		var now := Progression.meta_total_text(m, lv)
+		var txt := "%s   %d/%d%s\n%s" % [m.name, lv, m.costs.size(), ("   (now " + now + ")") if now != "" else "", m.desc]
 		txt += ("   -  MAX" if cost < 0 else "   -  %d gold" % cost)
-		var b := UiKit.button(txt, _buy_meta.bind(m.id), 84)
-		b.add_theme_font_size_override("font_size", 22)
+		var b := UiKit.button(txt, _buy_meta.bind(m.id), 80)
+		b.add_theme_font_size_override("font_size", 21)
 		b.disabled = cost < 0 or Save.gold < cost
-		col.add_child(b)
+		list.add_child(b)
 	col.add_child(UiKit.button("BACK", _show_menu, 90))
 
 

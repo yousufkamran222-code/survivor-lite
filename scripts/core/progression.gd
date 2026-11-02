@@ -29,6 +29,16 @@ static func meta_bonus(meta_defs: Array, meta_levels: Dictionary) -> Dictionary:
 	return out
 
 
+## Human-readable current total, e.g. "+12%" or "+30" ("" at level 0).
+static func meta_total_text(meta_def: Dictionary, level: int) -> String:
+	if level <= 0:
+		return ""
+	var v := float(meta_def.per_level) * level
+	if meta_def.get("fmt", "flat") == "pct":
+		return "+%d%%" % roundi(v * 100.0)
+	return "+%s" % (str(roundi(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v)
+
+
 ## Cost of the next level, or -1 if maxed.
 static func meta_next_cost(meta_def: Dictionary, level: int) -> int:
 	if level >= meta_def.costs.size():

@@ -58,7 +58,13 @@ Max the weapon (Lv 5) and own its paired passive, then open a chest. Level-up ca
 | Nerve Spark + Metabolism | Neural Storm | 3 sparks at once, longer jumps |
 
 ## Meta-progression (`data/meta.json`)
-Gold per run = kills x 0.05 + 8/min survived + 60 for the boss + 50 for a win. Six permanent upgrades (max HP, damage, move speed, pickup range, XP gain, gold gain) at 30-380 gold per level. A typical run earns about 80-130 gold (2x with the rewarded ad), so the first purchase comes after the first run (the D1 hook), and buying everything takes about 25-35 runs (the D7 hook).
+15 permanent upgrades with 96 tiers in total (about 17,000 gold to max everything), bought in a scrolling shop that shows each one's current total:
+- Survival: Thick Membrane (+10 HP ×10), Cell Wall (−2% damage ×8), Repair Enzymes (+0.1 HP/s ×6).
+- Offence: Potency (+4% damage ×10), Metabolism (−3% cooldowns ×8), Replication (+1 projectile ×2, expensive).
+- Utility: Mobility, Absorption, Growth, Greed.
+- Dash: Flagella Training (−5% dash cooldown ×6), Extra Flagellum (+1 charge), Spiked Membrane (dash damage ×5), Ghost Trail (dash decoy ×3).
+- Swarm: Viral Memory (+1% convert ×5).
+Early tiers cost 25-60 gold, so the first purchase comes after the first run. Costs grow ~35% per tier. At ~100-280 gold per run, maxing takes about 100-170 runs, which is the long-tail retention goal.
 
 ## Monetisation and ad placements (all through `Ads`)
 | Placement | Type | When | Rule |
