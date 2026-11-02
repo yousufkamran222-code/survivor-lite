@@ -25,13 +25,17 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 ## Architecture (keep it this way)
 ```
 data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory, conversion), enemies,
-                     upgrades, evolutions, waves (incl. elites), meta, modes. Tune here, not in code.
+                     upgrades, evolutions, waves (incl. elites), meta, modes, online (leaderboards,
+                     achievements, score formula). Tune here, not in code.
 scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
-                     trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression,
-                     GameData (load + validate), BalanceBot. Deterministic for a seed.
+                     trail/claim flood fill, erosion), SpawnDirector, Upgrades, Progression
+                     (XP, gold, run summary + score), Profile (persistent progress: stats, records,
+                     achievements, merge), GameData (load + validate), BalanceBot. Deterministic.
 scripts/game/        main.gd (screen flow + UI wiring), world_view.gd (draws World, effects, camera shake)
-scripts/ui/          UiKit (theme + widgets in code), HudOverlay (XP bar, timer, joystick)
-scripts/autoload/    Save, Analytics, Sfx, Ads (AdService + StubAdBackend)
+scripts/ui/          UiKit (theme, widgets, icon cards), HudOverlay (HUD, joystick, buttons),
+                     IconArt (vector icons), UpgradeIcon, MenuBackground
+scripts/autoload/    Save (Profile as versioned JSON), Analytics, Sfx, Ads (AdService + stub),
+                     Online (accounts/leaderboards/achievements/cloud facade + StubOnlineBackend)
 scenes/main.tscn     A single node. Everything else is built in code (hand-editing .tscn is fragile).
 tests/               Headless tests: test_*.gd extends TestCase; the runner finds test_* methods.
 tools/               build_assets.py (SFX synth), sim/balance_sim.gd (bot runs)
@@ -44,7 +48,8 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 ## Rules
 1. **Run the tests before every commit/PR.** Add or extend tests for any logic change. Tests must be seeded and deterministic.
 2. For any balance change, run the sim before and after and quote both in the PR (p10/p50/p90 survival time, win rate, level_p50).
-3. **Ads go only through `Ads` (scripts/autoload/ad_service.gd).** No ad SDK calls anywhere else. Web, desktop and tests use the stub.
+3. **Ads go only through `Ads` (scripts/autoload/ad_service.gd), and online features only through `Online` (scripts/autoload/online_service.gd).** No SDK calls anywhere else. Web, desktop and tests use the stubs.
+3b. **Saves:** never change the save format without bumping `Profile.VERSION` and handling old data in `Profile.from_dict()`. Never lose player progress.
 4. Analytics only through `Analytics.event(name, params)`, with snake_case names of 40 characters or fewer.
 5. **Never commit secrets**: keystores, passwords, service-account JSON, real AdMob IDs. CI injects them from GitHub secrets. Use AdMob **test IDs** in code.
 6. Assets: CC0 only, and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py`.

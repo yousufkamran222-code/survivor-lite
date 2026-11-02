@@ -26,6 +26,10 @@ var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
 var _results_doubled := false
+var _summary := {}
+var _menu_bg: MenuBackground
+var _new_achievements: Array = []
+var _new_best := false
 var _touch_index := -1
 
 
@@ -70,6 +74,10 @@ func _ready() -> void:
 	ui_root.add_child(pause_btn)
 
 	_menu = UiKit.overlay(ui_root, 0.0)
+	_menu_bg = MenuBackground.new()
+	_menu_bg.setup(pal, data.enemies)
+	_menu[0].add_child(_menu_bg)
+	_menu[0].move_child(_menu_bg, 0)
 	_levelup = UiKit.overlay(ui_root)
 	_dead = UiKit.overlay(ui_root)
 	_results = UiKit.overlay(ui_root)
@@ -258,9 +266,7 @@ func _start_run() -> void:
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
-	Save.runs += 1
-	Save.write()
-	Analytics.event("run_start", {"run": Save.runs, "mode": _current_mode().id})
+	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
 	if world.terr != null:
 		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
 	if world.conv_on:
@@ -289,33 +295,219 @@ func _hide_all() -> void:
 func _show_menu() -> void:
 	_hide_all()
 	_set_screen("menu")
+	_menu_bg.visible = true
+	_menu_bg.show_hero = true
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label(str(bal.title).to_upper(), 64, pal.ui_accent))
-	col.add_child(UiKit.label("Gold: %d" % Save.gold, 28))
-	col.add_child(UiKit.label("MODE", 24, Color(pal.text, 0.7)))
+	col.add_theme_constant_override("separation", 16)
+	# Top row: gold pill on the right.
+	var top := HBoxContainer.new()
+	top.alignment = BoxContainer.ALIGNMENT_END
+	top.add_child(_gold_pill())
+	col.add_child(top)
+	var title := UiKit.label(str(bal.title).to_upper(), 82, pal.ui_accent)
+	title.add_theme_constant_override("outline_size", 14)
+	title.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
+	col.add_child(title)
+	col.add_child(UiKit.label("You are the infection.", 26, Color(pal.text, 0.75)))
+	# Room for the animated hero cell drawn by the background.
+	var hero := Control.new()
+	hero.custom_minimum_size = Vector2(0, 230)
+	hero.item_rect_changed.connect(func() -> void:
+		if _menu_bg.size.y > 0.0:
+			_menu_bg.hero_y = (hero.global_position.y + hero.size.y / 2.0) / _menu_bg.size.y)
+	col.add_child(hero)
+	# Mode cards.
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	var current := _current_mode()
 	for m in data.modes:
-		var label: String = str(m.name).to_upper() + ("  " + m.tag if m.get("tag", "") != "" else "")
-		var b := UiKit.button(label, _select_mode.bind(m.id), 80)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 24)
-		if m.id == current.id:
-			b.add_theme_stylebox_override("normal", UiKit._box(pal.ui_button_pressed, 18))
-			b.add_theme_color_override("font_color", pal.ui_accent)
-		row.add_child(b)
+		row.add_child(_mode_card(m, m.id == current.id))
 	col.add_child(row)
-	col.add_child(UiKit.label(current.desc, 24, Color(pal.text, 0.85)))
-	col.add_child(UiKit.label("Best: %s" % UiKit.fmt_time(float(Save.best_times.get(current.id, 0.0))), 26))
-	col.add_child(UiKit.button("PLAY", _start_run, 130))
-	col.add_child(UiKit.button("UPGRADES", _show_shop, 90))
-	var mute := UiKit.button("Sound: %s" % ("OFF" if Save.muted else "ON"), _toggle_mute, 64)
-	mute.add_theme_font_size_override("font_size", 22)
-	col.add_child(mute)
-	col.add_child(UiKit.label(_build_label(), 18, Color(pal.text, 0.4)))
+	col.add_child(UiKit.label(current.desc, 22, Color(pal.text, 0.8)))
+	var play := Button.new()
+	play.text = "PLAY"
+	play.custom_minimum_size = Vector2(0, 130)
+	play.add_theme_font_size_override("font_size", 52)
+	var ps := UiKit._box(pal.ui_accent, 26)
+	play.add_theme_stylebox_override("normal", ps)
+	play.add_theme_stylebox_override("hover", ps)
+	play.add_theme_stylebox_override("pressed", UiKit._box(pal.ui_accent.darkened(0.15), 26))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		play.add_theme_color_override(c, Color(0.12, 0.07, 0.2))
+	play.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		_start_run())
+	col.add_child(play)
+	play.resized.connect(func() -> void: play.pivot_offset = play.size / 2.0)
+	var pulse := play.create_tween().set_loops()
+	pulse.tween_property(play, "scale", Vector2(1.03, 1.03), 0.7).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(play, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
+	# Bottom row: upgrades, profile, sound.
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 12)
+	bottom.add_child(_tile_button("gold", pal.ui_accent, "UPGRADES", _show_shop))
+	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
+	bottom.add_child(_tile_button("sound_off" if Save.muted else "sound_on", pal.player_nucleus, "SOUND", _toggle_mute))
+	col.add_child(bottom)
+	col.add_child(UiKit.label(_build_label(), 16, Color(pal.text, 0.35)))
 	_menu[0].visible = true
+
+
+func _gold_pill() -> Control:
+	var pill := PanelContainer.new()
+	var sb := UiKit._box(Color(0.08, 0.05, 0.14, 0.85), 26, 14)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(pal.ui_accent, 0.7)
+	pill.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.add_child(UpgradeIcon.make("gold", pal.ui_accent, 36))
+	var amount := UiKit.label(str(Save.gold), 28, pal.ui_accent)
+	amount.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(amount)
+	pill.add_child(h)
+	return pill
+
+
+## A selectable mode card: icon, name, tag and the mode's own best record.
+func _mode_card(m: Dictionary, selected: bool) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 196)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var accent := GameData.color(m.get("color", "#ffd166"))
+	var sb := UiKit._box(Color("#3d2d6b") if selected else Color("#2a1f4a"), 20, 10)
+	sb.set_border_width_all(4 if selected else 2)
+	sb.border_color = accent if selected else Color(accent, 0.3)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("pressed", sb)
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		_select_mode(m.id))
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	var ic := UpgradeIcon.make(m.get("icon", ""), accent, 72)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var name := UiKit.label(str(m.name).to_upper(), 24, Color.WHITE if selected else Color(1, 1, 1, 0.75))
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(name)
+	var rec := Save.profile.record(m.id)
+	var sub := "Best %s" % UiKit.fmt_time(float(rec.get("best_time", 0.0)))
+	if rec.has(m.get("special", "")) and int(rec[m.special]) > 0:
+		sub = str(m.special_label) % int(rec[m.special])
+	var subl := UiKit.label(sub if int(rec.get("runs", 0)) > 0 else "Not played yet", 17, Color(accent, 0.9))
+	subl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(subl)
+	if m.get("tag", "") != "":
+		var tag := UiKit.label(m.tag, 15, pal.ui_accent)
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(tag)
+	b.add_child(v)
+	return b
+
+
+## Square-ish button with an icon over a label (menu bottom row).
+func _tile_button(icon_key: String, accent: Color, text: String, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 112)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		on_press.call())
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := UpgradeIcon.make(icon_key, accent, 52)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var l := UiKit.label(text, 20, Color.WHITE)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(l)
+	b.add_child(v)
+	return b
+
+
+## Lifetime stats, per-mode records and achievements.
+func _show_profile() -> void:
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 12)
+	col.add_child(UiKit.label("PROFILE", 52, pal.ui_accent))
+	var online := "Local profile" if not Online.is_signed_in() else Online.player_name()
+	col.add_child(UiKit.label(online + "  -  Play Games sync coming soon", 18, Color(pal.text, 0.5)))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(600, 900)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+	col.add_child(scroll)
+	var st: Dictionary = Save.profile.stats
+	list.add_child(_section("LIFETIME"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 24)
+	for pair in [["Runs", st.runs], ["Wins", st.wins], ["Germs killed", st.kills], ["Time played", UiKit.fmt_time(float(st.time_played))],
+			["Elites killed", st.elites], ["Mother Cells", st.bosses], ["Evolutions found", "%d / %d" % [st.evolved_ids.size(), data.evolutions.size()]],
+			["Germs converted", st.conversions], ["Dashes", st.dashes], ["Gold earned", st.gold_earned], ["Highest level", st.best_level]]:
+		var k := UiKit.label(str(pair[0]), 22, Color(pal.text, 0.7))
+		k.autowrap_mode = TextServer.AUTOWRAP_OFF
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(k)
+		var v := UiKit.label(str(pair[1]), 22, pal.text)
+		v.autowrap_mode = TextServer.AUTOWRAP_OFF
+		v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(v)
+	list.add_child(grid)
+	list.add_child(_section("BEST RUNS"))
+	for m in data.modes:
+		var r := Save.profile.record(m.id)
+		var line := "%s:  %s, %d kills, score %d" % [m.name, UiKit.fmt_time(float(r.get("best_time", 0.0))), int(r.get("best_kills", 0)), int(r.get("best_score", 0))]
+		if int(r.get(m.get("special", ""), 0)) > 0 and m.special != "best_kills":
+			line += ", " + (str(m.special_label) % int(r[m.special])).to_lower()
+		var l := UiKit.label(line if int(r.get("runs", 0)) > 0 else "%s:  not played yet" % m.name, 21, pal.text)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		list.add_child(l)
+	var achs: Array = data.online.achievements
+	list.add_child(_section("ACHIEVEMENTS  %d / %d" % [Save.profile.achievements.size(), achs.size()]))
+	for a in achs:
+		var done: bool = Save.profile.achievements.has(a.id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		row.add_child(UpgradeIcon.make("trophy", pal.ui_accent if done else Color(1, 1, 1, 0.25), 48))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var nm := UiKit.label(a.name, 22, pal.ui_accent if done else pal.text)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(nm)
+		var prog := Save.profile.achievement_progress(a)
+		var have := minf(float(Save.profile.flat().get(a.stat, 0)), float(a.goal))
+		var ds := UiKit.label("%s   %s" % [a.desc, "done" if done else "%d / %d" % [int(have), int(a.goal)]], 18, Color(pal.text, 0.65))
+		ds.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(ds)
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 8)
+		bar.value = prog * 100.0
+		v.add_child(bar)
+		row.add_child(v)
+		list.add_child(row)
+	col.add_child(UiKit.button("BACK", _show_menu, 90))
+
+
+func _section(text: String) -> Label:
+	var l := UiKit.label(text, 24, pal.ui_accent)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	return l
 
 
 func _current_mode() -> Dictionary:
@@ -333,6 +525,7 @@ func _select_mode(id: String) -> void:
 
 ## Permanent upgrades bought with gold (scrolls: there are many tiers).
 func _show_shop() -> void:
+	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	col.add_child(UiKit.label("UPGRADES", 48, pal.ui_accent))
@@ -386,6 +579,7 @@ func _buy_meta(id: String) -> void:
 		if cost >= 0 and Save.gold >= cost:
 			Save.gold -= cost
 			Save.meta_levels[id] = lv + 1
+			Save.profile.updated_at = Save.now()
 			Save.write()
 			Analytics.event("meta_buy", {"id": id, "level": lv + 1})
 	_show_shop()
@@ -621,11 +815,15 @@ func _show_results(won: bool) -> void:
 	_set_screen("results")
 	_results_gold = Progression.run_gold(bal, world.kills, world.time, world.boss_killed, won, float(world.stats.gold_gain))
 	_results_doubled = false
-	if not won:
-		Save.deaths += 1
-	Save.best_time = maxf(Save.best_time, world.time)
+	# Progress tracking: lifetime stats, per-mode records, achievements and
+	# leaderboard submissions (local stub until Play Games is connected).
 	var mid: String = _current_mode().id
-	Save.best_times[mid] = maxf(float(Save.best_times.get(mid, 0.0)), world.time)
+	var prev_best := int(Save.profile.record(mid).get("best_score", 0))
+	_summary = Progression.run_summary(world, won, mid, data.online.score)
+	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now())
+	_new_best = int(_summary.score) > prev_best
+	Online.report_run(_summary, data.online.leaderboards, _new_achievements)
+	Save.write()
 	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0, "conversions": world.conversions, "mode": _current_mode().id})
 	_build_results(won)
 
@@ -639,6 +837,9 @@ func _build_results(won: bool) -> void:
 		col.add_child(UiKit.label("Dish infected: %d%%" % roundi(world.terr.infected_fraction() * 100.0), 32, pal.player_nucleus))
 	if world.conv_on:
 		col.add_child(UiKit.label("Germs converted: %d" % world.conversions, 32, pal.player_nucleus))
+	col.add_child(UiKit.label("Score %d%s" % [int(_summary.score), "   NEW BEST!" if _new_best else ""], 32, pal.ui_accent if _new_best else pal.text))
+	for a in _new_achievements:
+		col.add_child(UiKit.label("Achievement: %s" % a.name, 26, pal.gem_medium))
 	col.add_child(UiKit.label("+%d gold" % _results_gold, 48, pal.gem_large))
 	if not _results_doubled and Ads.is_rewarded_available():
 		col.add_child(UiKit.button("DOUBLE GOLD  (watch ad)", func() -> void:
@@ -653,7 +854,7 @@ func _build_results(won: bool) -> void:
 
 
 func _collect(again: bool) -> void:
-	Save.gold += _results_gold
+	Save.profile.add_gold(_results_gold, Save.now())
 	_results_gold = 0
 	Save.write()
 	var next := _start_run if again else _show_menu

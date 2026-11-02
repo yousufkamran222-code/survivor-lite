@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -114,6 +114,19 @@ static func validate(d: Dictionary) -> Array:
 		for k in m.get("overrides", {}):
 			if not d.balance.has(k):
 				errors.append("mode %s overrides unknown balance key '%s'" % [m.id, k])
+	if d.has("online") and d.online is Dictionary and d.online.has("leaderboards"):
+		var ach_ids := {}
+		for lb in d.online.leaderboards:
+			if not mode_ids.has(lb.mode):
+				errors.append("leaderboard %s uses unknown mode '%s'" % [lb.id, lb.mode])
+			if not (lb.metric in ["score", "infected_pct", "conversions", "kills", "time"]):
+				errors.append("leaderboard %s has unknown metric '%s'" % [lb.id, lb.metric])
+		for a in d.online.achievements:
+			if ach_ids.has(a.id):
+				errors.append("duplicate achievement '%s'" % a.id)
+			ach_ids[a.id] = true
+			if float(a.goal) <= 0.0:
+				errors.append("achievement %s needs a positive goal" % a.id)
 	if d.waves.has("elites"):
 		for t in d.waves.elites.types:
 			if not enemy_ids.has(t):

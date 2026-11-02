@@ -1,11 +1,11 @@
 [
-  {"id": "infection", "name": "Infection", "tag": "NEW",
+  {"id": "infection", "name": "Infection", "tag": "NEW", "icon": "mode_infection", "color": "#5ce1e6", "special": "best_infected_pct", "special_label": "Best %d%% infected",
    "desc": "A bounded dish. Loop out and back to claim land; your land slows and burns germs.",
    "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
-  {"id": "swarm", "name": "Swarm", "tag": "NEW",
+  {"id": "swarm", "name": "Swarm", "tag": "NEW", "icon": "mode_swarm", "color": "#7cff9b", "special": "best_conversions", "special_label": "Best %d converted",
    "desc": "Kills can convert germs into your allies. Grow an army that fights for you.",
    "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.16}}},
-  {"id": "classic", "name": "Classic", "tag": "",
+  {"id": "classic", "name": "Classic", "tag": "", "icon": "mode_classic", "color": "#ffd166", "special": "best_kills", "special_label": "Best %d kills",
    "desc": "An endless field. Kite, build, survive 5:00.",
    "overrides": {"territory": {"enabled": false}}}
 ]

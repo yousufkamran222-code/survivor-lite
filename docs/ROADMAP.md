@@ -77,3 +77,8 @@ Original plan:
 
 ## Scope note
 This deliberately lifts the v1 cap from 1 map and 1 character to the chapters and strains listed above. Update `CLAUDE.md` rule 8 when Step 4 starts.
+
+## Accounts, progress, leaderboards (decided 2026-11-03)
+- **Built:** local `Profile` with lifetime stats, per-mode records and achievements; the `Online` facade with a stub; leaderboard definitions and the score formula in `data/online.json`; the Profile screen.
+- **Later (after M3's Gradle/AAB switch): Google Play Games Services** as `PlayGamesBackend` behind `Online`. Implicit sign-in, Saved Games cloud sync (resolve with `Profile.merge`: counters/records/meta take the max, achievements union, gold/settings from the newer copy), leaderboards (IDs map from `data/online.json`), achievements. Yousuf chose Play Games over Firebase. Verify the Godot 4.7-compatible plugin first.
+- Leaderboard metrics (agreed): per-mode score, Infection % infected, Swarm conversions. Daily Outbreak (shared seed) comes later.

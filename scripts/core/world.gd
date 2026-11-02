@@ -46,6 +46,7 @@ var level := 1
 var xp := 0.0
 var xp_next := 5.0
 var kills := 0
+var kills_by_type := {}  # enemy id -> kills this run (lifetime stats, achievements)
 var pending_levelups := 0
 var offers: Array = []
 var owned: Dictionary = {}  # upgrade id -> level
@@ -977,6 +978,7 @@ func _process_dead() -> void:
 			_remove_enemy(i)
 			continue
 		kills += 1
+		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
 		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite})
 		if elite:
 			elites_killed += 1

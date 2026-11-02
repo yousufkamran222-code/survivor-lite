@@ -1,0 +1,30 @@
+{
+  "score": {"per_kill": 10, "per_second": 20, "per_elite": 250, "boss": 1500, "win": 2000, "per_evolution": 300, "per_infected_pct": 60, "per_conversion": 15},
+  "leaderboards": [
+    {"id": "score_classic",   "name": "Classic: best score",       "mode": "classic",   "metric": "score"},
+    {"id": "score_infection", "name": "Infection: best score",     "mode": "infection", "metric": "score"},
+    {"id": "infected_pct",    "name": "Infection: most infected",  "mode": "infection", "metric": "infected_pct"},
+    {"id": "score_swarm",     "name": "Swarm: best score",         "mode": "swarm",     "metric": "score"},
+    {"id": "conversions",     "name": "Swarm: most converted",     "mode": "swarm",     "metric": "conversions"}
+  ],
+  "achievements": [
+    {"id": "first_blood",   "name": "First Blood",      "desc": "Kill 100 germs",                 "stat": "kills",              "goal": 100},
+    {"id": "exterminator",  "name": "Exterminator",     "desc": "Kill 5,000 germs",               "stat": "kills",              "goal": 5000},
+    {"id": "pandemic",      "name": "Pandemic",         "desc": "Kill 50,000 germs",              "stat": "kills",              "goal": 50000},
+    {"id": "survivor",      "name": "Survivor",         "desc": "Survive a full run",             "stat": "wins",               "goal": 1},
+    {"id": "veteran",       "name": "Veteran",          "desc": "Win 10 runs",                    "stat": "wins",               "goal": 10},
+    {"id": "all_modes",     "name": "Adaptable",        "desc": "Win in every game mode",         "stat": "modes_won",          "goal": 3},
+    {"id": "regular",       "name": "Regular",          "desc": "Play 25 runs",                   "stat": "runs",               "goal": 25},
+    {"id": "elite_hunter",  "name": "Elite Hunter",     "desc": "Kill 25 elites",                 "stat": "elites",             "goal": 25},
+    {"id": "mother_slayer", "name": "Mother Slayer",    "desc": "Kill the Mother Cell",           "stat": "bosses",             "goal": 1},
+    {"id": "evolved",       "name": "Evolved",          "desc": "Evolve a weapon",                "stat": "evolutions",         "goal": 1},
+    {"id": "full_genome",   "name": "Full Genome",      "desc": "Discover all 4 evolutions",      "stat": "evolutions_distinct", "goal": 4},
+    {"id": "level_30",      "name": "Overgrowth",       "desc": "Reach level 30 in a run",        "stat": "best_level",         "goal": 30},
+    {"id": "infected_25",   "name": "Colonist",         "desc": "Infect 25% of the dish",         "stat": "best_infected_pct_infection", "goal": 25},
+    {"id": "infected_50",   "name": "Takeover",         "desc": "Infect 50% of the dish",         "stat": "best_infected_pct_infection", "goal": 50},
+    {"id": "converts_500",  "name": "Hive",             "desc": "Convert 500 germs (lifetime)",   "stat": "conversions",        "goal": 500},
+    {"id": "lancer_bane",   "name": "Lancer Bane",      "desc": "Kill 200 Lancers",               "stat": "kills_charger",      "goal": 200},
+    {"id": "dasher",        "name": "Flagellum Pro",    "desc": "Dash 1,000 times",               "stat": "dashes",             "goal": 1000},
+    {"id": "rich",          "name": "Nest Egg",         "desc": "Earn 2,000 gold (lifetime)",     "stat": "gold_earned",        "goal": 2000}
+  ]
+}

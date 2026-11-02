@@ -127,6 +127,37 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 		"gold":
 			ci.draw_circle(c, k * 0.85, col)
 			ci.draw_arc(c, k * 0.55, 0, TAU, 20, Color(0.45, 0.3, 0.05), lw)
+		"mode_infection":
+			# A dish with a claimed wedge of land.
+			ci.draw_arc(c, k * 0.9, 0, TAU, 28, w, lw)
+			var wedge := PackedVector2Array([c])
+			for t in 13:
+				var a := -PI * 0.15 + PI * 1.1 * t / 12.0
+				wedge.append(c + Vector2(cos(a), sin(a)) * k * 0.78)
+			ci.draw_colored_polygon(wedge, Color(col, 0.85))
+		"mode_swarm":
+			ci.draw_circle(c, k * 0.32, w)
+			for t in 6:
+				var a := TAU * t / 6.0
+				ci.draw_arc(c + Vector2(cos(a), sin(a)) * k * 0.78, k * 0.2, 0, TAU, 12, col, lw * 0.8)
+		"mode_classic":
+			ci.draw_arc(c, k * 0.7, 0, TAU, 24, col, lw)
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+				ci.draw_line(c + d * k * 0.45, c + d * k * 1.0, w, lw)
+			ci.draw_circle(c, k * 0.14, w)
+		"trophy":
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.6, -k * 0.75), c + Vector2(k * 0.6, -k * 0.75), c + Vector2(k * 0.4, -k * 0.05), c + Vector2(-k * 0.4, -k * 0.05)]), col)
+			ci.draw_circle(c + Vector2(0, -k * 0.1), k * 0.4, col)
+			ci.draw_rect(Rect2(c + Vector2(-k * 0.12, k * 0.2), Vector2(k * 0.24, k * 0.35)), col)
+			ci.draw_rect(Rect2(c + Vector2(-k * 0.45, k * 0.55), Vector2(k * 0.9, k * 0.22)), w)
+		"sound_on", "sound_off":
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.8, -k * 0.3), c + Vector2(-k * 0.4, -k * 0.3), c + Vector2(k * 0.1, -k * 0.75), c + Vector2(k * 0.1, k * 0.75), c + Vector2(-k * 0.4, k * 0.3), c + Vector2(-k * 0.8, k * 0.3)]), w)
+			if key == "sound_on":
+				ci.draw_arc(c + Vector2(k * 0.1, 0), k * 0.45, -0.9, 0.9, 10, col, lw)
+				ci.draw_arc(c + Vector2(k * 0.1, 0), k * 0.75, -0.9, 0.9, 12, col, lw)
+			else:
+				ci.draw_line(c + Vector2(k * 0.35, -k * 0.4), c + Vector2(k * 0.95, k * 0.4), Color("#ff5d73"), lw)
+				ci.draw_line(c + Vector2(k * 0.35, k * 0.4), c + Vector2(k * 0.95, -k * 0.4), Color("#ff5d73"), lw)
 		_:
 			ci.draw_circle(c, k * 0.5, col)
 	if evolved:
