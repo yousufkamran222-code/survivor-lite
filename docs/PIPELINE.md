@@ -143,3 +143,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Data: `balance.defense`, `data/towers.json` (new, validated), `waves.defense.waves` (12 waves; weights/groups from `waves.pool`), mode entry + menu card + leaderboard. "Adaptable" achievement goal 3 → 4 (now 4 modes).
 - Code: World (nucleus, aggro targeting, pads/towers, wave state machine, biomass, respawn, per-wave enemy scaling; the dish clamp no longer needs territory), SpawnDirector wave mode (+ fix: a wave could stay "spawning" forever when the leftover budget couldn't buy the already-picked enemy; regression test), bot, sim fields (waves cleared, towers, nucleus left), WorldView (rim, nucleus, pads, towers, vents, fx), HUD, Main (events, results, no revive in this mode).
 - Bot sims: see ROADMAP "Step 1 as built" (~30% win, bimodal at wave 6-7). Classic/Infection unchanged (identical seeded results before/after). 110 tests.
+
+### 2026-11-02 Nucleus mode, step 2
+- Yousuf's step-1 verdict: "feels nice". Step 2: Antibody Post, Fever Node (slow) and Spark Coil towers; tower-pick popup; 3-2-1 countdown, boss warning and longer pre-boss breather; win screen with COLLECT or KEEP GOING into endless Free Mode. Details and sim numbers in ROADMAP "Step 2 as built". 115 tests.

@@ -115,3 +115,16 @@ func _affordable_pad(w: World) -> int:
 			best_cost = score
 			best = k
 	return best
+
+
+## Tower-pick popup: spread the types (a different one per new tower), the
+## cheapest affordable if that one is too expensive.
+func pick_tower(w: World) -> int:
+	var n := w.tower_defs.size()
+	var want := w.towers_built % n
+	if w.biomass >= float(w.tower_cost(want)):
+		return want
+	for t in n:
+		if w.biomass >= float(w.tower_cost(t)):
+			return t
+	return -1

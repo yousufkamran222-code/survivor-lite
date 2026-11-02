@@ -22,6 +22,9 @@ var _dead: Array
 var _results: Array
 var _pause: Array
 var _chest: Array
+var _tower: Array  # Nucleus: tower-pick popup
+var _victory: Array  # Nucleus: COLLECT or KEEP GOING
+var _countdown := 0
 var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
@@ -83,6 +86,8 @@ func _ready() -> void:
 	_results = UiKit.overlay(ui_root)
 	_pause = UiKit.overlay(ui_root)
 	_chest = UiKit.overlay(ui_root, 0.8)
+	_tower = UiKit.overlay(ui_root, 0.75)
+	_victory = UiKit.overlay(ui_root, 0.8)
 	_show_menu()
 
 
@@ -172,7 +177,13 @@ func _process(delta: float) -> void:
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
+	if world.def_on:
+		_tick_countdown()
 	match world.state:
+		"tower_pick":
+			_show_tower_pick()
+		"defense_won":
+			_show_defense_won()
 		"levelup":
 			_show_levelup()
 		"chest":
@@ -246,8 +257,18 @@ func _handle_events(events: Array) -> void:
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
 				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
 			"wave_start":
-				Sfx.play("elite", 0.0)
-				hud.toast("BOSS WAVE!" if ev.boss else "WAVE %d" % ev.wave, pal.core, 1.6)
+				if ev.boss:
+					Sfx.play("boss", 0.0)
+					Input.vibrate_handheld(120)
+					view.add_shake(10.0)
+					hud.toast("MOTHER CELL!", pal.player_hurt, 2.2)
+				else:
+					Sfx.play("elite", 0.0)
+					hud.toast("WAVE %d" % ev.wave, pal.core, 1.6)
+			"free_mode":
+				hud.toast("FREE MODE", pal.core, 2.0)
+				hud.toast("Endless waves. How far can you go?", Color(pal.text, 0.9), 2.4)
+				Analytics.event("free_mode_start", {"t": int(world.time)})
 			"wave_clear":
 				Sfx.play("level_up", 0.0)
 				hud.toast("WAVE %d CLEARED  +%d biomass" % [ev.wave, ev.bonus], pal.pad, 1.6)
@@ -296,7 +317,7 @@ func _start_run() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
-	var in_run := s in ["playing", "levelup", "chest", "dead", "paused"]
+	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "tower_pick", "defense_won"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
 	view.visible = s != "menu"
@@ -305,7 +326,7 @@ func _set_screen(s: String) -> void:
 
 
 func _hide_all() -> void:
-	for o in [_menu, _levelup, _dead, _results, _pause, _chest]:
+	for o in [_menu, _levelup, _dead, _results, _pause, _chest, _tower, _victory]:
 		o[0].visible = false
 
 
@@ -771,7 +792,7 @@ func _on_death() -> void:
 	# there is nothing to revive (a nucleus-repair ad comes in step 3).
 	var can_revive := not world.def_on and world.revives_used < int(bal.revive.max_per_run) and Ads.is_rewarded_available()
 	if not can_revive:
-		_show_results(false)
+		_show_results(world.free_mode)  # losing the nucleus in Free Mode is still a won run
 		return
 	var col: VBoxContainer = _dead[1]
 	UiKit.clear(col)
@@ -816,7 +837,7 @@ func _build_results(won: bool) -> void:
 	UiKit.clear(col)
 	var head := "YOU SURVIVED!" if won else "RUN OVER"
 	if world.def_on:
-		head = "NUCLEUS DEFENDED!" if won else "NUCLEUS LOST"
+		head = "NUCLEUS DEFENDED!" if won and not world.free_mode else ("FREE MODE OVER" if world.free_mode else "NUCLEUS LOST")
 	col.add_child(UiKit.label(head, 56, pal.ui_accent))
 	col.add_child(UiKit.label("Time %s    Level %d    Kills %d" % [UiKit.fmt_time(world.time), world.level, world.kills], 28))
 	if world.terr != null:
@@ -824,7 +845,10 @@ func _build_results(won: bool) -> void:
 	if world.conv_on:
 		col.add_child(UiKit.label("Germs converted: %d" % world.conversions, 32, pal.player_nucleus))
 	if world.def_on:
-		col.add_child(UiKit.label("Waves cleared: %d / %d    Towers: %d" % [world.waves_cleared, world.wave_count, world.towers_built], 30, pal.core))
+		if world.free_mode:
+			col.add_child(UiKit.label("Free Mode: reached wave %d    Towers: %d" % [world.wave, world.towers_built], 30, pal.core))
+		else:
+			col.add_child(UiKit.label("Waves cleared: %d / %d    Towers: %d" % [world.waves_cleared, world.wave_count, world.towers_built], 30, pal.core))
 	col.add_child(UiKit.label("Score %d%s" % [int(_summary.score), "   NEW BEST!" if _new_best else ""], 32, pal.ui_accent if _new_best else pal.text))
 	for a in _new_achievements:
 		col.add_child(UiKit.label("Achievement: %s" % a.name, 26, pal.gem_medium))
@@ -871,3 +895,88 @@ func _pause_run() -> void:
 func _resume() -> void:
 	_pause[0].visible = false
 	_set_screen("playing")
+
+
+# ------------------------------------------------------- Nucleus mode UI
+
+## 3-2-1 ticks at the end of each breather (the HUD draws the big numbers).
+func _tick_countdown() -> void:
+	var n := ceili(world.wave_t) if world.wave_state == "breather" and world.state == "playing" else 0
+	if n != _countdown:
+		_countdown = n
+		if n >= 1 and n <= 3:
+			Sfx.play("click", 0.0, 1.6 - 0.15 * n)
+			Input.vibrate_handheld(15)
+
+
+## Built on an empty pad: pick one of the towers (the game is paused).
+func _show_tower_pick() -> void:
+	_set_screen("tower_pick")
+	var col: VBoxContainer = _tower[1]
+	UiKit.clear(col)
+	col.add_child(UiKit.label("BUILD A TOWER", 52, pal.pad))
+	col.add_child(UiKit.label("Biomass: %d" % floori(world.biomass), 26, pal.pad))
+	for t in world.tower_defs.size():
+		var d: Dictionary = world.tower_defs[t]
+		var cost := world.tower_cost(t)
+		var ok := world.biomass >= float(cost)
+		var tc := GameData.color(d.get("color", "#ffffff"))
+		var card := UiKit.icon_card(UpgradeIcon.make(d.weapon, tc, 84), d.name, d.desc,
+			("%d biomass" % cost) if ok else ("Need %d biomass" % cost), 0, 0, 1, tc, _choose_tower.bind(t), 132)
+		if not ok:
+			card.modulate = Color(1, 1, 1, 0.45)
+		col.add_child(card)
+		_pop_in(card, 0.04 * t)
+	col.add_child(UiKit.button("Not now", _cancel_tower_pick, 80))
+	_tower[0].visible = true
+
+
+func _choose_tower(t: int) -> void:
+	if not world.choose_tower(t):
+		Sfx.play("deny", 0.0)
+		Input.vibrate_handheld(25)
+		return
+	_tower[0].visible = false
+	_set_screen("playing")
+
+
+func _cancel_tower_pick() -> void:
+	world.cancel_tower_pick()
+	_tower[0].visible = false
+	_set_screen("playing")
+
+
+## Wave 12 cleared: take the win or keep going into endless waves.
+func _show_defense_won() -> void:
+	_set_screen("defense_won")
+	Sfx.play("evolve", 0.0)
+	Input.vibrate_handheld(150)
+	var col: VBoxContainer = _victory[1]
+	UiKit.clear(col)
+	var head := UiKit.label("NUCLEUS DEFENDED!", 56, pal.ui_accent)
+	head.add_theme_constant_override("outline_size", 12)
+	head.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
+	col.add_child(head)
+	col.add_child(UiKit.label("All %d waves cleared in %s" % [world.wave_count, UiKit.fmt_time(world.time)], 30))
+	col.add_child(UiKit.label("Keep going for endless waves: bigger swarms, more elites, a Mother Cell every %d waves. The run already counts as a win." % int(bal.defense.free_boss_every), 24, Color(pal.text, 0.8)))
+	var keep := UiKit.button("KEEP GOING  (Free Mode)", _keep_going, 130)
+	var sb := UiKit._box(MetaShop.GREEN, 26)
+	keep.add_theme_stylebox_override("normal", sb)
+	keep.add_theme_stylebox_override("hover", sb)
+	keep.add_theme_stylebox_override("pressed", UiKit._box(MetaShop.GREEN_DARK, 26))
+	col.add_child(keep)
+	col.add_child(UiKit.button("COLLECT", _collect_win, 100))
+	_victory[0].visible = true
+	_pop_in(head, 0.0)
+
+
+func _keep_going() -> void:
+	world.start_free_mode()
+	_victory[0].visible = false
+	_set_screen("playing")
+
+
+func _collect_win() -> void:
+	world.collect_win()
+	_victory[0].visible = false
+	_show_results(true)

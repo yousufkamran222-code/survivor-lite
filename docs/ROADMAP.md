@@ -59,7 +59,7 @@ Original plan:
 - New upgrades: Viral Load (convert chance), Hijack (convert stats), Incubation (a bigger cap).
 - Test question: does a growing swarm feel like power without hiding the danger?
 
-## Prototype 3: "Nucleus" mode (tower defence): **step 1 built 2026-11-02, awaiting playtest**
+## Prototype 3: "Nucleus" mode (tower defence): **steps 1-2 built 2026-11-02** (step 1 playtested: "feels nice")
 Yousuf's choices (2026-11-02): germs go for the nucleus but switch to you when close; build by **standing on a pad**; **12 numbered waves**, then on a win you may **continue into endless Free Mode**; only the **nucleus dying** ends the run (you respawn).
 
 ### The mode in one paragraph
@@ -100,6 +100,13 @@ A big host **nucleus** sits at the centre of a bounded dish. Germs pour in from 
 - **Enemy scaling is per wave in this mode** (`defense.hp_growth_per_wave` 0.5, `damage_growth_per_wave` 0.08) instead of per minute: runs last ~6 min, and stalling a wave shouldn't make the next one tankier.
 - Bot (builds the cheapest affordable pad, otherwise defends near the nucleus), seeds 600/700/800 × 8: win 63% / 13% / 13% (~30%, like Classic), p50 3:17-5:50, waves cleared p50 6-12, level 11-13. Bimodal: runs either win or fall at wave 6-7 (first Lumps + Mitosis + an elite). Tuning path on the way: time-based growth 9% win → per-wave 0.25: 96% → 0.45: 58% → 0.55: 25% → 0.5.
 - Perf: 0.72 ms per step at 150+ enemies (same as the other modes).
+
+### Step 2 as built (2026-11-02)
+- **4 towers** (`data/towers.json`, 3 levels each): Bolt Spire (bolt), Antibody Post (orbs around the pad that hit and destroy enemy shots), Fever Node (pulse + slow: `defense.fever_slow` 45% for `slow_s`; slowed germs tint blue), Spark Coil (chain lightning). Towers reuse the weapon code from a fixed origin (`_fire_nova`/`_fire_chain` now take an origin; orbs via `_tower_orbit`).
+- **Tower-pick popup:** filling an empty pad's ring pauses the game (state `tower_pick`) and shows 4 cards with costs; "Not now" cancels (step off and back on to ask again). Empty pads show the cheapest tower's cost.
+- **Countdown and boss intro:** big 3-2-1 with ticks before each wave; "MOTHER CELL INCOMING" and a longer breather (`boss_breather_s` 9) before a boss wave; boss wave starts with a roar, shake and toast.
+- **Win → COLLECT / KEEP GOING:** clearing wave 12 sets state `defense_won`. COLLECT ends the run as a win; KEEP GOING starts **Free Mode**: waves 13+ generated from the last table wave (budget ×1.12 per wave, every vent, 2+ elites, a Mother Cell every 5th wave with growing HP), the run counts as a win whenever the nucleus falls; results show the wave reached.
+- Bot picks a different tower type per build. Sims (seeds 600/700/800 × 8): step 1 63% / 13% / 13% → step 2 38% / 38% / 13% (~30% either way, steadier across seeds), p50 3:47-3:54, waves cleared p50 7, level 12-13. The sim collects at the win screen (Free Mode isn't simmed). Classic and Swarm sims identical before/after (the chain refactor is behaviour-neutral).
 
 ### Build order (each step ends with a phone playtest)
 1. **Core loop:** dish without claiming, nucleus + targeting + core damage + loss, respawn, 3 vents, 6 pads, biomass, **Bolt Spire only**, a simple 12-wave table, HUD. Test question: *is defending fun, and does standing on pads feel good?*

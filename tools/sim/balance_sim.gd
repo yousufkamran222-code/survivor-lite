@@ -65,7 +65,13 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var peak_enemies := 0
 	var peak_allies := 0
 	var hp_at_boss := -1.0
-	while w.state in ["playing", "levelup", "chest"]:
+	while w.state in ["playing", "levelup", "chest", "tower_pick", "defense_won"]:
+		if w.state == "tower_pick":
+			if not w.choose_tower(bot.pick_tower(w)):
+				w.cancel_tower_pick()
+		if w.state == "defense_won":
+			w.collect_win()
+			break
 		if w.pending_levelups > 0 and w.state == "playing":
 			w.open_banked()
 		if w.state == "levelup":

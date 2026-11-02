@@ -118,7 +118,8 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.18}, max_fx)
 			"nova":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova)}, max_fx + 4)
-				add_shake(float(juice.shake_nova))
+				if not ev.get("tower", false):
+					add_shake(float(juice.shake_nova))
 			"chain":
 				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain)}, max_fx + 4)
 			"convert":
@@ -295,8 +296,7 @@ func _draw_defense() -> void:
 			draw_circle(pos, ps * 0.78, Color(0, 0, 0, 0.35))
 			draw_circle(pos, ps * 0.66, Color("#3d2d6b"))
 			draw_arc(pos, ps * 0.66, 0, TAU, 28, pal.ui_accent if maxed else tc, 4.0)
-			var h := 12.0 + 4.0 * lv
-			draw_colored_polygon(PackedVector2Array([pos + Vector2(0, -h), pos + Vector2(h * 0.6, 0), pos + Vector2(0, h * 0.7), pos + Vector2(-h * 0.6, 0)]), tc)
+			IconArt.draw(self, t.weapon, pos, ps * (0.85 + 0.1 * lv), tc)
 			for j in lv:
 				draw_circle(pos + Vector2((j - (lv - 1) / 2.0) * 13.0, ps * 0.66 + 12.0), 4.5, pal.ui_accent if maxed else tc)
 			if k == on or w.p_pos.distance_squared_to(pos) < 160.0 * 160.0:
@@ -366,6 +366,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = white
 		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
+		elif world.def_on and world.e_slow[i] > 0.0:
+			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
 		_enemies.add(p, r * _blob_scale, c, (pp - p).angle())
 	_enemies.commit()
 	_allies.commit()
@@ -412,6 +414,10 @@ func _draw_top() -> void:
 			var r := world.enemy_radius(i) * 1.25 + 4.0 * sin(now * 8.0)
 			ci.draw_arc(world.e_pos[i], r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)
 			ci.draw_circle(world.e_pos[i], r + 10.0, Color(elite_color, 0.12))
+	for j in world.tower_orbs.size():
+		var tc := GameData.color(world.tower_defs[world.tower_orb_type[j]].get("color", "#ffffff"))
+		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j] + 3.0, Color(tc, 0.35))
+		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j], tc)
 	var oc: Color = _wcolor("orbit", pal.orbit)
 	for p in world.orbit_points:
 		ci.draw_circle(p, world.orbit_size + 3.0, Color(oc, 0.35))

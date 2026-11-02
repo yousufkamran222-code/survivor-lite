@@ -102,9 +102,14 @@ func test_standing_on_pad_builds_then_needs_stepping_off() -> void:
 	var pad := w.pad_pos[0]
 	w.p_pos = pad
 	_steps(w, float(w.bal.defense.build_s) + 0.1)
-	check_eq(w.pad_tower[0], 0, "a tower stands on the pad")
+	check_eq(w.state, "tower_pick", "an empty pad asks which tower to build")
+	check_eq(w.pick_pad, 0)
+	var spark := 3
+	check(w.choose_tower(spark))
+	check_eq(w.state, "playing")
+	check_eq(w.pad_tower[0], spark, "the chosen tower stands on the pad")
 	check_eq(w.pad_level[0], 1)
-	check_near(w.biomass, float(cost) * 10.0 - cost)
+	check_near(w.biomass, float(cost) * 10.0 - w.tower_cost(spark))
 	check_eq(w.towers_built, 1)
 	_steps(w, float(w.bal.defense.build_s) * 2.0)
 	check_eq(w.pad_level[0], 1, "staying on the pad does not keep upgrading")
@@ -184,12 +189,132 @@ func test_waves_start_spawn_at_vents_and_clear() -> void:
 	check(w.biomass > bio, "clear bonus")
 
 
-func test_clearing_the_last_wave_wins() -> void:
+func test_clearing_the_last_wave_offers_collect_or_free_mode() -> void:
 	var w := _world()
 	w.wave = w.wave_count
 	w.wave_state = "fighting"
 	w.step(DT, Vector2.ZERO)
+	check_eq(w.state, "defense_won")
+	w.collect_win()
 	check_eq(w.state, "won")
+
+
+func test_free_mode_keeps_generating_harder_waves() -> void:
+	var w := _world()
+	w.wave = w.wave_count
+	w.wave_state = "fighting"
+	w.step(DT, Vector2.ZERO)
+	w.start_free_mode()
+	check_eq(w.state, "playing")
+	check(w.free_mode)
+	var last: Dictionary = w.wave_def(w.wave_count - 1)
+	var first_free: Dictionary = w.wave_def(w.wave_count)
+	check(float(first_free.budget) > float(last.budget), "free waves grow")
+	check(float(w.wave_def(w.wave_count + 3).budget) > float(first_free.budget))
+	check_eq(first_free.vents.size(), w.vent_pos.size(), "every vent opens")
+	var every := int(w.bal.defense.free_boss_every)
+	check(w.wave_def(every * 3 - 1).get("boss", false), "a boss every few waves")
+	_steps(w, float(w.bal.defense.breather_s) + 0.5)
+	check_eq(w.wave, w.wave_count + 1, "wave 13 starts")
+	# Clearing a free wave does not end the run again.
+	w.wave_state = "fighting"
+	for round in 4:  # Mitosis splits into Germs when killed
+		for i in w.e_pos.size():
+			w._damage(i, 1.0e6, Vector2.ZERO)
+		w._process_dead()
+	w.step(DT, Vector2.ZERO)
+	check_eq(w.state, "playing")
+	check_eq(w.wave_state, "breather")
+
+
+func test_boss_wave_gets_a_longer_breather() -> void:
+	var w := _world()
+	var boss_index := -1
+	for k in w.wave_count:
+		if w.wave_def(k).get("boss", false):
+			boss_index = k
+	check(boss_index > 0, "the table has a boss wave")
+	w.wave = boss_index
+	w.wave_state = "fighting"
+	w.step(DT, Vector2.ZERO)
+	check(w.next_wave_is_boss())
+	check(w.wave_t > float(w.bal.defense.breather_s), "extra time before the boss")
+
+
+func test_tower_pick_needs_biomass_and_can_be_cancelled() -> void:
+	var w := _world()
+	w.biomass = float(w.tower_cost(0))
+	w.wave_t = 999.0
+	w.p_pos = w.pad_pos[0]
+	_steps(w, float(w.bal.defense.build_s) + 0.1)
+	check_eq(w.state, "tower_pick")
+	var dear := 0
+	for t in w.tower_defs.size():
+		if w.tower_cost(t) > w.tower_cost(dear):
+			dear = t
+	check(not w.choose_tower(dear), "can't pick what you can't afford")
+	w.cancel_tower_pick()
+	check_eq(w.state, "playing")
+	check_eq(w.pad_tower[0], -1)
+	_steps(w, 2.0)
+	check_eq(w.state, "playing", "no re-prompt until you step off the pad")
+
+
+func _tower_world(type: int, level: int = 1) -> World:
+	var w := _world()
+	w.p_pos = Vector2(0, 900)
+	w.pad_tower[0] = type
+	w.pad_level[0] = level
+	return w
+
+
+func _type_of(w: World, weapon: String) -> int:
+	for t in w.tower_defs.size():
+		if w.tower_defs[t].weapon == weapon:
+			return t
+	return -1
+
+
+func test_every_tower_type_damages_germs() -> void:
+	var probe := _world()
+	for weapon in ["bolt", "orbit", "nova", "chain"]:
+		var t := _type_of(probe, weapon)
+		check(t >= 0, "a %s tower exists" % weapon)
+		var w := _tower_world(t)
+		var off := 150.0 if weapon != "orbit" else float(w.tower_defs[t].levels[0].orbit_radius)
+		for k in 3:
+			w._add_enemy("brute", w.pad_pos[0] + Vector2(off, 0).rotated(k * 0.3))
+			w.e_spd[k] = 0.0
+		var hp := w.e_hp[0] + w.e_hp[1] + w.e_hp[2]
+		for i in 90:
+			w._rebuild_grid()
+			w._update_towers(DT)
+			w._update_bullets(DT)
+		check(w.e_hp[0] + w.e_hp[1] + w.e_hp[2] < hp, "%s tower hurt germs" % weapon)
+
+
+func test_antibody_post_eats_shots_and_fever_node_slows() -> void:
+	var w := _tower_world(_type_of(_world(), "orbit"))
+	w._update_towers(DT)
+	check(w.tower_orbs.size() >= 2, "orbs exist")
+	w._enemy_shot(w.tower_orbs[0], Vector2.RIGHT, 0.0, 10.0)
+	w._update_towers(DT)
+	check_eq(w.s_pos.size(), 0, "the orb destroyed the shot")
+	var f := _tower_world(_type_of(_world(), "nova"))
+	f._add_enemy("grunt", f.pad_pos[0] + Vector2(100, 0))
+	f._rebuild_grid()
+	f._update_towers(DT)
+	check(f.e_slow[0] > 0.0, "pulse slows")
+	# A slowed germ covers less ground.
+	var a := _world()
+	a.p_pos = Vector2(0, 900)
+	a._add_enemy("grunt", Vector2(600, 0))
+	a._add_enemy("grunt", Vector2(-600, 0))
+	a.e_slow[0] = 5.0
+	a._rebuild_grid()
+	for i in 30:
+		a._update_enemies(DT)
+	check(a.e_pos[0].distance_to(Vector2(600, 0)) < a.e_pos[1].distance_to(Vector2(-600, 0)) - 5.0)
 
 
 func test_wave_spawning_is_deterministic() -> void:
@@ -213,6 +338,9 @@ func test_bot_defends_and_builds() -> void:
 			w.choose_upgrade(bot.pick(w))
 		elif w.state == "chest":
 			w.close_chest()
+		elif w.state == "tower_pick":
+			if not w.choose_tower(bot.pick_tower(w)):
+				w.cancel_tower_pick()
 		elif w.state != "playing":
 			break
 		w.step(DT, bot.move(w))

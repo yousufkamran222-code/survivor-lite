@@ -231,7 +231,9 @@ func _draw_defense(w: float) -> void:
 	var wd := world
 	var txt := ""
 	if wd.wave_state == "breather":
-		txt = "WAVE %d IN %d" % [wd.wave + 1, ceili(wd.wave_t)] if wd.wave < wd.wave_count else ""
+		txt = "WAVE %d IN %d" % [wd.wave + 1, ceili(wd.wave_t)]
+	elif wd.free_mode:
+		txt = "FREE MODE  WAVE %d" % wd.wave
 	else:
 		txt = "FINAL WAVE" if wd.wave >= wd.wave_count else "WAVE %d / %d" % [wd.wave, wd.wave_count]
 	draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, pal.core)
@@ -242,12 +244,24 @@ func _draw_defense(w: float) -> void:
 	var low := f < 0.3 and fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
 	draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.player_hurt if low else pal.core)
 	draw_string(font, Vector2(0, 145), "NUCLEUS", HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color(pal.text, 0.8))
+	# Big 3-2-1 before each wave, and a warning before the boss.
+	if wd.wave_state == "breather" and wd.state == "playing":
+		if wd.next_wave_is_boss():
+			var a := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
+			draw_string_outline(font, Vector2(0, 202), "MOTHER CELL INCOMING", HORIZONTAL_ALIGNMENT_CENTER, w, 34, 8, Color(0, 0, 0, 0.6 * a))
+			draw_string(font, Vector2(0, 202), "MOTHER CELL INCOMING", HORIZONTAL_ALIGNMENT_CENTER, w, 34, Color(pal.player_hurt, a))
+		if wd.wave_t <= 3.0 and wd.wave_t > 0.0:
+			var frac := wd.wave_t - floorf(wd.wave_t)
+			var fs := int(96.0 * (1.0 + 0.35 * frac))
+			var num := str(ceili(wd.wave_t))
+			draw_string_outline(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 12, Color(0, 0, 0, 0.55 * (1.0 - frac * 0.5)))
+			draw_string(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pal.core, 1.0 - frac * 0.5))
 	var pad := wd.pad_under_player()
 	if pad >= 0:
 		var cost := wd.pad_next_cost(pad)
 		var hint := "Fully upgraded" if cost < 0 else ("Hold to build" if wd.pad_tower[pad] < 0 else "Hold to upgrade") if wd.biomass >= cost else "Need %d biomass" % cost
-		draw_string_outline(font, Vector2(0, size.y * 0.5 - 70.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, 6, Color(0, 0, 0, 0.6))
-		draw_string(font, Vector2(0, size.y * 0.5 - 70.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, pal.pad if cost >= 0 and wd.biomass >= cost else Color(pal.text, 0.75))
+		draw_string_outline(font, Vector2(0, size.y * 0.5 + 100.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, 6, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, size.y * 0.5 + 100.0), hint, HORIZONTAL_ALIGNMENT_CENTER, w, 30, pal.pad if cost >= 0 and wd.biomass >= cost else Color(pal.text, 0.75))
 	if wd.p_down > 0.0:
 		draw_string_outline(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, 8, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, size.y * 0.42), "REFORMING  %d" % ceili(wd.p_down), HORIZONTAL_ALIGNMENT_CENTER, w, 46, pal.player)

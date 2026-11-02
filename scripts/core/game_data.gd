@@ -146,12 +146,14 @@ static func _validate_defense(d: Dictionary, enemy_ids: Dictionary, errors: Arra
 		if tower_ids.has(t.id):
 			errors.append("duplicate tower '%s'" % t.id)
 		tower_ids[t.id] = true
-		if not (t.get("weapon", "") in ["bolt"]):
+		if not (t.get("weapon", "") in ["bolt", "orbit", "nova", "chain"]):
 			errors.append("tower %s uses unsupported weapon '%s'" % [t.id, t.get("weapon", "")])
 		if t.levels.is_empty():
 			errors.append("tower %s has no levels" % t.id)
 		for k in t.levels.size():
-			for key in ["cost", "damage", "cooldown", "range"]:
+			var need: Array = {"bolt": ["speed", "count", "pierce", "size", "knockback"], "orbit": ["count", "size", "orbit_radius", "spin", "hit_interval", "knockback"],
+				"nova": ["area", "knockback"], "chain": ["jumps", "jump_range"]}.get(t.get("weapon", ""), [])
+			for key in ["cost", "damage", "cooldown", "range"] + need:
 				if not t.levels[k].has(key):
 					errors.append("tower %s level %d missing '%s'" % [t.id, k + 1, key])
 			if k > 0 and int(t.levels[k].cost) <= int(t.levels[k - 1].cost):
