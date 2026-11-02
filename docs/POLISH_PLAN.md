@@ -2,6 +2,8 @@
 
 Yousuf's brief: make kills and damage more satisfying (he likes the current damage numbers), make the player model nicer and more satisfying to steer and turn, suggest more polish, and make the game **as light as possible on every phone**: least battery drain, and the highest frame rate the screen supports (his phone is 90 Hz; the goal is 60+ everywhere and 90/120 where the screen allows).
 
+**Yousuf's decisions (2026-11-02):** perf first (Phase 0 → 1 → 2 → 3 → 4); crits and kill streaks are **visual only** (no new mechanics, balance untouched); the new player is a **faceless cell**; **generated music** (synthesised loops in `tools/build_assets.py`).
+
 Status: **plan only.** Each phase ends with an APK playtest plus the on-device benchmark from Phase 0. Tick items off here as they land, and log them in `PIPELINE.md`.
 
 ---
@@ -97,9 +99,7 @@ Keep the current damage-number look; make every hit and kill read and feel bette
    - boss kill: 0.5 s slow-motion,
    - level-up: a quick pulse and chime.
 5. **Screen shake v2:** trauma-based (squared falloff) and directional (pushes away from the hit), with a strength setting.
-6. **Optional (needs Yousuf's OK, it's gameplay):**
-   - **crits**: ~5% chance for ×2 damage, big gold number with "!",
-   - a **kill-streak counter** ("x25") whose sound climbs, maybe with a small XP bonus.
+6. **Visual-only streaks (decided):** big hits look bigger (no crit mechanic), and a cosmetic kill-streak counter ("x25") whose sound climbs; no XP bonus, no balance change.
 
 ---
 
