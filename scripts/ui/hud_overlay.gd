@@ -19,6 +19,8 @@ var dash_radius := 72.0
 var dash_margin := 40.0
 var elite_color := Color("#ffd166")
 var toasts: Array = []  # {text, color, t, life}
+var _notice_text := ""
+var _notice_t := 0.0
 
 
 ## Big centred message, e.g. "ELITE GERM!" or "EVOLUTION READY".
@@ -40,6 +42,21 @@ func in_dash_button(p: Vector2) -> bool:
 	return p.distance_to(dash_center()) <= dash_radius * 1.15
 
 
+## The banked-upgrades button mirrors DASH on the left.
+func upgrade_center() -> Vector2:
+	return Vector2(dash_margin + dash_radius, size.y - dash_margin - dash_radius - 40.0)
+
+
+func in_upgrade_button(p: Vector2) -> bool:
+	return p.distance_to(upgrade_center()) <= dash_radius * 1.15
+
+
+## Small, non-blocking reminder above the UPGRADE button.
+func notice(text: String) -> void:
+	_notice_text = text
+	_notice_t = 1.8
+
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -47,6 +64,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_notice_t = maxf(0.0, _notice_t - delta)
 	var i := 0
 	while i < toasts.size():
 		toasts[i].t += delta
@@ -86,6 +104,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(0, 112), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
 	_draw_arrows()
 	_draw_dash_button()
+	_draw_upgrade_button()
 	# Toasts.
 	var ty := 240.0
 	for t in toasts:
@@ -144,12 +163,34 @@ func _draw_arrows() -> void:
 
 func _draw_dash_button() -> void:
 	var c := dash_center()
-	var cd := world.p_dash_cd
-	var full := float(world.bal.player.dash_cooldown_s)
-	var ready := cd <= 0.0
+	var ready := world.can_dash()
+	var max_c := world.dash_max_charges()
 	draw_circle(c, dash_radius, Color(1, 1, 1, 0.16 if ready else 0.07))
 	draw_arc(c, dash_radius, 0, TAU, 48, Color(1, 1, 1, 0.45 if ready else 0.15), 3.0)
-	if not ready:
-		var f := 1.0 - cd / full
-		draw_arc(c, dash_radius - 6.0, -PI / 2.0, -PI / 2.0 + TAU * f, 48, Color(pal.xp_bar, 0.8), 6.0)
+	if world.p_dash_charges < max_c:
+		var f := 1.0 - world.p_dash_cd / world.dash_cooldown()
+		draw_arc(c, dash_radius - 6.0, -PI / 2.0, -PI / 2.0 + TAU * clampf(f, 0.0, 1.0), 48, Color(pal.xp_bar, 0.8), 6.0)
 	draw_string(font, c + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if ready else 0.35))
+	# Charge pips under the label when you have more than one.
+	if max_c > 1:
+		for k in max_c:
+			var p := c + Vector2((k - (max_c - 1) / 2.0) * 16.0, 28.0)
+			draw_circle(p, 5.0, Color(pal.xp_bar, 0.9) if k < world.p_dash_charges else Color(1, 1, 1, 0.2))
+
+
+func _draw_upgrade_button() -> void:
+	var c := upgrade_center()
+	var n := world.pending_levelups
+	var on := n > 0
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if on else 0.0
+	var accent: Color = pal.ui_accent
+	draw_circle(c, dash_radius, Color(accent, 0.1 + 0.12 * pulse) if on else Color(1, 1, 1, 0.05))
+	draw_arc(c, dash_radius, 0, TAU, 48, Color(accent, 0.6 + 0.4 * pulse) if on else Color(1, 1, 1, 0.12), 3.0)
+	draw_string(font, c + Vector2(-dash_radius, 9), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.3))
+	# Badge with the number of banked level-ups (always shown).
+	var b := c + Vector2(dash_radius * 0.72, -dash_radius * 0.72)
+	draw_circle(b, 19.0, accent if on else Color(1, 1, 1, 0.15))
+	draw_string(font, b + Vector2(-19, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 38, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
+	if _notice_t > 0.0:
+		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
+		draw_string(font, c + Vector2(-dash_radius, -dash_radius - 18.0), _notice_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(accent, a))

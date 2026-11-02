@@ -106,3 +106,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Swarm "untouchable" with the swarm plus Antibodies: ally HP ×3 → ×2, damage ×2 → ×1.5, feed cap +150% → +75%, feed heal 15% → 8%, and Swarm gets its own XP curve (linear 4, quad 0.16). Bot, seeds 600/700/800 × 8: before ~54% win, p50 5:00, level 15-17; after ~42% win, p50 3:24-5:00, level 10-13.
 - Frame spikes with heavy late-game effects at only ~80 enemies: the simulation was cheap (0.58 ms per step fully loaded, `bench.gd --loaded`). The cause was rendering, where screen-sized translucent ring fills (Fever Spike, vacuum, bomb) are heavy on phone fill rate. Big rings now draw only their outline, and damage numbers are capped at 12. Probe (xvfb, loaded Swarm build): worst frame ~30-35 ms → ~20-28 ms. The perf readout now also shows draw calls and live effects.
 - Joystick: the base stays where you first touch (`juice.stick_follow` = false; true restores the drag-along base).
+
+### 2026-11-03 banked level-ups and dash upgrades
+- Level-ups no longer pause the game (`upgrades.bank_levelups`). They bank up behind an UPGRADE button with a count badge, a small reminder note appears on each level-up, and the picker has a "Later" option. Per Yousuf: banking only, no auto-open.
+- Dash: base cooldown 3.2 → 2.0 s, charges, and 4 dash cards (Double Flagella, Lunge, Afterimage, Adrenaline).
+- Bot (it opens banked picks immediately), Classic, seeds 600/700/800 × 8: before win ~34%, p50 2:56-5:00, level 11-16; after win ~29%, p50 3:25-4:43, level 12-20 (within noise; the 4 extra cards dilute the bot's random picks).

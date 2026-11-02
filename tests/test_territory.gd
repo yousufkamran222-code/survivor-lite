@@ -139,6 +139,8 @@ func test_bot_claims_land_in_a_run() -> void:
 	var bot := BalanceBot.new(21)
 	var start := w.terr.owned_count
 	for i in int(90.0 / DT):
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
 		elif w.state == "chest":

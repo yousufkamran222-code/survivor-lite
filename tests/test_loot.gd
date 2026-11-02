@@ -169,6 +169,8 @@ func test_bot_run_with_loot_is_stable() -> void:
 	w.emit_events = false
 	var bot := BalanceBot.new(11)
 	for i in int(120.0 / DT):
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
 		elif w.state == "chest":
@@ -190,3 +192,69 @@ func test_antibodies_destroy_enemy_shots() -> void:
 	w._enemy_shot(w.p_pos + Vector2(600, 0), Vector2.RIGHT, 0.0, 10.0)
 	w._update_weapons(0.0)
 	check_eq(w.s_pos.size(), 1, "shot touching an antibody is destroyed, far one survives")
+
+
+func test_dash_charges() -> void:
+	var w := _world()
+	w.owned["flagella2"] = 1
+	w._recompute_stats()
+	w.p_dash_charges = w.dash_max_charges()
+	check_eq(w.dash_max_charges(), 2)
+	check(w.dash() and w.dash(), "two dashes back to back")
+	check(not w.dash(), "then out of charges")
+	var t := 0.0
+	while not w.can_dash() and t < 5.0:
+		w._update_player(DT, Vector2.ZERO)
+		t += DT
+	check_near(t, w.dash_cooldown(), 0.05, "one charge back after one cooldown")
+
+
+func test_base_dash_cooldown_is_snappy() -> void:
+	check(float(data().balance.player.dash_cooldown_s) <= 2.0)
+
+
+func test_lunge_damages_on_the_way_through() -> void:
+	var w := _world()
+	w.owned["lunge"] = 1
+	w._recompute_stats()
+	w._add_enemy("brute", w.p_pos + Vector2(60, 0))
+	var hp := w.e_hp[0]
+	w.p_move = Vector2.RIGHT
+	w.dash()
+	for i in 10:
+		w._rebuild_grid()
+		w._update_player(DT, Vector2.RIGHT)
+	check(w.e_hp[0] < hp, "dashing through a Lump hurts it")
+
+
+func test_afterimage_lures_and_bursts() -> void:
+	var w := _world()
+	w.owned["afterimage"] = 1
+	w._recompute_stats()
+	w.dash()
+	check(w.decoy_t > 0.0)
+	var decoy := w.decoy_pos
+	w.p_pos = decoy + Vector2(600, 0)
+	w._add_enemy("grunt", decoy + Vector2(0, 200))
+	w._rebuild_grid()
+	var d0 := w.e_pos[0].distance_to(decoy)
+	w._update_enemies(DT * 10)
+	check(w.e_pos[0].distance_to(decoy) < d0, "germ near the decoy heads for it, not the player")
+	w._add_enemy("brute", decoy + Vector2(30, 0))
+	w._rebuild_grid()
+	var hp := w.e_hp[1]
+	w.decoy_t = 0.01
+	w._update_player(DT, Vector2.ZERO)
+	check(w.e_hp[1] < hp, "decoy bursts when it expires")
+
+
+func test_adrenaline_elite_kill_refills_dash() -> void:
+	var w := _world()
+	w.owned["adrenaline"] = 1
+	w._recompute_stats()
+	w.dash()
+	check(not w.can_dash())
+	w._add_enemy("grunt", Vector2(300, 0), true)
+	w._damage(0, 1.0e6, Vector2.ZERO)
+	w._process_dead()
+	check(w.can_dash(), "elite kill refilled the dash")

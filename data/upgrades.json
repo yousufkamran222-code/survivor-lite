@@ -75,6 +75,22 @@
    "levels": [{"ally_cap": 3}, {"ally_cap": 3}, {"ally_cap": 3}],
    "desc": ["+3 max allies, and they last 15% longer"]},
 
+  {"id": "flagella2", "type": "passive", "name": "Double Flagella", "weight": 0.8,
+   "levels": [{"dash_charges": 1}, {"dash_charges": 1}],
+   "desc": ["+1 dash charge"]},
+
+  {"id": "lunge", "type": "passive", "name": "Lunge", "weight": 0.8,
+   "levels": [{"dash_damage": 20}, {"dash_damage": 15}, {"dash_damage": 20}],
+   "desc": ["Your dash damages and knocks back everything it passes through", "+15 dash damage", "+20 dash damage"]},
+
+  {"id": "afterimage", "type": "passive", "name": "Afterimage", "weight": 0.7,
+   "levels": [{"dash_decoy": 1}, {"dash_decoy": 1}, {"dash_decoy": 1}],
+   "desc": ["Dashing leaves a decoy that lures nearby germs, then bursts", "Bigger decoy burst", "Even bigger decoy burst"]},
+
+  {"id": "adrenaline", "type": "passive", "name": "Adrenaline", "weight": 0.8,
+   "levels": [{"dash_cd": 0.15, "dash_reset": 1}, {"dash_cd": 0.15}, {"dash_cd": 0.15}],
+   "desc": ["Dash recharges 15% faster; killing an elite refills your dashes", "Dash recharges 15% faster", "Dash recharges 15% faster"]},
+
   {"id": "regen", "type": "passive", "name": "Repair", "weight": 0.8,
    "levels": [{"regen": 0.4}, {"regen": 0.4}, {"regen": 0.4}],
    "desc": ["Regenerate 0.4 HP per second"]}

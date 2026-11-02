@@ -71,7 +71,7 @@ func move(w: World) -> Vector2:
 		if w.p_pos.length() > w.terr.radius - 250.0:
 			dir = (dir - w.p_pos.normalized() * 0.8).normalized()
 	# Dash out when something is about to touch us.
-	if w.p_dash_cd <= 0.0 and away.length() > 0.05:
+	if w.can_dash() and away.length() > 0.05:
 		w.p_move = dir
 		w.dash()
 	return dir

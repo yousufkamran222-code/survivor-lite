@@ -64,6 +64,10 @@ var p_move := Vector2.ZERO  # last movement input
 var p_dash_t := 0.0  # time left in the current dash
 var p_dash_cd := 0.0
 var p_dash_dir := Vector2.RIGHT
+var p_dash_charges := 1
+var _dash_hits := {}  # enemy uids Lunge already hit during this dash
+var decoy_pos := Vector2.ZERO  # Afterimage decoy (enemies nearby chase it)
+var decoy_t := 0.0
 
 # --- Evolutions ---
 var evolution_defs := {}  # weapon id -> evolution def
@@ -206,7 +210,7 @@ func step(dt: float, move: Vector2) -> void:
 	_contact_damage()
 	_update_gems(dt)
 	_update_pickups()
-	if pending_levelups > 0 and state == "playing":
+	if pending_levelups > 0 and state == "playing" and not _banking():
 		_open_levelup()
 
 
@@ -222,18 +226,58 @@ func choose_upgrade(id: String) -> void:
 		_open_levelup()
 
 
+## Level-ups are banked (balance.upgrades.bank_levelups): they don't pause the
+## game; the player opens the picker when it suits them.
+func _banking() -> bool:
+	return bool(bal.upgrades.get("bank_levelups", false))
+
+
+## Opens the picker for a banked level-up. Returns true if it opened.
+func open_banked() -> bool:
+	if state != "playing" or pending_levelups <= 0:
+		return false
+	_open_levelup()
+	return state == "levelup"
+
+
+## Closes the picker keeping the remaining level-ups banked ("Later").
+func close_levelup() -> void:
+	if state == "levelup":
+		offers = []
+		state = "playing"
+
+
 ## Starts a dash if it is off cooldown. Returns true if it dashed.
 func dash() -> bool:
-	if state != "playing" or p_dash_cd > 0.0:
+	if state != "playing" or p_dash_charges <= 0:
 		return false
 	var pl: Dictionary = bal.player
 	p_dash_dir = p_move.normalized() if p_move.length_squared() > 0.01 else p_facing
 	p_dash_t = float(pl.dash_s)
-	p_dash_cd = float(pl.dash_cooldown_s)
+	p_dash_charges -= 1
+	if p_dash_cd <= 0.0:
+		p_dash_cd = dash_cooldown()
 	p_iframes = maxf(p_iframes, float(pl.dash_iframes_s))
+	_dash_hits = {}
 	dashes += 1
+	if float(stats.get("dash_decoy", 0.0)) > 0.0:
+		decoy_pos = p_pos
+		decoy_t = float(pl.decoy_s)
+		_emit({"type": "decoy", "pos": p_pos})
 	_emit({"type": "dash", "pos": p_pos, "dir": p_dash_dir})
 	return true
+
+
+func can_dash() -> bool:
+	return p_dash_charges > 0
+
+
+func dash_max_charges() -> int:
+	return 1 + int(stats.get("dash_charges", 0.0))
+
+
+func dash_cooldown() -> float:
+	return float(bal.player.dash_cooldown_s) * maxf(0.4, 1.0 - float(stats.get("dash_cd", 0.0)))
 
 
 ## Called when the chest reveal has been shown. Rewards were already applied.
@@ -242,7 +286,7 @@ func close_chest() -> void:
 		return
 	chest_rewards = []
 	state = "playing"
-	if pending_levelups > 0:
+	if pending_levelups > 0 and not _banking():
 		_open_levelup()
 
 
@@ -372,11 +416,22 @@ func _recompute_stats() -> void:
 func _update_player(dt: float, move: Vector2) -> void:
 	var m := move.limit_length(1.0)
 	p_move = m
-	if p_dash_cd > 0.0:
+	if p_dash_charges < dash_max_charges():
 		p_dash_cd -= dt
+		if p_dash_cd <= 0.0:
+			p_dash_charges += 1
+			p_dash_cd = dash_cooldown() if p_dash_charges < dash_max_charges() else 0.0
+	else:
+		p_dash_cd = 0.0
+	if decoy_t > 0.0:
+		decoy_t -= dt
+		if decoy_t <= 0.0:
+			_decoy_blast()
 	if p_dash_t > 0.0:
 		p_dash_t -= dt
 		p_pos += p_dash_dir * float(bal.player.dash_speed) * dt
+		if float(stats.get("dash_damage", 0.0)) > 0.0:
+			_lunge_hits()
 	else:
 		var spd := float(bal.player.speed) * (1.0 + float(stats.move))
 		p_pos += m * spd * dt
@@ -556,6 +611,8 @@ func _update_enemies(dt: float) -> void:
 				vel = Vector2.ZERO
 			beh = BEH_CHASE  # never treated as a boss below
 		else:
+			if decoy_t > 0.0 and beh != BEH_BOSS and pos.distance_squared_to(decoy_pos) < float(bal.player.decoy_radius) ** 2:
+				dir = (decoy_pos - pos).normalized()
 			if terr != null and terr.is_owned(pos):
 				spd *= 1.0 - float(bal.territory.enemy_slow)
 			vel = dir * spd
@@ -916,6 +973,9 @@ func _process_dead() -> void:
 			elites_killed += 1
 			_drop_gem(pos, float(data.waves.elites.xp))
 			_drop_chest(pos, int(bal.chests.elite_items))
+			if float(stats.get("dash_reset", 0.0)) > 0.0:
+				p_dash_charges = dash_max_charges()
+				p_dash_cd = 0.0
 			_emit({"type": "elite_killed", "pos": pos})
 		elif d.behavior == "boss":
 			boss_killed = true
@@ -1001,6 +1061,7 @@ func _update_gems(dt: float) -> void:
 		level += 1
 		xp_next = Progression.xp_needed(bal, level)
 		pending_levelups += 1
+		_emit({"type": "level_gained", "level": level, "banked": pending_levelups})
 
 
 func _roll() -> Array:
@@ -1328,3 +1389,29 @@ func _update_ally_combat(dt: float) -> void:
 		if e_hp[i] <= 0.0:
 			_dead[i] = true
 	_process_dead()
+
+
+# ===================================================================== dash
+
+## Damage scaled like the enemies' HP so dash upgrades stay relevant late.
+func _dash_power(base: float) -> float:
+	return base * (1.0 + float(stats.might)) * director.hp_mult(time)
+
+
+## Lunge: everything the dash passes through takes damage once per dash.
+func _lunge_hits() -> void:
+	var dmg := _dash_power(float(stats.get("dash_damage", 0.0)))
+	for i: int in query(p_pos, p_radius + 12.0):
+		if _dash_hits.has(e_uid[i]):
+			continue
+		_dash_hits[e_uid[i]] = true
+		_damage(i, dmg, p_dash_dir * 260.0)
+
+
+## Afterimage: the decoy pops when it expires, hurting what it lured.
+func _decoy_blast() -> void:
+	var pl: Dictionary = bal.player
+	var dmg := _dash_power(float(pl.decoy_blast_damage) * float(stats.get("dash_decoy", 1.0)))
+	for i: int in query(decoy_pos, float(pl.decoy_blast_radius)):
+		_damage(i, dmg, (e_pos[i] - decoy_pos).normalized() * 220.0)
+	_emit({"type": "nova", "pos": decoy_pos, "radius": float(pl.decoy_blast_radius)})

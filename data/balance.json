@@ -12,8 +12,12 @@
     "armor": 0.0,
     "dash_speed": 950,
     "dash_s": 0.16,
-    "dash_cooldown_s": 3.2,
-    "dash_iframes_s": 0.22
+    "dash_cooldown_s": 2.0,
+    "dash_iframes_s": 0.22,
+    "decoy_s": 2.0,
+    "decoy_radius": 360,
+    "decoy_blast_radius": 160,
+    "decoy_blast_damage": 25
   },
   "territory": {
     "enabled": true,
@@ -79,6 +83,7 @@
   },
   "upgrades": {
     "offers_per_level": 3,
+    "bank_levelups": true,
     "max_weapons": 4,
     "owned_weight_mult": 1.6,
     "heal_when_all_maxed": 0.2

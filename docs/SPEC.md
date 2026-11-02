@@ -5,10 +5,10 @@
 **Working theme only.** See `DECISIONS.md` D-006. Every name and colour below lives in `data/`.
 
 ## Core loop
-1. **Drag anywhere** to move (a floating joystick appears under the thumb). WASD or arrows on desktop. **Dash** (button bottom-right, a second-finger tap, or Space): a 0.16 s burst with brief invulnerability on a 3.2 s cooldown.
+1. **Drag anywhere** to move (a floating joystick appears under the thumb). WASD or arrows on desktop. **Dash** (button bottom-right, a second-finger tap, or Space): a 0.16 s burst with brief invulnerability on a 2.0 s cooldown. Dash cards: Double Flagella (+1 charge), Lunge (dash damages what it passes through), Afterimage (a decoy that lures germs, then bursts), Adrenaline (faster recharge; elite kills refill dashes).
 2. Weapons **fire automatically** at nearby germs.
 3. Killed germs drop **XP gems**, which fly to you inside the pickup radius.
-4. A full XP bar means **level up**: the game pauses and you **pick 1 of 3** upgrades (taps are blocked for 0.35 s so a dragging thumb can't mis-pick).
+4. A full XP bar means **level up**, which is **banked**: the game doesn't pause. A small "LEVEL n +1 upgrade" note appears above the **UPGRADE** button (bottom-left, with a badge counting banked level-ups). Tap it (or E/Tab) whenever it suits you to **pick 1 of 3** per banked level, or tap **Later** to keep the rest banked.
 5. **Elites** (big, gold-ringed, tougher versions of current enemies) arrive at 0:35 and then every 40 s, with an off-screen arrow pointing to them. Weapons focus elites and the boss when in range. Each drops a **chest**: a slot-machine reveal of 1 item (3 from the boss). It's an **evolution** if one is ready, otherwise a level of something you own.
 6. **Rare pickups** drop from normal kills: **Vacuum** (pulls every gem on the map), **Heal** (+30% HP), **Bomb** (kills normal enemies on screen and damages elites and the boss).
 7. Survive to **5:00** for a win. The **Mother Cell** boss arrives at 3:50.

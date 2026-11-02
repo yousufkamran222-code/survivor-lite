@@ -13,6 +13,8 @@ func _run_bot(w: World, seconds: float) -> void:
 	var bot := BalanceBot.new(w.rng.seed)
 	var steps := int(seconds / DT)
 	for i in steps:
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
 		if w.state == "chest":
@@ -51,6 +53,8 @@ func test_enemy_cap_respected() -> void:
 	w.time = 250.0
 	for i in 600:
 		w.step(DT, Vector2.ZERO)
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(w.offers[0])
 		if w.state == "dead":
@@ -59,20 +63,27 @@ func test_enemy_cap_respected() -> void:
 		check(w.enemy_count() <= cap + 60, "enemy count %d far above cap" % w.enemy_count())
 
 
-func test_levelup_flow() -> void:
+func test_levelup_flow_banked() -> void:
 	var w := _world(3)
 	var b: Dictionary = data().balance
 	w.xp = Progression.xp_needed(b, 1) + Progression.xp_needed(b, 2) + Progression.xp_needed(b, 3) + 0.5
 	w.emit_events = true
 	w.step(DT, Vector2.ZERO)
-	check_eq(w.state, "levelup")
-	check(w.pending_levelups >= 3, "multiple level-ups queue up")
+	check_eq(w.state, "playing", "level-ups are banked, the game keeps going")
+	check(w.pending_levelups >= 3, "multiple level-ups bank up")
 	var lv := w.level
+	check(w.open_banked(), "player opens the picker")
+	check_eq(w.state, "levelup")
 	var first: String = w.offers[0]
 	var before := int(w.owned.get(first, 0))
+	var banked := w.pending_levelups
 	w.choose_upgrade(first)
 	check_eq(int(w.owned[first]), before + 1)
-	check_eq(w.state, "levelup", "next queued level-up opens immediately")
+	check_eq(w.state, "levelup", "the picker stays open while picks remain")
+	check_eq(w.pending_levelups, banked - 1)
+	w.close_levelup()
+	check_eq(w.state, "playing", "Later closes the picker")
+	check_eq(w.pending_levelups, banked - 1, "remaining picks stay banked")
 	check_eq(w.level, lv)
 
 

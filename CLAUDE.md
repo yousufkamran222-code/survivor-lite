@@ -49,7 +49,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 5. **Never commit secrets**: keystores, passwords, service-account JSON, real AdMob IDs. CI injects them from GitHub secrets. Use AdMob **test IDs** in code.
 6. Assets: CC0 only, and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py`.
 7. Prefer data edits over code edits, and small diffs over refactors. Don't rename or move files without a reason.
-8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 10 upgrades, 4 evolutions (one per weapon), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
+8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 15 shared upgrades (incl. 4 dash cards), 4 evolutions (one per weapon), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
 9. Turn playtest feedback ("dash feels floaty", "wave 4 too hard") into data changes first, using `balance.json` `juice` and `waves.json`.
 
 ## Performance budget (low-end Android is the target)

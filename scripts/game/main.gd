@@ -86,8 +86,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		world.dash()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_E, KEY_TAB]:
+		_open_banked()
+		return
 	if event is InputEventScreenTouch:
 		# Dash: tap the DASH button, or tap with a second finger while steering.
+		if event.pressed and hud.in_upgrade_button(event.position):
+			_open_banked()
+			return
 		if event.pressed and (hud.in_dash_button(event.position) or (_touch_index != -1 and event.index != _touch_index)):
 			world.dash()
 			return
@@ -188,8 +194,9 @@ func _handle_events(events: Array) -> void:
 				Sfx.play("hurt")
 				hitstop = maxf(hitstop, float(bal.juice.hitstop_hurt_s))
 				Input.vibrate_handheld(40)
-			"level_up":
+			"level_gained":
 				Sfx.play("level_up", 0.0)
+				hud.notice("LEVEL %d  +1 upgrade" % ev.level)
 			"boss_spawn":
 				Sfx.play("boss", 0.0)
 				Analytics.event("boss_spawn", {"t": int(world.time)})
@@ -378,8 +385,8 @@ func _show_levelup() -> void:
 	_set_screen("levelup")
 	var col: VBoxContainer = _levelup[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label("LEVEL %d!" % world.level, 56, pal.ui_accent))
-	col.add_child(UiKit.label("Choose one", 26, Color(pal.text, 0.8)))
+	col.add_child(UiKit.label("UPGRADE", 56, pal.ui_accent))
+	col.add_child(UiKit.label("Choose one  -  %d to spend" % world.pending_levelups, 26, Color(pal.text, 0.8)))
 	var buttons: Array[Button] = []
 	for id in world.offers:
 		var def: Dictionary = world.upgrade_defs[id]
@@ -397,6 +404,10 @@ func _show_levelup() -> void:
 	reroll.visible = Ads.is_rewarded_available()
 	col.add_child(reroll)
 	buttons.append(reroll)
+	var later := UiKit.button("Later  (keep %d banked)" % world.pending_levelups, _later, 72)
+	later.add_theme_font_size_override("font_size", 22)
+	col.add_child(later)
+	buttons.append(later)
 	_levelup[0].visible = true
 	# Ignore taps for a moment so a finger still dragging can't mis-pick.
 	for b in buttons:
@@ -481,6 +492,19 @@ func _close_chest() -> void:
 		_show_levelup()
 	else:
 		_set_screen("playing")
+
+
+## Opens the picker for a banked level-up (UPGRADE button, E or Tab).
+func _open_banked() -> void:
+	if screen == "playing" and world.open_banked():
+		_release_stick()
+		_show_levelup()
+
+
+func _later() -> void:
+	world.close_levelup()
+	_levelup[0].visible = false
+	_set_screen("playing")
 
 
 func _pick(id: String) -> void:

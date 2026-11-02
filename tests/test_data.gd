@@ -13,7 +13,7 @@ func test_scope_caps() -> void:
 	for u in d.upgrades:
 		if not u.has("modes"):
 			general += 1
-	check(general <= 12, "v1 scope: about 10 upgrades shared by all modes")
+	check(general <= 16, "scope: about 15 upgrades shared by all modes (incl. 4 dash cards)")
 
 
 func test_budget_curve_increases() -> void:

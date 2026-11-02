@@ -66,6 +66,8 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var peak_allies := 0
 	var hp_at_boss := -1.0
 	while w.state in ["playing", "levelup", "chest"]:
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
 			continue

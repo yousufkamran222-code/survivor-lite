@@ -138,6 +138,8 @@ func test_bot_swarm_run() -> void:
 	var bot := BalanceBot.new(31)
 	var peak := 0
 	for i in int(120.0 / DT):
+		if w.pending_levelups > 0 and w.state == "playing":
+			w.open_banked()
 		if w.state == "levelup":
 			w.choose_upgrade(bot.pick(w))
 		elif w.state == "chest":
