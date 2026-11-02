@@ -27,7 +27,13 @@ Status: **plan only.** Each phase ends with an APK playtest plus the on-device b
 
 ---
 
-## Phase 0: measure on the phone (small, do first)
+## Phase 0: measure on the phone (small, do first): **built 2026-11-02, awaiting Yousuf's phone numbers**
+
+As built: tap the build label on the main menu 5 times (F9 on desktop). 45 s run: Classic, seed 4242, invincible, bot-driven, run clock starting at 2:50, loadout bolt 4 / orbit 3 / nova 3 / chain 3 / might 2 / multishot 1 (~130-150 enemies, ~15 live effects, ~95 draw calls); 5 s warm-up, then 40 s measured. Result screen with COPY. `Benchmark` (scripts/game/benchmark.gd) holds the stats; bump `Benchmark.VERSION` if the scenario changes. Perf readout v2 (`debug.show_perf`): FPS + 1 s minimum, refresh rate, sim/view/HUD ms, rebuilt 4x a second. Desktop: `xvfb-run -a godot --path . --rendering-driver opengl3 -s res://tools/sim/bench_render.gd`.
+
+Desktop baseline (xvfb, CPU-rendered, 2 runs): 70.9-74.6 fps, avg 13.4-14.1 ms, p95 15.3-16.7 ms; **our code is only sim 0.7-0.8 + view 0.4 + HUD 0.4 ms**, the rest is software rasterising (the GPU's job on a phone); dc 93-99. Finding: the HUD's owned-upgrades icon strip costs ~60 draw calls once 6 upgrades are owned (dc 41 → ~100).
+
+Original plan:
 
 We can't see the phone, so every perf step needs numbers from it.
 

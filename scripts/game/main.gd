@@ -24,6 +24,12 @@ var _pause: Array
 var _chest: Array
 var _victory: Array  # Nucleus: COLLECT or KEEP GOING
 var _countdown := 0
+var _bench: Benchmark = null  # on-device benchmark in progress
+var _bench_bot: BalanceBot
+var _bench_perf := false
+var _bench_taps := 0
+var _bench_tap_ms := 0
+var bench_result := ""  # last benchmark line (also read by tools/sim/bench_render.gd)
 var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
@@ -92,6 +98,9 @@ func _ready() -> void:
 # ------------------------------------------------------------------ input
 
 func _unhandled_input(event: InputEvent) -> void:
+	if screen == "menu" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
+		start_benchmark()
+		return
 	if screen != "playing":
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
@@ -136,6 +145,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _move_input() -> Vector2:
+	if _bench != null:
+		return _bench_bot.move(world)
 	var v := Vector2.ZERO
 	if hud.stick_active:
 		v = (hud.stick_pos - hud.stick_origin) / hud.stick_radius
@@ -184,6 +195,14 @@ func _process(delta: float) -> void:
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
+	hud.view_ms = lerpf(hud.view_ms, view.cpu_ms, 0.1)
+	if _bench != null:
+		_bench_frame(delta, (Time.get_ticks_usec() - t0) / 1000.0)
+		view.cpu_ms = 0.0
+		hud.cpu_ms = 0.0
+		return
+	view.cpu_ms = 0.0
+	hud.cpu_ms = 0.0
 	if world.def_on:
 		_tick_countdown()
 	match world.state:
@@ -395,7 +414,11 @@ func _show_menu() -> void:
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
 	bottom.add_child(_tile_button("sound_off" if Save.muted else "sound_on", pal.player_nucleus, "SOUND", _toggle_mute))
 	col.add_child(bottom)
-	col.add_child(UiKit.label(_build_label(), 16, Color(pal.text, 0.35)))
+	# The build label doubles as the hidden benchmark trigger (tap 5 times).
+	var build := UiKit.label(_build_label(), 16, Color(pal.text, 0.35))
+	build.mouse_filter = Control.MOUSE_FILTER_STOP
+	build.gui_input.connect(_on_build_label_input)
+	col.add_child(build)
 	_menu[0].visible = true
 
 
@@ -956,3 +979,80 @@ func _collect_win() -> void:
 	world.collect_win()
 	_victory[0].visible = false
 	_show_results(true)
+
+
+# ------------------------------------------------- on-device benchmark
+
+func _on_build_label_input(e: InputEvent) -> void:
+	if not (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var now := Time.get_ticks_msec()
+	_bench_taps = _bench_taps + 1 if now - _bench_tap_ms < 1500 else 1
+	_bench_tap_ms = now
+	if _bench_taps >= 5:
+		_bench_taps = 0
+		start_benchmark()
+
+
+## Fixed, bot-driven, invincible Classic fight at a high-load moment, 45 s.
+## Nothing is saved or reported as a run. See Benchmark and docs/POLISH_PLAN.md.
+func start_benchmark() -> void:
+	var d := GameData.apply_mode(data, Benchmark.MODE)
+	d.balance.debug.invincible = true
+	world = World.new(d, Benchmark.SEED, {})
+	world.time = Benchmark.START_TIME
+	for id in Benchmark.LOADOUT:
+		world.owned[id] = int(Benchmark.LOADOUT[id])
+	world._recompute_stats()
+	world.p_hp = world.p_max_hp
+	view.set_world(world)
+	hud.world = world
+	hitstop = 0.0
+	_bench = Benchmark.new()
+	_bench.platform = OS.get_name().to_lower()
+	_bench.build = _build_label().replace("build ", "")
+	_bench.refresh = DisplayServer.screen_get_refresh_rate()
+	_bench_bot = BalanceBot.new(Benchmark.SEED)
+	_bench_perf = hud.show_perf
+	hud.show_perf = false  # same HUD load on every device
+	_hide_all()
+	_set_screen("playing")
+
+
+func _bench_frame(delta: float, sim_ms: float) -> void:
+	# Upgrades and chests are applied silently so the scenario never stops.
+	if world.pending_levelups > 0 and world.state == "playing":
+		world.open_banked()
+	while world.state == "levelup":
+		world.choose_upgrade(_bench_bot.pick(world))
+	if world.state == "chest":
+		world.close_chest()
+	if _bench.advance(delta):
+		_bench.add(delta * 1000.0, sim_ms, view.cpu_ms, hud.cpu_ms,
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), world.enemy_count(), view.fx.size())
+	hud.bench_text = "BENCHMARK  %d" % _bench.seconds_left() if _bench.t > Benchmark.WARMUP_S else "BENCHMARK  warming up"
+	if _bench.is_done():
+		_finish_benchmark()
+
+
+func _finish_benchmark() -> void:
+	bench_result = _bench.line()
+	print(bench_result)
+	var s := _bench.summary()
+	Analytics.event("benchmark", {"v": s.version, "fps": s.fps, "p95": s.frame_p95, "slow": s.slow_pct, "refresh": s.refresh, "sim": s.sim, "view": s.view})
+	_bench = null
+	hud.show_perf = _bench_perf
+	hud.bench_text = ""
+	_set_screen("results")
+	var col: VBoxContainer = _results[1]
+	UiKit.clear(col)
+	col.add_child(UiKit.label("BENCHMARK DONE", 52, pal.ui_accent))
+	col.add_child(UiKit.label("%.0f fps average  (screen: %s)" % [s.fps, ("%d Hz" % s.refresh) if s.refresh > 0 else "rate unknown"], 30))
+	var l := UiKit.label(bench_result, 20, Color(pal.text, 0.85))
+	col.add_child(l)
+	col.add_child(UiKit.label("Copy this line and paste it to Claude.", 22, Color(pal.text, 0.6)))
+	col.add_child(UiKit.button("COPY", func() -> void:
+		DisplayServer.clipboard_set(bench_result)
+		hud.toast("Copied", pal.ui_accent, 1.0), 100))
+	col.add_child(UiKit.button("DONE", _show_menu, 80))
+	_results[0].visible = true

@@ -22,6 +22,13 @@ var toasts: Array = []  # {text, color, t, life}
 var _notice_text := ""
 var _notice_t := 0.0
 var _xp_flash := 0.0
+var cpu_ms := 0.0  # CPU ms spent drawing the HUD since Main last read it
+var view_ms := 0.0  # set by Main (smoothed WorldView CPU ms)
+var bench_text := ""  # "BENCHMARK 32" while the benchmark runs
+var _perf_text := ""
+var _perf_t := 0.0
+var _perf_worst := 0.0  # longest frame in the current 1 s window
+var _perf_min_fps := 0.0
 
 
 func flash_xp() -> void:
@@ -71,6 +78,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
+	if show_perf and world != null:
+		_update_perf(delta)
 	var i := 0
 	while i < toasts.size():
 		toasts[i].t += delta
@@ -85,6 +94,12 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if world == null:
 		return
+	var t0 := Time.get_ticks_usec()
+	_draw_hud()
+	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _draw_hud() -> void:
 	var w := size.x
 	# XP bar along the top edge.
 	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
@@ -128,8 +143,10 @@ func _draw() -> void:
 		ty += 52.0
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
-		var txt := "%d fps  %d enemies  sim %.1f ms  dc %d  fx %d" % [Engine.get_frames_per_second(), world.enemy_count(), sim_ms, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), fx_count]
-		draw_string(font, Vector2(0, size.y - 14), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
+		draw_string(font, Vector2(0, size.y - 14), _perf_text, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
+	if bench_text != "":
+		draw_string_outline(font, Vector2(0, 200), bench_text, HORIZONTAL_ALIGNMENT_CENTER, w, 34, 8, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, 200), bench_text, HORIZONTAL_ALIGNMENT_CENTER, w, 34, Color(1, 1, 0.6))
 	# Floating joystick.
 	if stick_active:
 		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
@@ -314,3 +331,21 @@ func _draw_tower_bar() -> void:
 		IconArt.draw(self, d.weapon, r.position + Vector2(r.size.x / 2.0, 40), 52, Color(tc, a))
 		draw_string(font, r.position + Vector2(0, 88), str(d.name), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18, Color(1, 1, 1, a))
 		draw_string(font, r.position + Vector2(0, 113), str(cost), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color(pal.pad, a) if ok else Color("#ff9a9a"))
+
+
+## Perf readout (debug.show_perf): FPS with the worst 1 s minimum, the
+## screen's refresh rate, and CPU ms per part. Rebuilt 4x a second so the
+## readout itself costs almost nothing.
+func _update_perf(delta: float) -> void:
+	_perf_worst = maxf(_perf_worst, delta)
+	_perf_t += delta
+	if _perf_t < 0.25:
+		return
+	_perf_t = 0.0
+	_perf_min_fps = 1.0 / maxf(_perf_worst, 0.001)
+	_perf_worst = 0.0
+	var hz := DisplayServer.screen_get_refresh_rate()
+	_perf_text = "%d fps (min %d) %s | sim %.1f view %.1f hud %.1f ms | dc %d | %d enemies fx %d" % [
+		Engine.get_frames_per_second(), roundi(_perf_min_fps), ("%dHz" % roundi(hz)) if hz > 0.0 else "?Hz",
+		sim_ms, view_ms, cpu_ms, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		world.enemy_count(), fx_count]

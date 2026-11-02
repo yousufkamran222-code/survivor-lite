@@ -38,6 +38,9 @@ var _terr_tex: ImageTexture
 var _land_color := Color(0.36, 0.88, 0.9, 0.3)
 var _blob_scale := 1.0
 var _core_flash := 0.0
+## CPU ms spent in this view since Main last read it (fill + draw recording);
+## Main resets it each frame (benchmark and perf readout).
+var cpu_ms := 0.0
 
 
 func setup(game_data: Dictionary) -> void:
@@ -201,6 +204,12 @@ func _add_fx(f: Dictionary, cap: int) -> void:
 func _process(delta: float) -> void:
 	if world == null:
 		return
+	var t0 := Time.get_ticks_usec()
+	_process_view(delta)
+	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _process_view(delta: float) -> void:
 	var i := 0
 	while i < fx.size():
 		var f: Dictionary = fx[i]
@@ -236,6 +245,12 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if world == null:
 		return
+	var t0 := Time.get_ticks_usec()
+	_draw_world()
+	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _draw_world() -> void:
 	# One tiled texture, anchored to the world grid so it scrolls correctly.
 	var vp := get_viewport_rect().size
 	var tile := float(BG_TILE.get_width())
@@ -401,6 +416,12 @@ func _fill_dots() -> void:
 func _draw_top() -> void:
 	if world == null:
 		return
+	var t0 := Time.get_ticks_usec()
+	_draw_top_layer()
+	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _draw_top_layer() -> void:
 	var ci := _top
 	var now := Time.get_ticks_msec() / 1000.0
 	_draw_trail(ci, now)

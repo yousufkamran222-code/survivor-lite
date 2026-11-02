@@ -149,3 +149,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-02 Nucleus step-2 playtest fixes
 - Non-pausing tower bar replaces the pick popup; stronger towers that grow per wave; harder waves; Free Mode compounds. Sim `--free` flag. Numbers in ROADMAP "Step 2 playtest → changes". 116 tests.
+
+### 2026-11-02 Polish Phase 0: on-device benchmark
+- Hidden benchmark (tap the build label 5 times; F9 on desktop): a fixed 45 s heavy Classic fight that ends with one pasteable line (fps, avg/p95/worst frame ms, % hitches, sim/view/HUD ms, draw calls, refresh rate). Perf readout v2. `tools/sim/bench_render.gd` for desktop comparisons. Baseline and findings in `docs/POLISH_PLAN.md` Phase 0. 120 tests.
