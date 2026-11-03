@@ -164,3 +164,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Polish Phase 3: the player cell
 - Eased movement (accel 0.07 s / decel 0.09 s), rescaled stick response, a new generated cell (rim, organelles, cilia, squash/stretch, breathing, hurt squish, nucleus that leads turns), joystick direction marker. Sims: no real balance shift (6 seeds × 8, ≈36% vs 44%, noise). Details in `docs/POLISH_PLAN.md` Phase 3.
+
+### 2026-11-03 XP gem cap fix (Yousuf: "around level 20 enemies weren't dropping XP")
+- Real bug: at the 120-gem cap (`xp.max_gems`), new XP merged into a **random** gem, often far off-screen, so nearby kills dropped nothing visible. Infection sat at the cap 12% of a bot run, with 73% of uncollected XP far off-screen at the end. Now the gem farthest from the player folds into its nearest neighbour and the new gem drops where the germ died (no XP lost; the random draw is kept so the RNG sequence is unchanged). Regression test added.
+- Also normal: each level needs more XP (level 20 needs ~100-140 XP vs ~10 early).
+- Rejected first try: merging into the gem nearest the kill.
+- Bot sims, Infection × 8, seeds 600/700/900/1000/1100: before 25/38/38/25/38% (≈33%) → after 13/13/25/13/0% (≈13%); p50 roughly unchanged (164-190 s vs 166-222 s), level 19-22 vs 18-24. Likely the greedy bot now runs into crowds for gems that used to vanish. Humans get correctly placed XP; watch Infection difficulty in the next playtest.

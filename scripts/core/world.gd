@@ -1150,9 +1150,32 @@ func _contact_damage() -> void:
 
 func _drop_gem(pos: Vector2, value: float) -> void:
 	if g_pos.size() >= int(bal.xp.max_gems):
-		# Merge into an existing gem instead of growing without bound.
-		var j := rng.randi() % g_pos.size()
-		g_val[j] += value
+		# At the cap: fold the gem farthest from the player into its nearest
+		# neighbour, then drop this one normally where the germ died. (It used
+		# to merge into a random gem, often far off-screen, so nearby kills
+		# looked like they dropped nothing.) No XP is lost.
+		rng.randi()  # keep the random sequence identical to the old random pick
+		var far := 0
+		var far_d := -1.0
+		for k in g_pos.size():
+			var d2 := g_pos[k].distance_squared_to(p_pos)
+			if d2 > far_d:
+				far_d = d2
+				far = k
+		var near := -1
+		var near_d := INF
+		for k in g_pos.size():
+			if k == far:
+				continue
+			var d2 := g_pos[k].distance_squared_to(g_pos[far])
+			if d2 < near_d:
+				near_d = d2
+				near = k
+		if near >= 0:
+			g_val[near] += g_val[far]
+		g_pos[far] = pos
+		g_val[far] = value
+		g_pull[far] = 0
 		return
 	g_pos.append(pos)
 	g_val.append(value)

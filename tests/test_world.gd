@@ -160,3 +160,26 @@ func test_gem_magnet_collects() -> void:
 		w._update_gems(DT)
 	check_eq(w.g_pos.size(), 0)
 	check(w.xp > 0.0)
+
+
+func test_gem_cap_keeps_new_drops_where_the_kill_was() -> void:
+	# Regression: at the cap, XP used to merge into a random (often far,
+	# off-screen) gem, so nearby kills looked like they dropped nothing.
+	var w := World.new(data(), 3)
+	w.p_pos = Vector2.ZERO
+	var cap := int(w.bal.xp.max_gems)
+	for k in cap:
+		w._drop_gem(Vector2(100 + k, 0), 1.0)
+	w.g_pos[0] = Vector2(9000, 0)  # the farthest gem
+	w.g_pos[1] = Vector2(8990, 0)  # its neighbour
+	var total := 0.0
+	for v in w.g_val:
+		total += v
+	w._drop_gem(Vector2(50, 50), 5.0)
+	check_eq(w.g_pos.size(), cap, "no new slot past the cap")
+	check(w.g_pos.has(Vector2(50, 50)), "the new gem lands where the kill was")
+	check_near(w.g_val[1], 2.0, 0.001, "the far gem folded into its neighbour")
+	var after := 0.0
+	for v in w.g_val:
+		after += v
+	check_near(after, total + 5.0, 0.001, "no XP lost")
