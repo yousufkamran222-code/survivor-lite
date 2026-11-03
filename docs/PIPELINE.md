@@ -195,3 +195,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   2. **Afterimage cooldown:** Ghost Trail's half-levels counted toward the card's Lv2 cooldown (card Lv1 gave 4.5 s while its text said 6 s). Only the card's own Lv2 shortens it now; Ghost Trail grows the burst.
   3. **Wording:** Lunge/Afterimage Lv1 text now leads with the boost ("+20 dash damage: ...", "Decoy burst +100%: ..."), and level-up cards show **BOOST** instead of NEW when a permanent upgrade already gives that effect.
 - Sims: Classic, no permanent upgrades, seed 600 × 6: identical before/after (50% win, p50 5:00, level 18); all permanent upgrades maxed, seeds 600/700 × 6: 100% win, level 41 both before and after. Regression tests added. 124 tests.
+
+### 2026-11-03 Volatile, Outbreak meter, UPGRADE pill
+- **Volatile** (dash card, 3 levels, `requires_stat: dash_damage`): germs the dash kills burst for (15% + 15%/level) of their max HP in a 50 + 20/level px radius; burst kills chain up to 2 generations. Scope: 16 shared cards (5 dash).
+- **Outbreak meter** (`balance.outbreak`, all modes): kills fill it (180 kills; elite 15%, boss 50%), tap the button above DASH (or Q) for a 5 s frenzy: weapons x1.6 speed, all damage x1.25; the meter can't fill during it. Bot triggers it when crowded. A test caught a float bug (120 x 1/120 never reached 1.0).
+- **UPGRADE** is now a top-right pill beside pause; Nucleus tower bar and hint banner moved up; streak counter lower.
+- Classic bot sims, seeds 600/700/800 x 8: before 50/25/38% (p10 2:39-2:58, p50 4:02-5:00, level 14-15); first tuning (120 kills, 6 s, x1.8) 38/75/63%; final (180 kills, 5 s, x1.6) 63/25/25% (~38%, p50 3:15-5:00, level 17-19). Benchmark v3 (the bot uses Outbreak). 127 tests; a fragile test now checks elites were *met*, not killed.

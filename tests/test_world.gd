@@ -183,3 +183,55 @@ func test_gem_cap_keeps_new_drops_where_the_kill_was() -> void:
 	for v in w.g_val:
 		after += v
 	check_near(after, total + 5.0, 0.001, "no XP lost")
+
+
+func test_volatile_dash_kills_explode_and_chain() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.owned["lunge"] = 1
+	w.owned["volatile"] = 1
+	w._recompute_stats()
+	w.p_pos = Vector2.ZERO
+	w._add_enemy("grunt", Vector2(10, 0))  # dash kills this one
+	w.e_hp[0] = 1.0
+	w._add_enemy("brute", Vector2(40, 0))  # caught in the burst
+	var brute_hp := w.e_hp[1]
+	w._rebuild_grid()
+	w.p_dash_dir = Vector2.RIGHT
+	w._lunge_hits()
+	w._process_dead()
+	check_eq(w.kills, 1)
+	check(w.e_hp[0] < brute_hp, "the burst hurt the neighbour")
+
+
+func test_volatile_needs_dash_damage_to_be_offered() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	var ids := []
+	for d in w._offerable():
+		ids.append(d.id)
+	check(not ids.has("volatile"), "no dash damage: Volatile is never offered")
+	w.owned["lunge"] = 1
+	w._recompute_stats()
+	ids = []
+	for d in w._offerable():
+		ids.append(d.id)
+	check(ids.has("volatile"), "with Lunge it can be offered")
+
+
+func test_outbreak_fills_triggers_and_speeds_weapons() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	var o: Dictionary = w.bal.outbreak
+	check(not w.trigger_outbreak(), "not ready at the start")
+	for k in int(o.kills_to_fill):
+		w._fill_outbreak(false, false)
+	check(w.outbreak_ready())
+	check(w.trigger_outbreak())
+	check_near(w.outbreak_t, float(o.duration_s))
+	check_eq(w.outbreak, 0.0)
+	w._fill_outbreak(false, false)
+	check_eq(w.outbreak, 0.0, "kills during the frenzy don't fill the meter")
+	# Weapons recharge faster during the frenzy.
+	w.cooldowns["bolt"] = 1.0
+	w._update_weapons(0.1)
+	check_near(w.cooldowns["bolt"], 1.0 - 0.1 * float(o.weapon_speed), 0.001)
+	w.step(float(o.duration_s) + 0.1, Vector2.ZERO)
+	check_eq(w.outbreak_t, 0.0, "the frenzy ends")

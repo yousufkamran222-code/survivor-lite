@@ -21,7 +21,12 @@
     "decoy_cooldown_per_level": 1.5,
     "decoy_radius": 260,
     "decoy_blast_radius": 160,
-    "decoy_blast_damage": 25
+    "decoy_blast_damage": 25,
+    "volatile_frac": 0.15,
+    "volatile_frac_per_level": 0.15,
+    "volatile_radius": 50,
+    "volatile_radius_per_level": 20,
+    "volatile_chain": 2
   },
   "territory": {
     "enabled": true,
@@ -108,6 +113,15 @@
     "interstitial_every_deaths": 3,
     "min_runs_before_interstitial": 2,
     "stub_duration_s": 1.0
+  },
+  "outbreak": {
+    "enabled": true,
+    "kills_to_fill": 180,
+    "elite_fill": 0.15,
+    "boss_fill": 0.5,
+    "duration_s": 5.0,
+    "weapon_speed": 1.6,
+    "damage_mult": 1.25
   },
   "defense": {
     "enabled": false,
@@ -208,6 +222,7 @@
     "boss_telegraph_s": 0.7
   },
   "palette": {
+    "outbreak": "#ff5dd6",
     "core": "#ffb27a",
     "core_nucleus": "#ff6f59",
     "pad": "#7cff9b",

@@ -89,6 +89,7 @@ func _ready() -> void:
 		entries.append([u.id, IconArt.color_for(u), false])
 		if _evo_by_weapon.has(u.id):
 			entries.append([u.id, IconArt.color_for(u), true])
+	entries.append(["outbreak", Color.WHITE, false])
 	atlas.bake(entries)
 	hud.icon_atlas = atlas
 	var digits := DigitAtlas.new()
@@ -138,6 +139,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_E, KEY_TAB]:
 		_open_banked()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q:
+		_trigger_outbreak()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and world.def_on and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_4:
 		_build_tower(event.physical_keycode - KEY_1)
 		return
@@ -151,6 +155,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Dash: tap the DASH button, or tap with a second finger while steering.
 		if event.pressed and hud.in_upgrade_button(event.position):
 			_open_banked()
+			return
+		if event.pressed and hud.in_outbreak_button(event.position):
+			_trigger_outbreak()
 			return
 		if event.pressed and (hud.in_dash_button(event.position) or (_touch_index != -1 and event.index != _touch_index)):
 			world.dash()
@@ -331,6 +338,18 @@ func _handle_events(events: Array) -> void:
 			"evolution_ready":
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
 				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
+			"outbreak_ready":
+				Sfx.play("chest", 0.0, 1.2)
+				Sfx.vibrate(40)
+				hud.toast("OUTBREAK READY", pal.outbreak, 1.6)
+			"outbreak_start":
+				Sfx.play("evolve", 0.0)
+				Sfx.vibrate(120)
+				view.add_shake(10.0)
+				hud.toast("OUTBREAK!", pal.outbreak, 1.4)
+				Analytics.event("outbreak", {"t": int(world.time), "mode": world.bal.get("mode_id", "")})
+			"volatile":
+				Sfx.play("nova", 0.1, 1.5)
 			"wave_start":
 				if ev.boss:
 					Sfx.play("boss", 0.0)
@@ -1344,3 +1363,9 @@ func _update_hints() -> void:
 	hud.show_hint(str(next.text))
 	Save.hints_seen.append(next.id)
 	Save.write()
+
+
+## Outbreak button (or Q): start the frenzy if the meter is full.
+func _trigger_outbreak() -> void:
+	if not world.trigger_outbreak():
+		Sfx.play("deny", 0.0)

@@ -78,6 +78,12 @@ var _dash_hits := {}  # enemy uids Lunge already hit during this dash
 var decoy_pos := Vector2.ZERO  # Afterimage decoy (enemies nearby chase it)
 var decoy_t := 0.0
 var decoy_cd := 0.0  # Afterimage has its own cooldown, separate from the dash
+var _volatile := {}  # enemy uid -> chain generation, for germs killed by the dash (Volatile)
+
+# --- Outbreak meter: kills fill it; when full the player triggers a frenzy ---
+var outbreak := 0.0  # 0..1
+var outbreak_t := 0.0  # frenzy time left
+var outbreaks := 0
 
 # --- Evolutions ---
 var evolution_defs := {}  # weapon id -> evolution def
@@ -245,6 +251,11 @@ func step(dt: float, move: Vector2) -> void:
 		_update_down(dt)
 	else:
 		_update_player(dt, move)
+	if outbreak_t > 0.0:
+		outbreak_t -= dt
+		if outbreak_t <= 0.0:
+			outbreak_t = 0.0
+			_emit({"type": "outbreak_end"})
 	if terr != null:
 		_update_territory(dt)
 	if def_on:
@@ -833,6 +844,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 		amount *= 1.0 + float(bal.territory.player_damage_bonus)
 	if ally_count > 0:
 		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
+	if outbreak_t > 0.0:
+		amount *= float(bal.outbreak.damage_mult)
 	e_hp[i] -= amount
 	e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
@@ -875,6 +888,7 @@ func _nearest_enemy(from: Vector2, max_range: float, exclude: Dictionary = {}) -
 
 func _update_weapons(dt: float) -> void:
 	orbit_points.clear()
+	dt *= _frenzy_speed()  # Outbreak: weapons recharge (and orbit) faster
 	for id in wstats:
 		var w: Dictionary = wstats[id]
 		match id:
@@ -1076,6 +1090,7 @@ func _process_dead() -> void:
 	idx.sort()
 	idx.reverse()
 	_dead = {}
+	var bursts := []  # Volatile explosions from germs the dash killed
 	for i: int in idx:
 		var d: Dictionary = enemy_defs[e_type[i]]
 		var pos := e_pos[i]
@@ -1087,6 +1102,10 @@ func _process_dead() -> void:
 			continue
 		kills += 1
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
+		_fill_outbreak(elite, d.behavior == "boss")
+		if _volatile.has(e_uid[i]):
+			bursts.append([pos, e_maxhp[i], int(_volatile[e_uid[i]])])
+			_volatile.erase(e_uid[i])
 		if def_on:
 			if elite:
 				biomass += float(dcfg.biomass_elite)
@@ -1119,6 +1138,8 @@ func _process_dead() -> void:
 				_add_enemy(d.split_into, pos + Vector2(rng.randf_range(-14, 14), rng.randf_range(-14, 14)))
 	# Indices moved: keep the spatial grid valid for the rest of this step.
 	_rebuild_grid()
+	if not bursts.is_empty():
+		_volatile_bursts(bursts)
 
 
 func _hurt(amount: float, cause: String) -> void:
@@ -1221,7 +1242,18 @@ func _update_gems(dt: float) -> void:
 
 func _roll() -> Array:
 	var u: Dictionary = bal.upgrades
-	return Upgrades.roll_offers(upgrade_list, owned, rng, int(u.offers_per_level), int(u.max_weapons), float(u.owned_weight_mult))
+	return Upgrades.roll_offers(_offerable(), owned, rng, int(u.offers_per_level), int(u.max_weapons), float(u.owned_weight_mult))
+
+
+## Upgrades that make sense right now: a card with "requires_stat" (Volatile
+## needs dash damage) is only offered once that stat is above zero.
+func _offerable() -> Array:
+	var out := []
+	for d in upgrade_list:
+		var need := str(d.get("requires_stat", ""))
+		if need == "" or float(stats.get(need, 0.0)) > 0.0:
+			out.append(d)
+	return out
 
 
 func _open_levelup() -> void:
@@ -1275,7 +1307,7 @@ func _chest_reward() -> Dictionary:
 		_emit({"type": "evolution", "id": ev.id, "weapon": wid})
 		return {"kind": "evolution", "id": ev.id, "name": ev.name, "desc": ev.desc, "level": 0}
 	var pool := []
-	for u in upgrade_list:
+	for u in _offerable():
 		var lv := int(owned.get(u.id, 0))
 		if lv > 0 and lv < Upgrades.max_level(u):
 			pool.append(u.id)
@@ -1561,6 +1593,8 @@ func _lunge_hits() -> void:
 			continue
 		_dash_hits[e_uid[i]] = true
 		_damage(i, dmg, p_dash_dir * 260.0)
+		if e_hp[i] <= 0.0 and float(stats.get("dash_volatile", 0.0)) > 0.0:
+			_volatile[e_uid[i]] = 0
 
 
 ## Afterimage: the decoy pops when it expires, hurting what it lured.
@@ -1933,3 +1967,63 @@ func _tower_orbit(k: int) -> void:
 			if e_hitcd[i] <= 0.0 and e_hp[i] > 0.0:
 				e_hitcd[i] = float(w.hit_interval)
 				_damage(i, float(w.damage), (e_pos[i] - pad_pos[k]).normalized() * float(w.knockback))
+
+
+# ================================================================ Volatile
+
+## Germs killed by the dash burst, hurting neighbours by a share of their own
+## max HP; burst kills can chain up to player.volatile_chain generations.
+func _volatile_bursts(bursts: Array) -> void:
+	var pl: Dictionary = bal.player
+	var lv := float(stats.get("dash_volatile", 0.0))
+	var frac := float(pl.volatile_frac) + float(pl.volatile_frac_per_level) * lv
+	var radius := float(pl.volatile_radius) + float(pl.volatile_radius_per_level) * lv
+	var max_gen := int(pl.volatile_chain)
+	for b in bursts:
+		var pos: Vector2 = b[0]
+		var dmg := float(b[1]) * frac
+		var gen: int = b[2]
+		_emit({"type": "volatile", "pos": pos, "radius": radius})
+		for i: int in query(pos, radius):
+			if e_hp[i] <= 0.0:
+				continue
+			_damage(i, dmg, (e_pos[i] - pos).normalized() * 160.0, false)
+			if e_hp[i] <= 0.0 and gen < max_gen:
+				_volatile[e_uid[i]] = gen + 1
+	_process_dead()
+
+
+# ================================================================ Outbreak
+
+func _fill_outbreak(elite: bool, boss: bool) -> void:
+	if not bal.get("outbreak", {}).get("enabled", false) or outbreak_t > 0.0 or outbreak >= 1.0:
+		return
+	var o: Dictionary = bal.outbreak
+	var add := 1.0 / float(o.kills_to_fill)
+	if elite:
+		add = float(o.elite_fill)
+	elif boss:
+		add = float(o.boss_fill)
+	outbreak = minf(1.0, outbreak + add)
+	if outbreak >= 0.9999:  # 120 x (1/120) adds up to 0.99999... in floats
+		outbreak = 1.0
+		_emit({"type": "outbreak_ready"})
+
+
+func outbreak_ready() -> bool:
+	return outbreak >= 1.0 and outbreak_t <= 0.0
+
+
+## Tapped by the player: a frenzy of faster weapons and extra damage.
+func trigger_outbreak() -> bool:
+	if state != "playing" or not outbreak_ready() or p_down > 0.0:
+		return false
+	outbreak = 0.0
+	outbreak_t = float(bal.outbreak.duration_s)
+	outbreaks += 1
+	_emit({"type": "outbreak_start", "pos": p_pos})
+	return true
+
+
+func _frenzy_speed() -> float:
+	return float(bal.outbreak.weapon_speed) if outbreak_t > 0.0 else 1.0

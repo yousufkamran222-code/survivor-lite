@@ -168,6 +168,7 @@ func test_bot_run_with_loot_is_stable() -> void:
 	var w := World.new(GameData.apply_mode(data(), "classic"), 11)
 	w.emit_events = false
 	var bot := BalanceBot.new(11)
+	var elites_seen := {}
 	for i in int(120.0 / DT):
 		if w.pending_levelups > 0 and w.state == "playing":
 			w.open_banked()
@@ -178,7 +179,12 @@ func test_bot_run_with_loot_is_stable() -> void:
 		elif w.state != "playing":
 			break
 		w.step(DT, bot.move(w))
-	check(w.elites_killed + w.c_pos.size() >= 1 or w.state == "dead", "an elite was met by 2:00")
+		for k in w.e_pos.size():
+			if w.e_elite[k] == 1:
+				elites_seen[w.e_uid[k]] = true
+	# Met, not necessarily killed: whether the bot kills one by 2:00 depends
+	# on its luck (it plays defensively).
+	check(elites_seen.size() >= 1 or w.state == "dead", "an elite was met by 2:00")
 	check(w.dashes > 0, "bot dashes")
 
 

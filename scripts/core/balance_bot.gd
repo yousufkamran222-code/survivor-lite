@@ -87,6 +87,9 @@ func move(w: World) -> Vector2:
 	var rim := w.dish_r
 	if w.terr == null and rim > 0.0 and w.p_pos.length() > rim - 250.0:
 		dir = (dir - w.p_pos.normalized() * 0.8).normalized()
+	# Outbreak: trigger the frenzy when a crowd is close.
+	if w.outbreak_ready() and away.length() > 0.02:
+		w.trigger_outbreak()
 	# Dash out when something is about to touch us.
 	if w.can_dash() and away.length() > 0.05:
 		w.p_move = dir

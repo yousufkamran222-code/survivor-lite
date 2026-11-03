@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **124 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **127 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg` (the repo's only branch, and the default branch).
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 124 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 127 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -150,7 +150,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (124 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (127 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -322,7 +322,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 2. **Theme and name are still open** (working title "Petri Panic"; tagline "You are the infection"). Raise this before store work (M4).
 
 **Planned features (agreed or proposed):**
-000. **Next discussion (Yousuf, 2026-11-03):** combat depth. He likes **Volatile** (dash-killed germs explode on neighbours; maybe pinball knockback damage) and the **Outbreak meter** (kill streak fills a meter; tap for ~5 s frenzy). Write both up in detail (card vs built-in, numbers) and agree before building. Note: dash spam is already possible via charges (Double Flagella ×2 + Extra Flagellum = 4).
+000. **Combat depth built 2026-11-03 (D-016):** Volatile card + Outbreak meter + UPGRADE pill. Awaiting playtest; "pinball" knockback damage is still an unbuilt idea.
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:

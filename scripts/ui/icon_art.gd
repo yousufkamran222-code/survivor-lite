@@ -27,7 +27,7 @@ static func color_for(def: Dictionary) -> Color:
 		return COLORS[id]
 	if def.has("modes"):
 		return COLORS.swarm
-	if id in ["flagella2", "lunge", "afterimage", "adrenaline"]:
+	if id in ["flagella2", "lunge", "afterimage", "adrenaline", "volatile"]:
 		return COLORS.dash
 	return COLORS.passive
 
@@ -98,6 +98,20 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 		"afterimage":
 			ci.draw_circle(c + Vector2(-k * 0.35, 0), k * 0.5, Color(col, 0.35))
 			ci.draw_circle(c + Vector2(k * 0.3, 0), k * 0.5, w)
+		"volatile":
+			# A cell bursting into shards.
+			ci.draw_circle(c, k * 0.32, col)
+			for t in 8:
+				var a := TAU * t / 8.0 + 0.2
+				var d := Vector2(cos(a), sin(a))
+				ci.draw_line(c + d * k * 0.5, c + d * k * (0.85 if t % 2 == 0 else 0.7), w if t % 2 == 0 else col, lw * 1.2)
+		"outbreak":
+			# A biohazard-ish burst: ring of three blobs around a core.
+			ci.draw_arc(c, k * 0.8, 0, TAU, 28, col, lw)
+			for t in 3:
+				var a := -PI / 2.0 + TAU * t / 3.0
+				ci.draw_circle(c + Vector2(cos(a), sin(a)) * k * 0.42, k * 0.26, col)
+			ci.draw_circle(c, k * 0.16, w)
 		"adrenaline":
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(k * 0.2, -k), c + Vector2(-k * 0.5, k * 0.1), c + Vector2(0, k * 0.1), c + Vector2(-k * 0.2, k), c + Vector2(k * 0.5, -k * 0.1), c + Vector2(0, -k * 0.1)]), col)
 		"viral":

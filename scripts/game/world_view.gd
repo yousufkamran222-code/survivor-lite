@@ -220,6 +220,14 @@ func consume(events: Array) -> void:
 					var a := TAU * n / 12.0
 					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * 260.0, "color": tc, "r": 6.0, "life": 0.45}, max_fx + 16)
 				add_shake(5.0)
+			"volatile":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.25, "color": IconArt.COLORS.dash}, max_fx + 4)
+				for n in 6:
+					var a := randf() * TAU
+					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 360), "color": IconArt.COLORS.dash, "r": 4.0, "life": 0.3}, max_fx + 20)
+				add_shake(3.0)
+			"outbreak_start":
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 260.0, "life": 0.6, "color": pal.outbreak}, max_fx + 4)
 			"respawn":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.5, "color": pal.player}, max_fx + 4)
 			"player_down":
@@ -607,6 +615,10 @@ func _draw_player(ci: CanvasItem) -> void:
 		var base := Vector2.from_angle(a) * r * 1.0
 		var tip := Vector2.from_angle(a + wave * 0.5) * r * (1.32 + 0.08 * speed_k)
 		ci.draw_line(base, tip, cc, 2.0)
+	if world.outbreak_t > 0.0:
+		# Frenzy aura: a pulsing glow behind the cell.
+		var gr := r * (1.9 + 0.15 * sin(_cell_t * 14.0))
+		ci.draw_texture_rect(_disc_tex, Rect2(-gr, -gr, gr * 2.0, gr * 2.0), false, Color(pal.outbreak, 0.35))
 	var q := r / ShapeTextures.CELL_BODY
 	ci.draw_texture_rect(_cell_tex, Rect2(-q, -q, q * 2.0, q * 2.0), false, body)
 	ci.draw_set_transform(p, 0.0, Vector2(sx * 0.5 + 0.5, sy * 0.5 + 0.5))

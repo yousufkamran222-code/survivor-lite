@@ -3,7 +3,8 @@
     {"id": "move", "at": 0.6, "text": "Drag anywhere to move. Your weapons fire on their own."},
     {"id": "dash", "at": 8.0, "text": "Tap DASH (or tap with a second finger) to zip through danger."},
     {"id": "upgrade", "event": "level_gained", "text": "Level up! Tap UPGRADE whenever you're ready to pick."},
-    {"id": "elite", "event": "elite_spawn", "text": "An elite! Kill it for a chest. Follow the gold arrow."}
+    {"id": "elite", "event": "elite_spawn", "text": "An elite! Kill it for a chest. Follow the gold arrow."},
+    {"id": "outbreak", "event": "outbreak_ready", "text": "OUTBREAK is ready! Tap the glowing button above DASH for a frenzy."}
   ],
   "infection": [
     {"id": "claim", "at": 3.0, "text": "Leave your land and loop back in to claim everything inside."},

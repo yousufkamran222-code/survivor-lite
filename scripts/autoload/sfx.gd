@@ -31,7 +31,7 @@ const SOUNDS := {
 	"upgrade": preload("res://assets/processed/sfx/upgrade.wav"),
 	"deny": preload("res://assets/processed/sfx/deny.wav"),
 }
-const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "kill2": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90}
+const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "kill2": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90, "nova": 60}
 const VOLUME_DB := {"shoot": -14.0, "hit": -12.0, "kill": -9.0, "kill2": -9.0, "pickup": -13.0, "chain": -10.0}
 
 ## Music: Juhani Junkala's "5 Chiptunes (Action)" (CC0, OpenGameArt; see

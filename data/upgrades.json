@@ -91,6 +91,10 @@
    "levels": [{"dash_cd": 0.15, "dash_reset": 1}, {"dash_cd": 0.15}, {"dash_cd": 0.15}],
    "desc": ["Dash recharges 15% faster; killing an elite refills your dashes", "Dash recharges 15% faster", "Dash recharges 15% faster"]},
 
+  {"id": "volatile", "type": "passive", "name": "Volatile", "weight": 0.8, "requires_stat": "dash_damage",
+   "levels": [{"dash_volatile": 1}, {"dash_volatile": 1}, {"dash_volatile": 1}],
+   "desc": ["Germs your dash kills explode, hurting germs around them", "Bigger, stronger dash explosions", "Even bigger dash explosions"]},
+
   {"id": "regen", "type": "passive", "name": "Repair", "weight": 0.8,
    "levels": [{"regen": 0.4}, {"regen": 0.4}, {"regen": 0.4}],
    "desc": ["Regenerate 0.4 HP per second"]}

@@ -8,7 +8,7 @@ extends RefCounted
 ## Bump VERSION whenever the scenario changes, so old and new lines are never
 ## compared by mistake.
 
-const VERSION := 2  # v2: "view" also counts the batched sprite layers' draw time
+const VERSION := 3  # v3: the bot triggers Outbreak frenzies (v2: "view" counts sprite batches)
 const SEED := 4242
 const MODE := "classic"
 const START_TIME := 170.0  # run clock at start: spawn budget is already high

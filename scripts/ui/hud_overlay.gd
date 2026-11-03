@@ -74,13 +74,30 @@ func in_dash_button(p: Vector2) -> bool:
 	return p.distance_to(dash_center()) <= dash_radius * 1.15
 
 
-## The banked-upgrades button mirrors DASH on the left.
-func upgrade_center() -> Vector2:
-	return Vector2(dash_margin + dash_radius, size.y - dash_margin - dash_radius - 40.0)
+## The banked-upgrades pill sits top-right beside the pause button, out of
+## the thumb zone (bottom-left clashed with the drag-anywhere joystick).
+func upgrade_rect() -> Rect2:
+	return Rect2(size.x - 90.0 - 14.0 - 200.0, 32.0, 200.0, 64.0)
 
 
 func in_upgrade_button(p: Vector2) -> bool:
-	return p.distance_to(upgrade_center()) <= dash_radius * 1.15
+	return upgrade_rect().grow(10.0).has_point(p)
+
+
+## The Outbreak button sits above DASH (right thumb owns both).
+const OUTBREAK_R := 46.0
+
+
+func outbreak_center() -> Vector2:
+	return dash_center() + Vector2(0, -(dash_radius + OUTBREAK_R + 26.0))
+
+
+func outbreak_on() -> bool:
+	return world != null and bool(world.bal.get("outbreak", {}).get("enabled", false))
+
+
+func in_outbreak_button(p: Vector2) -> bool:
+	return outbreak_on() and p.distance_to(outbreak_center()) <= OUTBREAK_R * 1.25
 
 
 ## Small, non-blocking reminder above the UPGRADE button.
@@ -147,6 +164,7 @@ func _draw_hud() -> void:
 	_draw_arrows()
 	_draw_dash_button()
 	_draw_upgrade_button()
+	_draw_outbreak_button()
 	# Toasts.
 	var ty := 240.0
 	for t in toasts:
@@ -215,14 +233,14 @@ func _draw_strip(ci: CanvasItem) -> void:
 	_draw_owned(ci)
 	var dc := dash_center()
 	ci.draw_string(font, dc + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if world.can_dash() else 0.35))
-	var uc := upgrade_center()
+	var rc := upgrade_rect()
 	var n := world.pending_levelups
 	var on := n > 0
 	var accent: Color = pal.ui_accent
-	ci.draw_string(font, uc + Vector2(-dash_radius, 9), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.3))
-	var b := uc + Vector2(dash_radius * 0.72, -dash_radius * 0.72)
-	ci.draw_circle(b, 19.0, accent if on else Color(1, 1, 1, 0.15))
-	ci.draw_string(font, b + Vector2(-19, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 38, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
+	ci.draw_string(font, Vector2(rc.position.x + 16.0, rc.get_center().y + 9.0), "UPGRADE", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(1, 1, 1, 0.95 if on else 0.35))
+	var b := Vector2(rc.end.x - 34.0, rc.get_center().y)
+	ci.draw_circle(b, 21.0, accent if on else Color(1, 1, 1, 0.15))
+	ci.draw_string(font, b + Vector2(-21, 9), str(n), HORIZONTAL_ALIGNMENT_CENTER, 42, 24, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
 
 
 ## Decides which cached layers need a redraw this frame.
@@ -316,16 +334,51 @@ func _draw_dash_button() -> void:
 
 
 func _draw_upgrade_button() -> void:
-	var c := upgrade_center()
+	var rc := upgrade_rect()
 	var n := world.pending_levelups
 	var on := n > 0
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if on else 0.0
 	var accent: Color = pal.ui_accent
-	draw_circle(c, dash_radius, Color(accent, 0.1 + 0.12 * pulse) if on else Color(1, 1, 1, 0.05))
-	draw_arc(c, dash_radius, 0, TAU, 48, Color(accent, 0.6 + 0.4 * pulse) if on else Color(1, 1, 1, 0.12), 3.0)
+	var sb := StyleBoxFlat.new()
+	sb.set_corner_radius_all(32)
+	sb.bg_color = Color(accent, 0.16 + 0.14 * pulse) if on else Color(1, 1, 1, 0.05)
+	sb.set_border_width_all(3)
+	sb.border_color = Color(accent, 0.6 + 0.4 * pulse) if on else Color(1, 1, 1, 0.14)
+	draw_style_box(sb, rc)
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
-		draw_string(font, c + Vector2(-dash_radius, -dash_radius - 18.0), _notice_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(accent, a))
+		draw_string(font, Vector2(rc.end.x - 360.0, rc.end.y + 28.0), _notice_text, HORIZONTAL_ALIGNMENT_RIGHT, 360.0, 24, Color(accent, a))
+
+
+## Outbreak: the rim fills with kills, the button glows when ready, and
+## during the frenzy the rim shows the time left.
+func _draw_outbreak_button() -> void:
+	if not outbreak_on():
+		return
+	var c := outbreak_center()
+	var col: Color = pal.get("outbreak", Color("#ff5dd6"))
+	var r := OUTBREAK_R
+	var t := Time.get_ticks_msec() / 1000.0
+	if world.outbreak_t > 0.0:
+		var left := world.outbreak_t / float(world.bal.outbreak.duration_s)
+		draw_circle(c, r + 6.0 + 4.0 * sin(t * 12.0), Color(col, 0.25))
+		draw_circle(c, r, Color(col, 0.45))
+		draw_arc(c, r - 4.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
+	elif world.outbreak_ready():
+		var pulse := 0.5 + 0.5 * sin(t * 7.0)
+		draw_circle(c, r + 8.0 + 6.0 * pulse, Color(col, 0.18 + 0.15 * pulse))
+		draw_circle(c, r, Color(col, 0.55 + 0.25 * pulse))
+		draw_arc(c, r, 0, TAU, 40, Color.WHITE, 3.0)
+	else:
+		draw_circle(c, r, Color(1, 1, 1, 0.06))
+		draw_arc(c, r, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
+		if world.outbreak > 0.0:
+			draw_arc(c, r - 4.0, -PI / 2.0, -PI / 2.0 + TAU * world.outbreak, 40, Color(col, 0.85), 6.0)
+	var ready := world.outbreak_ready() or world.outbreak_t > 0.0
+	if icon_atlas != null and icon_atlas.has_icon("outbreak", false):
+		icon_atlas.draw_icon(self, "outbreak", c, r * 1.1)
+	else:
+		IconArt.draw(self, "outbreak", c, r * 1.1, Color.WHITE if ready else Color(1, 1, 1, 0.4))
 
 
 ## Left-edge column of owned upgrades: icon plus level number (weapons
@@ -419,7 +472,7 @@ func _tower_rect(i: int) -> Rect2:
 	var n := world.tower_defs.size()
 	var total := n * BAR_W + (n - 1) * BAR_GAP
 	var x0 := (size.x - total) / 2.0
-	return Rect2(x0 + i * (BAR_W + BAR_GAP), size.y - 380.0, BAR_W, BAR_H)
+	return Rect2(x0 + i * (BAR_W + BAR_GAP), size.y - 540.0, BAR_W, BAR_H)
 
 
 ## Index of the tower button under a screen point, or -1.
@@ -483,7 +536,7 @@ func _draw_streak(w: float) -> void:
 	var milestone := _streak >= 50
 	var fs := int((34.0 + minf(_streak, 100) * 0.12) * pop)
 	var col: Color = pal.ui_accent if milestone else Color(1, 1, 1)
-	var pos := Vector2(w - 24.0, 120.0)
+	var pos := Vector2(w - 24.0, 205.0)
 	draw_string_outline(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, 8, Color(0, 0, 0, 0.6 * a))
 	draw_string(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, Color(col, a))
 
@@ -506,7 +559,7 @@ func _draw_hint(w: float) -> void:
 	var fs := 26
 	var sz := font.get_multiline_string_size(_hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs)
 	# Above the DASH/UPGRADE buttons; higher when the Nucleus tower bar is up.
-	var bottom := size.y - (500.0 if tower_bar_visible() else 300.0)
+	var bottom := size.y - (660.0 if tower_bar_visible() else 360.0)
 	var rect := Rect2((w - width) / 2.0, bottom - sz.y - 28.0 + 12.0 * (1.0 - a), width, sz.y + 28.0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.05, 0.14, 0.88 * a)
