@@ -146,6 +146,7 @@ var b_life := PackedFloat32Array()
 var b_rad := PackedFloat32Array()
 var b_knock := PackedFloat32Array()
 var b_hits: Array = []
+var b_ally := PackedByteArray()  # 1 = fired by a Swarm ally (for the damage-share stat)
 
 # --- Enemy shots ---
 var s_pos := PackedVector2Array()
@@ -173,7 +174,23 @@ var _ally_slot := 0
 var _ally_slots := 1
 var _ally_snap := Vector2.INF
 var conversions := 0
+## Swarm orders (balance.conversion.orders): what the allies do. Guard holds
+## the bodyguard ring, Hunt spreads out to fight near you, Harvest fetches
+## stray XP gems. The HUD's fan-out menu calls set_ally_order().
+const ORDER_IDS := ["guard", "hunt", "harvest"]
+const ORDER_GUARD := 0
+const ORDER_HUNT := 1
+const ORDER_HARVEST := 2
+var ally_order := ORDER_GUARD
+var order_cd := 0.0  # switch cooldown left
+var order_changes := 0
+var gems_harvested := 0
+var _order: Dictionary = {}  # the current order's def
+var _gem_claims := PackedVector2Array()  # this frame's harvest targets (so allies spread out)
 var _ally_tick := 0.0
+var damage_dealt := 0.0  # all damage to hostiles this run (sim / tuning stat)
+var ally_damage := 0.0  # the part of it dealt by Swarm allies
+var _src_ally := false  # set while an ally is the one dealing damage
 var _max_er := 72.0
 
 # --- Nucleus mode (tower defence; off unless balance.defense.enabled) ---
@@ -226,6 +243,8 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 		if not u.has("modes") or u.modes.has(mode_id):
 			upgrade_list.append(u)
 	conv_on = bal.has("conversion") and bal.conversion.get("enabled", false)
+	if conv_on:
+		_order = bal.conversion.orders[ORDER_IDS[ally_order]]
 	for ev in data.get("evolutions", []):
 		evolution_defs[ev.weapon] = ev
 	var by_id := {}
@@ -259,6 +278,8 @@ func step(dt: float, move: Vector2) -> void:
 		_update_down(dt)
 	else:
 		_update_player(dt, move)
+	if order_cd > 0.0:
+		order_cd = maxf(order_cd - dt, 0.0)
 	if outbreak_t > 0.0:
 		outbreak_t -= dt
 		if outbreak_t <= 0.0:
@@ -713,6 +734,7 @@ func _update_enemies(dt: float) -> void:
 	var phase := _sep_phase if sep_pass else -1
 	_ally_slot = 0
 	_ally_slots = maxi(ally_count, 1)
+	_gem_claims.clear()
 	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
 	for i in e_pos.size():
 		var t := e_type[i]
@@ -864,6 +886,9 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
 	e_hp[i] -= amount
+	damage_dealt += amount
+	if _src_ally:
+		ally_damage += amount
 	if flash:
 		e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
@@ -1027,6 +1052,7 @@ func _spawn_bullet(vel: Vector2, w: Dictionary, from: Vector2 = Vector2.INF) -> 
 	b_rad.append(w.size)
 	b_knock.append(w.knockback)
 	b_hits.append({})
+	b_ally.append(0)
 
 
 func _remove_bullet(i: int) -> void:
@@ -1040,6 +1066,7 @@ func _remove_bullet(i: int) -> void:
 		b_rad[i] = b_rad[last]
 		b_knock[i] = b_knock[last]
 		b_hits[i] = b_hits[last]
+		b_ally[i] = b_ally[last]
 	b_pos.resize(last)
 	b_vel.resize(last)
 	b_dmg.resize(last)
@@ -1048,6 +1075,7 @@ func _remove_bullet(i: int) -> void:
 	b_rad.resize(last)
 	b_knock.resize(last)
 	b_hits.resize(last)
+	b_ally.resize(last)
 
 
 func _update_bullets(dt: float) -> void:
@@ -1062,7 +1090,9 @@ func _update_bullets(dt: float) -> void:
 				if e_hp[j] <= 0.0 or hits.has(e_uid[j]):
 					continue
 				hits[e_uid[j]] = true
+				_src_ally = b_ally[i] == 1
 				_damage(j, b_dmg[i], b_vel[i].normalized() * b_knock[i])
+				_src_ally = false
 				if b_pierce[i] <= 0:
 					gone = true
 					break
@@ -1512,16 +1542,20 @@ func _try_convert(i: int, d: Dictionary) -> bool:
 	e_knock[i] = Vector2.ZERO
 	e_timer[i] = 0.5
 	e_flash[i] = 0.2
+	e_phase[i] = 0  # drop any enemy wind-up (Lancer dash)
+	e_dir[i] = Vector2.INF  # Hunt/Harvest goal: none yet
 	ally_count += 1
 	conversions += 1
 	_emit({"type": "convert", "pos": e_pos[i]})
 	return true
 
 
-## Bodyguard formation: each ally holds a slot on a slowly turning ring around
-## the player, so the swarm helps while you kite. Melee allies body-block
-## (and brawl with whatever reaches them); ranged allies fire outward.
-## Allies also soak enemy shots that hit them.
+## Allies follow the current order (set_ally_order). Every ally keeps a slot
+## on a slowly turning ring around the player; Guard holds it (body-blocking
+## and brawling with whatever reaches them), Hunt widens it and sends each
+## ally at the nearest germ near the player, Harvest sends them to stray XP
+## gems. Ranged allies fire outward in every order, and all allies soak
+## enemy shots that hit them.
 func _ally_velocity(i: int, t: int, beh: int, pos: Vector2, to_p: Vector2, dist: float, dt: float) -> Vector2:
 	var c: Dictionary = bal.conversion
 	e_life[i] -= dt
@@ -1529,26 +1563,127 @@ func _ally_velocity(i: int, t: int, beh: int, pos: Vector2, to_p: Vector2, dist:
 		e_hp[i] = 0.0
 		_dead[i] = true
 	var ring := minf(float(c.ring_radius) + float(c.ring_radius_per_ally) * _ally_slots, float(c.ring_radius_max))
+	ring *= float(_order.get("ring_mult", 1.0))
 	var ang := TAU * _ally_slot / _ally_slots + time * float(c.ring_spin)
 	_ally_slot += 1
 	var slot := p_pos + Vector2(cos(ang), sin(ang)) * ring
-	if dist > float(c.teleport_distance):
+	var leash := float(c.teleport_distance)
+	if ally_order == ORDER_HARVEST:
+		leash = maxf(leash, float(_order.radius) + 200.0)
+	if dist > leash:
 		_ally_snap = slot
 		return Vector2.ZERO
 	_ally_block_shots(i, pos)
+	var frenzy := outbreak_t > 0.0
 	if beh == BEH_RANGED:
 		e_timer[i] -= dt
 		if e_timer[i] <= 0.0:
 			var tgt := _nearest_enemy(pos, float(c.ally_shot_range))
 			if tgt >= 0:
 				var d: Dictionary = enemy_defs[t]
-				e_timer[i] = float(d.fire_cooldown) * 0.6
+				e_timer[i] = float(d.fire_cooldown) * 0.6 / (float(bal.outbreak.get("ally_speed_mult", 1.0)) if frenzy else 1.0)
 				_ally_shot(pos, (e_pos[tgt] - pos).normalized(), float(d.shot_damage) * _ally_power())
-	var to_slot := slot - pos
-	var len := to_slot.length()
+	var goal := slot
+	if ally_order == ORDER_HUNT:
+		if (i + _frame) % 3 == 0:  # retarget every 3rd frame per ally
+			var tg := _hunt_target(pos)
+			e_dir[i] = e_pos[tg] if tg >= 0 else Vector2.INF
+		if e_dir[i] != Vector2.INF:
+			goal = e_dir[i]
+			if beh == BEH_RANGED:  # shooters hold off at half their range
+				var away := pos - goal
+				goal += (away / maxf(away.length(), 0.001)) * float(c.ally_shot_range) * 0.5
+	elif ally_order == ORDER_HARVEST:
+		if (i + _frame) % 3 == 0 or e_dir[i] == Vector2.INF:
+			e_dir[i] = _harvest_target(pos)
+		if e_dir[i] != Vector2.INF:
+			goal = e_dir[i]
+			_gem_claims.append(goal)
+			if pos.distance_squared_to(goal) < (e_rad[i] + float(_order.grab)) ** 2:
+				_grab_gems(pos, e_rad[i] + float(_order.grab))
+				e_dir[i] = Vector2.INF
+	var spd := e_spd[i] * float(_order.get("speed_mult", 1.0))
+	if frenzy:
+		spd *= float(bal.outbreak.get("ally_speed_mult", 1.0))
+	var to_goal := goal - pos
+	var len := to_goal.length()
 	if len < 1.0:
 		return Vector2.ZERO
-	return to_slot / len * minf(e_spd[i], len / maxf(dt, 0.001))
+	return to_goal / len * minf(spd, len / maxf(dt, 0.001))
+
+
+## Hunt: the nearest germ to this ally among those within the order's radius
+## of the player (elites count as 2x closer), or -1.
+func _hunt_target(from: Vector2) -> int:
+	var r2 := float(_order.radius) ** 2
+	var best := -1
+	var best_d := INF
+	for j in e_pos.size():
+		if e_team[j] == 1 or e_hp[j] <= 0.0 or e_pos[j].distance_squared_to(p_pos) > r2:
+			continue
+		var d2 := e_pos[j].distance_squared_to(from)
+		if e_elite[j] == 1 or _tbeh[e_type[j]] == BEH_BOSS:
+			d2 *= 0.25
+		if d2 < best_d:
+			best_d = d2
+			best = j
+	return best
+
+
+## Harvest: the nearest gem to this ally that isn't already flying to the
+## player, lies outside the player's pickup range but inside the order's
+## radius, and that no other ally is fetching this frame. INF if none.
+func _harvest_target(from: Vector2) -> Vector2:
+	var pr := float(bal.player.pickup_radius) * (1.0 + float(stats.magnet))
+	var pr2 := pr * pr
+	var r2 := float(_order.radius) ** 2
+	var best := Vector2.INF
+	var best_d := INF
+	for k in g_pos.size():
+		if g_pull[k] == 1:
+			continue
+		var gp := g_pos[k]
+		var dp := gp.distance_squared_to(p_pos)
+		if dp < pr2 or dp > r2:
+			continue
+		var d2 := gp.distance_squared_to(from)
+		if d2 >= best_d:
+			continue
+		var taken := false
+		for q in _gem_claims:
+			if q.distance_squared_to(gp) < 900.0:
+				taken = true
+				break
+		if not taken:
+			best_d = d2
+			best = gp
+	return best
+
+
+## Harvest: gems an ally touches fly to the player (full value).
+func _grab_gems(at: Vector2, r: float) -> void:
+	var r2 := r * r
+	for k in g_pos.size():
+		if g_pull[k] == 0 and g_pos[k].distance_squared_to(at) < r2:
+			g_pull[k] = 1
+			gems_harvested += 1
+
+
+## Switch the swarm's order (0 guard, 1 hunt, 2 harvest). False if it's the
+## current one, on cooldown, or not Swarm mode.
+func set_ally_order(o: int) -> bool:
+	if not conv_on or state != "playing" or o < 0 or o >= ORDER_IDS.size() or o == ally_order or order_cd > 0.0:
+		return false
+	ally_order = o
+	_order = bal.conversion.orders[ORDER_IDS[o]]
+	order_cd = float(bal.conversion.get("order_switch_s", 1.0))
+	order_changes += 1
+	for k in e_pos.size():
+		if e_team[k] == 1:
+			e_dir[k] = Vector2.INF
+			e_flash[k] = 0.15
+	_emit({"type": "ally_order", "order": ORDER_IDS[o], "pos": p_pos})
+	return true
 
 
 ## Enemy shots that hit an ally are absorbed by it (the ally takes the damage).
@@ -1558,7 +1693,7 @@ func _ally_block_shots(i: int, pos: Vector2) -> void:
 	var k := s_pos.size() - 1
 	while k >= 0:
 		if s_pos[k].distance_squared_to(pos) < r2:
-			e_hp[i] -= s_dmg[k] * _dmg_mult()
+			e_hp[i] -= s_dmg[k] * _dmg_mult() * float(_order.get("damage_taken_mult", 1.0))
 			e_flash[i] = 0.06
 			if e_hp[i] <= 0.0:
 				_dead[i] = true
@@ -1575,8 +1710,19 @@ func _ally_block_shots(i: int, pos: Vector2) -> void:
 		k -= 1
 
 
+## Ally damage multiplier. With conversion.scale_with_hp it grows like enemy
+## HP (as the dash does) instead of like enemy damage, so allies stay useful
+## late; with might_applies your Enzymes/Potency boost them too.
 func _ally_power() -> float:
-	return float(bal.conversion.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power) * _dmg_mult()
+	var c: Dictionary = bal.conversion
+	var p := float(c.ally_damage_mult) * (1.0 + float(stats.get("ally_power", 0.0)) + swarm_power)
+	p *= _hp_mult() if c.get("scale_with_hp", false) else _dmg_mult()
+	if c.get("might_applies", false):
+		p *= 1.0 + float(stats.might)
+	p *= float(_order.get("damage_mult", 1.0))
+	if outbreak_t > 0.0:
+		p *= float(bal.outbreak.get("ally_damage_mult", 1.0))
+	return p
 
 
 func _ally_shot(from: Vector2, dir: Vector2, dmg: float) -> void:
@@ -1591,6 +1737,7 @@ func _ally_shot(from: Vector2, dir: Vector2, dmg: float) -> void:
 	b_rad.append(6.0)
 	b_knock.append(60.0)
 	b_hits.append({})
+	b_ally.append(1)
 
 
 ## Melee between allies and the enemies touching them, on a short tick.
@@ -1601,7 +1748,8 @@ func _update_ally_combat(dt: float) -> void:
 		return
 	_ally_tick -= tick
 	var power := _ally_power()
-	var hostile_mult := _dmg_mult()
+	var hostile_mult := _dmg_mult() * float(_order.get("damage_taken_mult", 1.0))
+	var knock := float(_order.get("knock", 40.0))
 	for i in e_pos.size():
 		if e_team[i] != 1 or e_hp[i] <= 0.0:
 			continue
@@ -1611,7 +1759,9 @@ func _update_ally_combat(dt: float) -> void:
 		var j: int = hits[0]
 		var mine: Dictionary = enemy_defs[e_type[i]]
 		var theirs: Dictionary = enemy_defs[e_type[j]]
-		_damage(j, float(mine.damage) * power * tick, (e_pos[j] - e_pos[i]).normalized() * 40.0, false)
+		_src_ally = true
+		_damage(j, float(mine.damage) * power * tick, (e_pos[j] - e_pos[i]).normalized() * knock, false)
+		_src_ally = false
 		var taken := float(theirs.damage) * hostile_mult * tick
 		if e_elite[j] == 1:
 			taken *= float(data.waves.elites.damage_mult)

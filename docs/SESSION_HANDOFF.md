@@ -8,8 +8,8 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **132 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
-4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg` (the repo's only branch, and the default branch).
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **146 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
 ---
@@ -40,7 +40,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 | Core loop | Drag-anywhere joystick (base locks where you touch), auto weapons, XP gems, **banked level-ups** (UPGRADE button bottom-left with count badge; no pausing popups), 5:00 runs, boss (Mother Cell) at 3:50, death → revive (rewarded stub ad) → results → menu |
 | Content | 8 enemy types, 4 weapons, 11 general passives (incl. 4 dash cards) + 3 Swarm-only passives, 4 evolutions, elites every 40 s with chests, 3 rare pickups (vacuum/heal/bomb) |
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
-| Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into a bodyguard ring of allies), **Classic** (open field). Picked on the menu via mode cards |
+| Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
 | Meta | 15 permanent upgrades, 96 tiers (~17k gold), scrolling shop with icons and current totals |
 | Progress | `Profile`: lifetime stats, per-mode records, 18 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
@@ -74,12 +74,13 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 132 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 146 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
 ```
 - **Balance sims:** each run takes ~2-10 s, so 8 runs take about 1-2 min. Run 3 seeds in parallel (`600 700 800`), each `--runs 8`, in the background, then wait with an `until [ -f ... ]; do sleep 5; done` loop. Modes: `--mode infection|swarm|classic`; `--meta` = every permanent upgrade maxed. The output JSON has p10/p50/p90 time, win_rate, level_p50, mean kills/chests/evolutions/infected/conversions/peak_allies, death_causes, and `upgrade_mean_time` (mean survival of runs that owned each upgrade).
+- Tuning without editing data: `--set conversion.ally_damage_mult=2.5,difficulty.damage_taken_mult=1.8` (dotted balance keys, after the mode is applied). Swarm: `--order hunt` makes the bot keep one order. Yousuf's win-rate cap needs **48 runs** (seeds 600-1100 × 8); 24-run numbers swing ±10 points.
 - The standard comparison set is seeds 600/700/800 × 8 runs. Quote "before → after" win rate, p50 range and level range.
 
 ### Visual verification in the cloud (important: we cannot see the phone)
@@ -150,7 +151,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (132 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (146 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -182,6 +183,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **Rare pickups:** `i_pos/i_kind` with kinds `PICKUP_KINDS = ["vacuum","heal","bomb"]`, rolled per normal kill (`balance.pickups.chances`).
 - **Dash:** `dash()` uses charges (`p_dash_charges`, `dash_max_charges()`, `dash_cooldown()`), iframes, Lunge hits (`_lunge_hits`), and the Afterimage decoy (`decoy_pos/decoy_t/decoy_cd`, `_decoy_blast`). Enemies (not elites or the boss) within `decoy_radius` chase the decoy.
 - **Territory hooks:** the dish clamp, `_spawn_point` avoids land and the outside, land slows enemies, `_update_territory` (trail and claims, DoT/erosion tick), `_on_claim` (40% max HP burst plus claim XP), `_pressure()` scales spawn budget and enemy HP with % infected.
+- **Swarm orders:** `ally_order` (`ORDER_GUARD/HUNT/HARVEST`, ids in `ORDER_IDS`), `set_ally_order(o)` (1 s cooldown `order_cd`), `_order` = the current def from `balance.conversion.orders`. `_ally_velocity` picks the goal: the ring slot (Guard; Hunt widens it), the germ from `_hunt_target` (Hunt, retargets every 3rd frame per ally), or a gem from `_harvest_target` (Harvest; `_gem_claims` spreads allies over different gems; `_grab_gems` sets `g_pull` so the gem flies to the player). Allies reuse `e_dir` as their goal (`Vector2.INF` = none). `_ally_power()` scales with `_hp_mult()` and might (`scale_with_hp`, `might_applies`), the order's `damage_mult` and the Outbreak boost. Stats: `damage_dealt`, `ally_damage` (via the `_src_ally` flag and `b_ally` per bullet), `gems_harvested`, `order_changes`.
 - **Conversion (Swarm):** `_try_convert` on a normal kill (chance = base + `convert`). Allies get the hp/speed multipliers and a lifetime; on a full swarm the conversion **feeds** instead (`swarm_power` up to `feed_power_max`, plus a heal). `_ally_velocity` holds the bodyguard ring slot (teleports if too far), ranged allies shoot (`_ally_shot`), `_ally_block_shots` soaks enemy shots, and `_update_ally_combat` is the melee tick.
 - **Events** (`events` array, consumed by Main then WorldView, then cleared): `ally_lost boss_killed boss_spawn chain chest claim convert dash death decoy elite_killed elite_spawn evolution evolution_ready hit hurt kill land_lost level_gained level_up nova pickup pickup_item revive shoot shot_blocked swarm_feed trail_lost upgrade victory`. Set `emit_events = false` in sims and tests for speed.
 
@@ -257,7 +259,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 |---|---|---|---|---|
 | Classic | ~29-34% | 3:25-4:45 | 12-20 | Dash cards dilute the bot's random picks |
 | Infection | ~34% (high variance) | 2:55-5:00 | 20-32 | 12-21% infected; top killer: Lump |
-| Swarm | ~42% | 3:24-5:00 | 10-13 | 10-13 peak allies; control without conversion ≈ 42% before the nerfs |
+| Swarm | 40% (48 runs) | 2:38-5:00 | 14-30 | Orders build: allies deal ~22% of damage; without conversions 9%. Damage taken x2.0 |
 | All meta maxed | 100% | 5:00 | ~41 | Expected for a fully maxed account |
 
 **Bot biases:**
@@ -283,6 +285,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 10. Afterimage felt overpowered; the upgrade UI felt like plain text → decoy gets its own cooldown and smaller lure; IconArt icons, cards, VFX, chest icons, HUD strip.
 11. Accounts/progress/leaderboards → Play Games later; built local progress tracking, the `Online` stub, achievements and score. The main menu "looked bad" → redesigned.
 13. Nucleus step 2: towers weak vs the player, pick popup interrupted building, Free Mode too easy → non-pausing tower bar (his pick), stronger towers that grow per wave, harder waves, compounding Free Mode.
+14. Swarm "kinda useless" (allies measured at 2.5% of damage) → his order menu (fan-out: Guard / Hunt / Harvest gems only), ally damage scaling with enemy HP + might, Outbreak boosts allies; difficulty via damage taken x2.0 and a steeper XP curve. Sacrifice order parked in SPEC "Later".
 12. Upgrades shop didn't scroll (only via the thin scroll bar) and was hard to read ("0/2") → `DragScroll` (drag anywhere, momentum, drags never count as taps) + `MetaShop`: tile grid with tier bars, prices and "can buy" badges, a detail popup per upgrade with NOW → NEXT in words and a big green UPGRADE button with sound, haptics and VFX.
 
 ---
@@ -326,6 +329,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Yousuf: bot win rate must stay <= 40-45% per mode.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+00000. **Swarm orders: awaiting playtest** (D-020). Questions: is damage taken x2 fair, is Harvest too strong (bot reaches level ~30), does Hunt read on screen? Offered but not chosen: type roles per order, one Swarm card per order. Sacrifice order: SPEC "Later".
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:
    - Leukocyte / Spore Burst
    - Virus / Hijack

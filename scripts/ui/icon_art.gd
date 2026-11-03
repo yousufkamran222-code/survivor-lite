@@ -112,6 +112,21 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 				var a := -PI / 2.0 + TAU * t / 3.0
 				ci.draw_circle(c + Vector2(cos(a), sin(a)) * k * 0.42, k * 0.26, col)
 			ci.draw_circle(c, k * 0.16, w)
+		"order_guard":
+			# A shield with a cell inside: hold the ring around you.
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.75, -k * 0.8), c + Vector2(k * 0.75, -k * 0.8), c + Vector2(k * 0.75, 0), c + Vector2(0, k * 0.95), c + Vector2(-k * 0.75, 0)]), col)
+			ci.draw_circle(c + Vector2(0, -k * 0.1), k * 0.3, w)
+		"order_hunt":
+			# Crosshair: go out and fight.
+			ci.draw_arc(c, k * 0.62, 0, TAU, 24, col, lw * 1.2)
+			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+				ci.draw_line(c + d * k * 0.3, c + d * k * 0.98, w, lw)
+			ci.draw_circle(c, k * 0.14, col)
+		"order_harvest":
+			# An XP gem with an arrow pulling it in.
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(k * 0.15, -k * 0.85), c + Vector2(k * 0.7, -k * 0.2), c + Vector2(k * 0.15, k * 0.45), c + Vector2(-k * 0.4, -k * 0.2)]), col)
+			ci.draw_line(c + Vector2(-k * 0.05, k * 0.25), c + Vector2(-k * 0.7, k * 0.85), w, lw * 1.2)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.85, k * 1.0), c + Vector2(-k * 0.85, k * 0.45), c + Vector2(-k * 0.3, k * 1.0)]), w)
 		"adrenaline":
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(k * 0.2, -k), c + Vector2(-k * 0.5, k * 0.1), c + Vector2(0, k * 0.1), c + Vector2(-k * 0.2, k), c + Vector2(k * 0.5, -k * 0.1), c + Vector2(0, -k * 0.1)]), col)
 		"viral":

@@ -11,7 +11,8 @@
     {"id": "erosion", "event": "land_lost", "text": "Germs on your land eat it back. Keep claiming!"}
   ],
   "swarm": [
-    {"id": "swarm", "at": 3.0, "text": "Some kills rise as allies that guard you."}
+    {"id": "swarm", "at": 3.0, "text": "Some kills rise as allies that guard you."},
+    {"id": "orders", "event": "convert", "text": "Tap the swarm button by OUTBREAK to give orders: Guard you, Hunt germs, or Harvest XP."}
   ],
   "nucleus": [
     {"id": "defend", "at": 0.6, "text": "Germs march on the nucleus. Keep it alive for 12 waves!"},

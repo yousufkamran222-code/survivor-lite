@@ -12,7 +12,8 @@
 5. **Elites** (big, gold-ringed, tougher versions of current enemies) arrive at 0:35 and then every 40 s, with an off-screen arrow pointing to them. Weapons focus elites and the boss when in range. Each drops a **chest**: a slot-machine reveal of 1 item (3 from the boss). It's an **evolution** if one is ready, otherwise a level of something you own.
 6. **Rare pickups** drop from normal kills: **Vacuum** (pulls every gem on the map), **Heal** (+30% HP), **Bomb** (kills normal enemies on screen and damages elites and the boss).
 7. Survive to **5:00** for a win. The **Mother Cell** boss arrives at 3:50.
-8. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
+8. **Swarm mode only: orders.** A button left of Outbreak shows the swarm's order; tap it to fan out three orders (the game keeps running) and tap one to switch (1 s cooldown; keys 1-3): **Guard** (hold the bodyguard ring, allies take 40% less damage and knock germs back), **Hunt** (spread out and attack germs within 350 px of you, +50% ally damage), **Harvest** (fetch stray XP gems up to 1100 px away; a touched gem flies to you at full value; allies fight at 60%). Ally damage grows with enemy HP and your Enzymes/Potency, and Outbreak's frenzy boosts allies too (x1.5 damage and speed).
+9. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
 
 ## Run structure and difficulty curve (`data/waves.json`)
 - A spawn **budget** (points/s) ramps 1.6 → 3.5 → 5.5 → 8.5 → 13 → 17 → 20 at 0/45/90/150/210/270/300 s. Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
@@ -83,4 +84,5 @@ Hit flash, knockback and its decay, dash afterimages, elite auras, chest reveal 
 
 ## Later (not v1)
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
+- **Sacrifice order (Swarm, 2026-11-03, revisit later):** a 4th swarm order: every ally bursts at once for damage based on its remaining HP, spending the swarm for a panic clear. Held back because it overlaps with Outbreak as a panic button; it would need a cost (e.g. no conversions for a while) or a different trigger so it doesn't become the obvious answer.
 - **Boss Rift (Yousuf's idea, 2026-11-03):** every few minutes a glowing rift opens; step in (your choice) and the run freezes while you fight a unique mini-boss with special attack patterns for ~20 s in a cleared arena. Win: pick a rare reward (1 of 3 upgrades, or a guaranteed evolution step). Lose or run out of time: back to the run as it was (damage taken in the arena carries over, so it's a real risk). Open points: a new boss vs the 8-enemy-type cap (or a Mother Cell variant with new patterns); implement as a separate arena World that the run's World waits behind.

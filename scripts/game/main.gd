@@ -90,6 +90,8 @@ func _ready() -> void:
 		if _evo_by_weapon.has(u.id):
 			entries.append([u.id, IconArt.color_for(u), true])
 	entries.append(["outbreak", Color.WHITE, false])
+	for oid in World.ORDER_IDS:
+		entries.append(["order_" + oid, GameData.color(bal.conversion.orders[oid].color), false])
 	atlas.bake(entries)
 	hud.icon_atlas = atlas
 	var digits := DigitAtlas.new()
@@ -145,12 +147,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and world.def_on and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_4:
 		_build_tower(event.physical_keycode - KEY_1)
 		return
+	if event is InputEventKey and event.pressed and not event.echo and world.conv_on and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_3:
+		_set_order(event.physical_keycode - KEY_1)
+		return
 	if event is InputEventScreenTouch:
 		# Nucleus tower bar first (any finger), so a build tap never dashes.
 		if event.pressed and world.def_on:
 			var tb := hud.tower_button_at(event.position)
 			if tb >= 0:
 				_build_tower(tb)
+				return
+		# Swarm orders: the button opens the fan, an option switches.
+		if event.pressed and world.conv_on:
+			var ob := hud.order_button_at(event.position)
+			if ob == -2:
+				hud.set_orders_open(not hud.orders_open)
+				Sfx.play("click", 0.05)
+				return
+			if ob >= 0:
+				_set_order(ob)
 				return
 		# Dash: tap the DASH button, or tap with a second finger while steering.
 		if event.pressed and hud.in_upgrade_button(event.position):
@@ -322,6 +337,12 @@ func _handle_events(events: Array) -> void:
 					hud.toast("CLAIMED +%d%%" % maxi(1, roundi(float(ev.tiles) / world.terr.dish_count * 100.0)), pal.player_nucleus, 1.2)
 			"convert":
 				Sfx.play("convert", 0.1)
+			"ally_order":
+				var od: Dictionary = world.bal.conversion.orders[ev.order]
+				Sfx.play("convert", 0.0, 1.3)
+				Sfx.vibrate(20)
+				hud.toast(str(od.name).to_upper(), GameData.color(od.color), 1.0)
+				Analytics.event("swarm_order", {"order": ev.order, "t": int(world.time), "allies": world.ally_count})
 			"swarm_feed":
 				Sfx.play("convert", 0.0)
 				var feeds := roundi(float(ev.power) / float(world.bal.conversion.feed_power))
@@ -1367,6 +1388,17 @@ func _update_hints() -> void:
 
 
 ## Outbreak button (or Q): start the frenzy if the meter is full.
+## Swarm order from the fan-out menu (or keys 1-3).
+func _set_order(o: int) -> void:
+	if o == world.ally_order:
+		hud.set_orders_open(false)
+		return
+	if not world.set_ally_order(o):
+		Sfx.play("deny", 0.0)
+		return
+	hud.set_orders_open(false)
+
+
 func _trigger_outbreak() -> void:
 	if not world.trigger_outbreak():
 		Sfx.play("deny", 0.0)

@@ -177,6 +177,9 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
 			"swarm_feed":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 170.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
+			"ally_order":
+				var oc := GameData.color(world.bal.conversion.orders[ev.order].color)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 150.0, "life": 0.35, "color": oc}, max_fx + 4)
 			"ally_lost":
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": pal.player_nucleus, "r": 14.0, "life": 0.25}, max_fx)
 			"shot_blocked":
@@ -438,6 +441,14 @@ func _fill_enemies(view: Rect2) -> void:
 	var white := Color.WHITE
 	var pp := world.p_pos
 	var pulse_k := float(juice.get("hit_pulse", 0.0)) / maxf(float(juice.flash_s), 0.001)
+	# Allies wear the current order's colour (Guard = our plain colour) and
+	# shimmer during an Outbreak frenzy (they're boosted too).
+	var ally_base: Color = pal.player_nucleus
+	if world.conv_on:
+		if world.ally_order != World.ORDER_GUARD:
+			ally_base = GameData.color(world.bal.conversion.orders[World.ORDER_IDS[world.ally_order]].color)
+		if world.outbreak_t > 0.0:
+			ally_base = ally_base.lerp(white, 0.25 + 0.15 * sin(world.time * 14.0))
 	for i in world.e_pos.size():
 		var p := world.e_pos[i]
 		var r := world.enemy_radius(i)
@@ -447,7 +458,7 @@ func _fill_enemies(view: Rect2) -> void:
 		var c: Color = enemy_colors[t]
 		if world.e_team[i] == 1:
 			# Allies: our own cell shape in our colour (type faintly hinted).
-			c = pal.player_nucleus.lerp(c, 0.2)
+			c = ally_base.lerp(c, 0.2)
 			if world.e_flash[i] > 0.0:
 				c = white
 			if world.e_life[i] < 3.0 and fmod(world.time, 0.3) < 0.15:

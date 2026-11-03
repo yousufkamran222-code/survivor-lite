@@ -2,7 +2,7 @@ extends SceneTree
 ## Performance benchmark for World.step: plays a "kiting" run (player keeps
 ## running, so enemies pile up behind) and reports the time per subsystem.
 ##
-## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200] [--mode swarm] [--loaded]
+## Usage: godot --headless --path . -s res://tools/sim/bench.gd -- [--seconds 200] [--mode swarm] [--loaded] [--order hunt]
 
 const DT := 1.0 / 60.0
 
@@ -18,6 +18,9 @@ func _initialize() -> void:
 	if mi >= 0 and mi + 1 < args.size():
 		mode = args[mi + 1]
 	var w := World.new(GameData.apply_mode(GameData.load_all(), mode), 7)
+	var oi := args.find("--order")  # Swarm: bench a given order (guard/hunt/harvest)
+	if oi >= 0 and oi + 1 < args.size():
+		w.set_ally_order(World.ORDER_IDS.find(args[oi + 1]))
 	var events_seen := 0
 	if args.has("--loaded"):
 		# Late-game stress: every weapon maxed and evolved, passives up.

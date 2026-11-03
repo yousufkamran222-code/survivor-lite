@@ -54,7 +54,7 @@
     "base_chance": 0.09,
     "max_allies": 12,
     "ally_hp_mult": 2.0,
-    "ally_damage_mult": 1.5,
+    "ally_damage_mult": 2.0,
     "ally_speed_mult": 1.6,
     "ally_lifetime_s": 40,
     "ring_radius": 80,
@@ -67,7 +67,15 @@
     "feed_heal_frac": 0.08,
     "tick_s": 0.25,
     "ally_shot_speed": 520,
-    "ally_shot_range": 420
+    "ally_shot_range": 420,
+    "scale_with_hp": true,
+    "might_applies": true,
+    "order_switch_s": 1.0,
+    "orders": {
+      "guard": {"name": "Guard", "desc": "Hold the ring, take less damage", "color": "#5ce1e6", "damage_taken_mult": 0.6, "knock": 160},
+      "hunt": {"name": "Hunt", "desc": "Spread out and attack nearby germs", "color": "#ff7a6b", "radius": 350, "damage_mult": 1.5, "ring_mult": 1.6, "speed_mult": 1.15},
+      "harvest": {"name": "Harvest", "desc": "Fetch stray XP from anywhere", "color": "#6b8cff", "radius": 1100, "grab": 14, "damage_mult": 0.6, "speed_mult": 1.2}
+    }
   },
   "chests": {
     "pickup_radius": 34,
@@ -134,6 +142,8 @@
     "gild_radius": 380,
     "gild_gold": 0.5,
     "xp_mult": 1.5,
+    "ally_damage_mult": 1.5,
+    "ally_speed_mult": 1.5,
     "plague_trail": false,
     "trail_spacing": 22,
     "trail_life_s": 3.0,

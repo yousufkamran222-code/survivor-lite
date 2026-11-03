@@ -131,6 +131,15 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	# Swarm orders: World needs every order id, and Hunt/Harvest a radius.
+	var orders: Dictionary = d.balance.get("conversion", {}).get("orders", {})
+	for oid in World.ORDER_IDS:
+		if not orders.has(oid):
+			errors.append("conversion.orders is missing '%s'" % oid)
+			continue
+		for key in ["name", "desc", "color"] + (["radius"] if oid != "guard" else []) + (["grab"] if oid == "harvest" else []):
+			if not orders[oid].has(key):
+				errors.append("conversion.orders.%s missing '%s'" % [oid, key])
 	for kind in d.balance.get("outbreak", {}).get("pickups", []):
 		if not (kind in World.PICKUP_KINDS):
 			errors.append("outbreak.pickups: unknown pickup '%s'" % kind)

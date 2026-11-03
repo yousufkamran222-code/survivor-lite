@@ -53,6 +53,15 @@ As built:
 - Hive Mind replaces Hijack: +1% weapon damage per living ally plus ally power. Viral Load also heals 1 HP per conversion.
 - Bot bug found and fixed: it fled its own allies. Bot, seeds 600/700/800 × 8: bodyguard swarm ~54% win, p50 5:00, peak allies 12-15; the same mode with conversion off was ~42%. So the swarm is now a net positive.
 
+**Orders rework 2026-11-03 (Yousuf: "the swarm is kinda useless; a couple of personal upgrades beat a huge swarm").** Measured: allies dealt **2.5%** of all damage (48 bot runs). Causes: ally damage grew with enemy *damage* (+30%/min) while enemy HP grows +120%/min, none of the player's upgrades touched allies, and Guard-style allies only hit what reached them.
+- **Scaling:** ally damage follows enemy HP growth (`conversion.scale_with_hp`) and your might (`might_applies`); `ally_damage_mult` 1.5 → 2.0.
+- **Orders** (Yousuf's idea, fan-out menu): Guard / Hunt / Harvest, all numbers in `balance.conversion.orders` (see SPEC core loop step 8). Converted allies are tinted with the order's colour.
+- **Outbreak boosts the swarm** (`outbreak.ally_damage_mult` / `ally_speed_mult` 1.5; ranged allies fire faster).
+- Bot: Guard below 40% HP, Hunt with 6+ germs close, Harvest when calm with 8+ stray gems.
+- Balance (seeds 600-1100 x 8 = 48 runs): before 48% win, p50 3:56-5:00, level 11-23, ally damage share 2.5%. Untuned (x1.5 allies) 57%; x2.5 allies 79%. Enemy HP is no lever here (allies inherit enemy HP and their damage scales with it: x1.7 HP made it *easier*, 77%). Shipped: allies x2.0, Swarm `damage_taken_mult` 1.3 → 2.0, Swarm XP `quad` 0.16 → 0.22: **40% win**, p50 2:38-5:00, level 14-30, **ally damage share 22%**, ~740 gems harvested per run. **The swarm now matters:** the same settings without conversions win 9% (+31 points from the swarm; it was ~+8 before).
+- Each order forced alone (before final tuning, x1.5 allies): Guard 52%, Hunt 48%, Harvest 46%; none dominates, and switching beats any single one.
+- Later: Sacrifice order (SPEC "Later"); type roles (Lumps tank under Hunt, Spitters keep shooting under Harvest); one Swarm card per order.
+
 Original plan:
 - Each kill has a convert chance (an upgrade raises it). Converts keep their type's behaviour, retarget enemies, have a lifetime or HP, and share the enemy cap (`conversion.max_allies`).
 - Allies are shown in your colour. Enemies target the nearest of the player or an ally.

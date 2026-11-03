@@ -9,6 +9,8 @@ var danger_radius := 230.0
 var tangent := 1.0
 var gem_greed := 1.3
 var loop_time := 3.0  # territory: seconds out before heading home to close the loop
+var _order_t := 0.0  # Swarm: next time (run clock) the bot reconsiders its order
+var force_order := -1  # sim --order: always keep this order
 
 
 func _init(seed_value: int) -> void:
@@ -19,6 +21,7 @@ func _init(seed_value: int) -> void:
 func move(w: World) -> Vector2:
 	var away := Vector2.ZERO
 	var dr2 := danger_radius * danger_radius
+	var near := 0
 	for i in w.e_pos.size():
 		if w.e_team[i] == 1:
 			continue  # our own allies are not a threat
@@ -26,6 +29,7 @@ func move(w: World) -> Vector2:
 		var d2 := off.length_squared()
 		if d2 < dr2:
 			away += off / maxf(d2, 64.0)
+			near += 1
 	for i in w.s_pos.size():
 		var off := w.p_pos - w.s_pos[i]
 		var d2 := off.length_squared()
@@ -87,6 +91,9 @@ func move(w: World) -> Vector2:
 	var rim := w.dish_r
 	if w.terr == null and rim > 0.0 and w.p_pos.length() > rim - 250.0:
 		dir = (dir - w.p_pos.normalized() * 0.8).normalized()
+	if w.conv_on and force_order < 0 and w.ally_count > 0 and w.time >= _order_t:
+		_order_t = w.time + 2.0
+		w.set_ally_order(pick_order(w, near))
 	# Outbreak: trigger the frenzy when a crowd is close.
 	if w.outbreak_ready() and away.length() > 0.02:
 		w.trigger_outbreak()
@@ -105,6 +112,23 @@ func pick(w: World) -> String:
 	if not weapons.is_empty() and rng.randf() < 0.6:
 		return weapons[rng.randi() % weapons.size()]
 	return w.offers[rng.randi() % w.offers.size()]
+
+
+## Swarm orders: Guard when hurt, Hunt when crowded, Harvest when it's calm
+## and XP is lying around out of reach, else Guard.
+func pick_order(w: World, near: int) -> int:
+	if w.p_hp < w.p_max_hp * 0.4:
+		return World.ORDER_GUARD
+	if near >= 6:
+		return World.ORDER_HUNT
+	var pr := float(w.bal.player.pickup_radius) * (1.0 + float(w.stats.magnet))
+	var stray := 0
+	for p in w.g_pos:
+		if p.distance_to(w.p_pos) > pr:
+			stray += 1
+	if stray >= 8 and near <= 2:
+		return World.ORDER_HARVEST
+	return World.ORDER_GUARD if near <= 2 else World.ORDER_HUNT
 
 
 ## Cheapest pad action the biomass covers (new towers before upgrades), or -1.

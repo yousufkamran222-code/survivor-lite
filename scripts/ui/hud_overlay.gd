@@ -104,6 +104,88 @@ func in_outbreak_button(p: Vector2) -> bool:
 	return outbreak_on() and p.distance_to(outbreak_center()) <= OUTBREAK_R * 1.25
 
 
+## Swarm orders: a button left of Outbreak shows the current order; tapping
+## it fans out the three orders (the game keeps running); tap one to switch.
+const ORDER_R := 44.0
+const ORDER_OPT_R := 42.0
+const ORDER_FAN := 124.0
+const ORDER_OPEN_S := 3.0  # the fan closes itself after this long
+var orders_open := false
+var _orders_t := 0.0
+
+
+func orders_on() -> bool:
+	return world != null and world.conv_on
+
+
+func order_center() -> Vector2:
+	return outbreak_center() + Vector2(-(OUTBREAK_R + ORDER_R + 30.0), 0)
+
+
+## Fan positions: left, up-left, up (clear of UPGRADE on the right).
+func order_option_center(k: int) -> Vector2:
+	var a := PI + k * PI / 4.0
+	return order_center() + Vector2(cos(a), sin(a)) * ORDER_FAN
+
+
+## -2 = the order button, 0..2 = an option of the open fan, -1 = neither.
+func order_button_at(p: Vector2) -> int:
+	if not orders_on():
+		return -1
+	if orders_open:
+		for k in World.ORDER_IDS.size():
+			if p.distance_to(order_option_center(k)) <= ORDER_OPT_R * 1.2:
+				return k
+	if p.distance_to(order_center()) <= ORDER_R * 1.2:
+		return -2
+	return -1
+
+
+func set_orders_open(on: bool) -> void:
+	orders_open = on
+	_orders_t = 0.0
+
+
+func _order_color(k: int) -> Color:
+	return GameData.color(world.bal.conversion.orders[World.ORDER_IDS[k]].color)
+
+
+func _draw_order_icon(key: String, c: Vector2, px: float, col: Color) -> void:
+	if icon_atlas != null and icon_atlas.has_icon(key, false):
+		icon_atlas.draw_icon(self, key, c, px)
+	else:
+		IconArt.draw(self, key, c, px, col)
+
+
+func _draw_orders() -> void:
+	if not orders_on():
+		return
+	var cur := world.ally_order
+	var c := order_center()
+	var col := _order_color(cur)
+	draw_circle(c, ORDER_R, Color(col, 0.22 if orders_open else 0.12))
+	draw_arc(c, ORDER_R, 0, TAU, 40, Color(col, 0.85), 3.0)
+	if world.order_cd > 0.0:
+		var f := 1.0 - world.order_cd / maxf(float(world.bal.conversion.get("order_switch_s", 1.0)), 0.01)
+		draw_arc(c, ORDER_R - 5.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(1, 1, 1, 0.6), 4.0)
+	_draw_order_icon("order_" + World.ORDER_IDS[cur], c, ORDER_R * 1.25, col)
+	if not orders_open:
+		return
+	var grow := clampf(_orders_t / 0.12, 0.0, 1.0)
+	for k in World.ORDER_IDS.size():
+		var oc := _order_color(k)
+		var p := c.lerp(order_option_center(k), grow)
+		var on := k == cur
+		draw_circle(p, ORDER_OPT_R + 4.0, Color(0, 0, 0, 0.45))
+		draw_circle(p, ORDER_OPT_R, Color(oc, 0.35 if on else 0.16))
+		draw_arc(p, ORDER_OPT_R, 0, TAU, 36, Color.WHITE if on else Color(oc, 0.9), 4.0 if on else 3.0)
+		_draw_order_icon("order_" + World.ORDER_IDS[k], p, ORDER_OPT_R * 1.2, oc)
+		var name := str(world.bal.conversion.orders[World.ORDER_IDS[k]].name).to_upper()
+		var lp := p + Vector2(-60, ORDER_OPT_R + 22.0)
+		draw_string_outline(font, lp, name, HORIZONTAL_ALIGNMENT_CENTER, 120, 18, 5, Color(0, 0, 0, 0.7))
+		draw_string(font, lp, name, HORIZONTAL_ALIGNMENT_CENTER, 120, 18, Color.WHITE if on else oc)
+
+
 ## Small, non-blocking reminder above the UPGRADE button.
 func notice(text: String) -> void:
 	_notice_text = text
@@ -136,6 +218,10 @@ func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
 	_streak_t += delta
+	if orders_open:
+		_orders_t += delta
+		if _orders_t > ORDER_OPEN_S:
+			orders_open = false
 	if _hint_text != "":
 		_hint_t += delta
 	if show_perf and world != null:
@@ -169,6 +255,7 @@ func _draw_hud() -> void:
 	_draw_dash_button()
 	_draw_upgrade_button()
 	_draw_outbreak_button()
+	_draw_orders()
 	# Toasts.
 	var ty := 240.0
 	for t in toasts:
@@ -568,7 +655,7 @@ func _draw_hint(w: float) -> void:
 	var fs := 26
 	var sz := font.get_multiline_string_size(_hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs)
 	# Above the DASH/UPGRADE buttons; higher when the Nucleus tower bar is up.
-	var bottom := size.y - (660.0 if tower_bar_visible() else 360.0)
+	var bottom := size.y - (660.0 if tower_bar_visible() else (520.0 if orders_on() else 360.0))  # above the Swarm order fan
 	var rect := Rect2(24.0, bottom - sz.y - 28.0 + 12.0 * (1.0 - a), width, sz.y + 28.0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.05, 0.14, 0.88 * a)

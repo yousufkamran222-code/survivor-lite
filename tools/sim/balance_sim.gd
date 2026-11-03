@@ -6,7 +6,9 @@ extends SceneTree
 ##   godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 40 --seed 1000
 ## Options: --runs N, --seed S, --meta (use maxed meta upgrades),
 ## --mode ID (data/modes.json, default: first mode), --classic (= --mode classic),
-## --json PATH, --free (Nucleus: keep going into Free Mode after the win)
+## --json PATH, --free (Nucleus: keep going into Free Mode after the win),
+## --order guard|hunt|harvest (Swarm: the bot keeps that order),
+## --set key.path=value,... (override balance numbers for a tuning run)
 
 const DT := 1.0 / 30.0
 
@@ -21,6 +23,15 @@ func _initialize() -> void:
 	if mode_id == "":
 		mode_id = d.modes[0].id
 	d = GameData.apply_mode(d, mode_id)
+	if args.has("set"):
+		for pair in str(args.set).split(","):
+			var kv := pair.split("=")
+			var node: Dictionary = d.balance
+			var keys := kv[0].split(".")
+			for k in keys.size() - 1:
+				node = node[keys[k]]
+			node[keys[keys.size() - 1]] = float(kv[1])
+	force_order = World.ORDER_IDS.find(str(args.get("order", "")))
 	var meta := {}
 	if args.has("meta"):
 		var levels := {}
@@ -60,12 +71,16 @@ func _parse(argv: PackedStringArray) -> Dictionary:
 
 
 var free := false  # --free: Nucleus runs continue into Free Mode after the win
+var force_order := -1  # --order: Swarm bot keeps this order
 
 
 func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var w := World.new(d, seed_value, meta)
 	w.emit_events = false
 	var bot := BalanceBot.new(seed_value)
+	bot.force_order = force_order
+	if force_order >= 0:
+		w.set_ally_order(force_order)
 	var peak_enemies := 0
 	var peak_allies := 0
 	var hp_at_boss := -1.0
@@ -96,6 +111,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
+		"ally_share": w.ally_damage / maxf(w.damage_dealt, 1.0), "harvested": w.gems_harvested, "orders": w.order_changes,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0, w.bonus_gold_kills()),
 	}
@@ -121,6 +137,9 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var infected := 0.0
 	var convs := 0
 	var allies := 0
+	var ally_share := 0.0
+	var harvested := 0
+	var order_n := 0
 	var waves := []
 	var towers := 0
 	var core_left := 0.0
@@ -138,6 +157,9 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		infected += r.infected
 		convs += r.conversions
 		allies += r.peak_allies
+		ally_share += r.ally_share
+		harvested += r.harvested
+		order_n += r.orders
 		if r.won:
 			wins += 1
 		else:
@@ -173,6 +195,9 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_infected": snappedf(infected / maxf(results.size(), 1), 0.001),
 		"mean_conversions": snappedf(float(convs) / maxf(results.size(), 1), 0.1),
 		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
+		"mean_ally_damage_share": snappedf(ally_share / maxf(results.size(), 1), 0.001),
+		"mean_gems_harvested": snappedf(float(harvested) / maxf(results.size(), 1), 0.1),
+		"mean_order_changes": snappedf(float(order_n) / maxf(results.size(), 1), 0.1),
 		"mean_chests": snappedf(float(chests) / maxf(results.size(), 1), 0.1),
 		"mean_evolutions": snappedf(float(evos) / maxf(results.size(), 1), 0.01),
 		"waves_cleared_p50": _pct(waves, 0.5),
