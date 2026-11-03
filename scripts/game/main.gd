@@ -110,6 +110,14 @@ func _ready() -> void:
 	_results = UiKit.overlay(ui_root)
 	_pause = UiKit.overlay(ui_root)
 	_chest = UiKit.overlay(ui_root, 0.8)
+	if Save.muted:
+		# The old SOUND button was a mute toggle; the Settings sliders replace
+		# it, so carry "muted" over as both volumes at 0 (visible, fixable).
+		Save.muted = false
+		Save.music_volume = 0.0
+		Save.sfx_volume = 0.0
+		Save.write()
+	_apply_settings()
 	_victory = UiKit.overlay(ui_root, 0.8)
 	_show_menu()
 
@@ -209,6 +217,10 @@ func _notification(what: int) -> void:
 ## steps (which made slow frames slower: the "spiral").
 func _process(delta: float) -> void:
 	if screen != "playing" or world == null:
+		# Not stepping: drop the CPU timers so the perf readout stays honest.
+		view.cpu_ms = 0.0
+		hud.cpu_ms = 0.0
+		SpriteBatch.draw_ms = 0.0
 		return
 	if hitstop > 0.0:
 		hitstop -= delta
@@ -225,6 +237,7 @@ func _process(delta: float) -> void:
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
+	Sfx.set_intensity(_music_intensity())
 	view.cpu_ms += SpriteBatch.draw_ms  # batched sprite layers count as view too
 	SpriteBatch.draw_ms = 0.0
 	hud.view_ms = lerpf(hud.view_ms, view.cpu_ms, 0.1)
@@ -268,7 +281,7 @@ func _handle_events(events: Array) -> void:
 			"hurt":
 				Sfx.play("hurt")
 				hitstop = maxf(hitstop, float(bal.juice.hitstop_hurt_s))
-				Input.vibrate_handheld(40)
+				Sfx.vibrate(40)
 			"level_gained":
 				Sfx.play("level_up", 0.0)
 				hud.notice("LEVEL %d  +1 upgrade" % ev.level)
@@ -286,12 +299,12 @@ func _handle_events(events: Array) -> void:
 				Analytics.event("boss_killed", {"t": int(world.time)})
 			"death":
 				Sfx.play("death", 0.0)
-				Input.vibrate_handheld(200)
+				Sfx.vibrate(200)
 			"dash":
 				Sfx.play("dash")
 			"claim":
 				Sfx.play("claim", 0.05)
-				Input.vibrate_handheld(30)
+				Sfx.vibrate(30)
 				if ev.tiles >= 25:
 					hud.toast("CLAIMED +%d%%" % maxi(1, roundi(float(ev.tiles) / world.terr.dish_count * 100.0)), pal.player_nucleus, 1.2)
 			"convert":
@@ -309,7 +322,7 @@ func _handle_events(events: Array) -> void:
 				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
 			"elite_killed":
 				Sfx.play("boss", 0.1)
-				Input.vibrate_handheld(60)
+				Sfx.vibrate(60)
 				hitstop = maxf(hitstop, float(bal.juice.get("hitstop_elite_s", 0.0)))
 			"evolution_ready":
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
@@ -317,7 +330,7 @@ func _handle_events(events: Array) -> void:
 			"wave_start":
 				if ev.boss:
 					Sfx.play("boss", 0.0)
-					Input.vibrate_handheld(120)
+					Sfx.vibrate(120)
 					view.add_shake(10.0)
 					hud.toast("MOTHER CELL!", pal.player_hurt, 2.2)
 				else:
@@ -335,12 +348,12 @@ func _handle_events(events: Array) -> void:
 				Sfx.play("hurt", 0.2, 0.7)
 			"tower_built", "tower_upgraded":
 				Sfx.play("upgrade", 0.0, 1.0 + 0.08 * ev.level)
-				Input.vibrate_handheld(40)
+				Sfx.vibrate(40)
 				hud.toast("%s %s" % [str(ev.name).to_upper(), "BUILT" if ev.type == "tower_built" else "LV %d" % ev.level], GameData.color(ev.color), 1.4)
 				Analytics.event("tower_build", {"level": ev.level, "wave": world.wave})
 			"player_down":
 				Sfx.play("death", 0.0)
-				Input.vibrate_handheld(200)
+				Sfx.vibrate(200)
 			"respawn":
 				Sfx.play("heal", 0.0)
 			"pickup_item":
@@ -354,8 +367,20 @@ func _handle_events(events: Array) -> void:
 					"bomb":
 						Sfx.play("bomb", 0.0)
 						hud.toast("BOOM!", pal.enemy_shot, 1.2)
-						Input.vibrate_handheld(120)
+						Sfx.vibrate(120)
 				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
+
+
+## How hard the run is pushing right now (fades the music's drive layer in):
+## the clock in timed modes, the waves in Nucleus, full for bosses.
+func _music_intensity() -> float:
+	if world.boss_index >= 0 or world.free_mode:
+		return 1.0
+	if world.def_on:
+		if world.wave_state == "breather":
+			return 0.15
+		return 0.35 + 0.65 * float(world.wave) / maxf(world.wave_count, 1)
+	return clampf(world.time / (world.run_length * 0.7), 0.15, 1.0)
 
 
 ## Kill sound climbs in pitch while kills keep chaining (cosmetic streak;
@@ -370,7 +395,7 @@ func _on_kill_streak() -> void:
 	hud.set_streak(_streak)
 	if _streak in [25, 50, 100, 200, 400]:
 		Sfx.play("chest", 0.0, 1.1)
-		Input.vibrate_handheld(30)
+		Sfx.vibrate(30)
 
 
 func _start_run() -> void:
@@ -380,6 +405,8 @@ func _start_run() -> void:
 	hud.world = world
 	hitstop = 0.0
 	_slowmo = 0.0
+	Sfx.play_music("run")
+	Sfx.set_intensity(0.0)
 	_streak = 0
 	hud.set_streak(0)
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
@@ -393,17 +420,34 @@ func _start_run() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
-	# Battery: only gameplay runs at the screen's full rate (90/120 Hz).
-	# Menus and pickers still animate smoothly at 60; pause barely moves.
-	Engine.max_fps = int(bal.perf.get("menu_max_fps", 60)) if s != "playing" else 0
-	if s == "paused":
-		Engine.max_fps = int(bal.perf.get("pause_max_fps", 30))
+	_apply_fps()
 	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
 	view.visible = s != "menu"
 	if s != "playing":
 		_release_stick()
+
+
+## Battery: gameplay runs at the Frame rate setting (Max = the screen's
+## full 90/120 Hz); menus and pickers at most 60; pause barely moves.
+func _apply_fps() -> void:
+	var cap := Save.fps_cap  # 0 = max
+	var limit := cap
+	if screen == "paused":
+		limit = int(bal.perf.get("pause_max_fps", 30))
+	elif screen != "playing":
+		var menu_cap := int(bal.perf.get("menu_max_fps", 60))
+		limit = menu_cap if cap == 0 else mini(cap, menu_cap)
+	Engine.max_fps = limit
+
+
+## Re-applies everything the Settings screen controls.
+func _apply_settings() -> void:
+	Sfx.apply_settings()
+	hud.show_perf = Save.show_fps == 1 or (Save.show_fps == -1 and bool(bal.get("debug", {}).get("show_perf", false)))
+	view.shake_setting = Save.shake
+	_apply_fps()
 
 
 func _hide_all() -> void:
@@ -414,6 +458,7 @@ func _hide_all() -> void:
 # ------------------------------------------------------------------- menu
 
 func _show_menu() -> void:
+	Sfx.play_music("menu")
 	_hide_all()
 	_set_screen("menu")
 	_menu_bg.visible = true
@@ -469,7 +514,7 @@ func _show_menu() -> void:
 	bottom.add_theme_constant_override("separation", 12)
 	bottom.add_child(_tile_button("gold", pal.ui_accent, "UPGRADES", _show_shop))
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
-	bottom.add_child(_tile_button("sound_off" if Save.muted else "sound_on", pal.player_nucleus, "SOUND", _toggle_mute))
+	bottom.add_child(_tile_button("settings", pal.player_nucleus, "SETTINGS", _show_settings))
 	col.add_child(bottom)
 	# The build label doubles as the hidden benchmark trigger (tap 5 times).
 	var build := UiKit.label(_build_label(), 16, Color(pal.text, 0.35))
@@ -672,12 +717,6 @@ func world_length() -> float:
 	return float(bal.run_length_s)
 
 
-func _toggle_mute() -> void:
-	Save.muted = not Save.muted
-	Save.write()
-	_show_menu()
-
-
 # --------------------------------------------------------------- level-up
 
 func _show_levelup() -> void:
@@ -738,7 +777,7 @@ func _show_chest() -> void:
 	_set_screen("chest")
 	var rewards: Array = world.chest_rewards.duplicate()
 	Sfx.play("chest", 0.0)
-	Input.vibrate_handheld(50)
+	Sfx.vibrate(50)
 	Analytics.event("chest_open", {"items": rewards.size(), "t": int(world.time)})
 	var col: VBoxContainer = _chest[1]
 	UiKit.clear(col)
@@ -809,7 +848,7 @@ func _show_chest() -> void:
 		slots[k].add_theme_font_size_override("font_size", 40 if evo else 32)
 		if evo:
 			Sfx.play("evolve", 0.0)
-			Input.vibrate_handheld(150)
+			Sfx.vibrate(150)
 			view.add_shake(14.0)
 			Analytics.event("evolution", {"id": r.id, "t": int(world.time)})
 		else:
@@ -969,12 +1008,33 @@ func _pause_run() -> void:
 	if screen != "playing":
 		return
 	_set_screen("paused")
+	Sfx.set_intensity(0.0)
+	_build_pause()
+
+
+func _build_pause() -> void:
 	var col: VBoxContainer = _pause[1]
 	UiKit.clear(col)
 	col.add_child(UiKit.label("PAUSED", 56, pal.ui_accent))
 	col.add_child(UiKit.button("RESUME", _resume, 120))
+	col.add_child(UiKit.button("SETTINGS", func() -> void:
+		UiKit.clear(col)
+		col.add_child(_settings_screen(_build_pause)), 90))
 	col.add_child(UiKit.button("Quit run", func() -> void: _show_results(false), 80))
 	_pause[0].visible = true
+
+
+func _settings_screen(back: Callable) -> SettingsScreen:
+	var st := SettingsScreen.new()
+	st.setup(pal, _apply_settings, back, bool(bal.get("debug", {}).get("show_perf", false)))
+	return st
+
+
+func _show_settings() -> void:
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	col.add_child(_settings_screen(_show_menu))
 
 
 func _resume() -> void:
@@ -991,7 +1051,7 @@ func _tick_countdown() -> void:
 		_countdown = n
 		if n >= 1 and n <= 3:
 			Sfx.play("click", 0.0, 1.6 - 0.15 * n)
-			Input.vibrate_handheld(15)
+			Sfx.vibrate(15)
 
 
 ## Tower bar tap (or keys 1-4): build on the empty pad you're standing on.
@@ -999,14 +1059,14 @@ func _tick_countdown() -> void:
 func _build_tower(t: int) -> void:
 	if not world.build_tower(t):
 		Sfx.play("deny", 0.0)
-		Input.vibrate_handheld(25)
+		Sfx.vibrate(25)
 
 
 ## Wave 12 cleared: take the win or keep going into endless waves.
 func _show_defense_won() -> void:
 	_set_screen("defense_won")
 	Sfx.play("evolve", 0.0)
-	Input.vibrate_handheld(150)
+	Sfx.vibrate(150)
 	var col: VBoxContainer = _victory[1]
 	UiKit.clear(col)
 	var head := UiKit.label("NUCLEUS DEFENDED!", 56, pal.ui_accent)

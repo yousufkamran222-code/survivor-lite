@@ -166,6 +166,11 @@ Keep the current damage-number look; make every hit and kill read and feel bette
 
 ## Phase 4: the rest of the sweep (my suggestions; pick what you want)
 
+**Music + Settings built 2026-11-03** (Yousuf on Phase 3: "feels good"; asked for music and settings first):
+- **Music** (`tools/build_assets.py` `build_music()`, own RNG so the sound effects never change; `assets/processed/music/`, imported with loop on, QOA-compressed): `menu` (90 BPM, 21 s, Am-F-C-G pad + slow arpeggio + bubble blips) and the run in two synced 16 s layers at 120 BPM: `run_base` (pad, bass, arpeggio) always on, `run_drive` (kick, hats, snare, bright arpeggio) faded in by `Sfx.set_intensity()` from Main: run clock in timed modes, waves in Nucleus (low in breathers), full for bosses and Free Mode. Checked numerically: even loudness per bar, no clipping, silent loop seams.
+- **Audio buses** "Music" and "SFX" (created at startup); music ducks under boss/bomb/death/evolve sounds.
+- **Settings screen** (`SettingsScreen`, from the menu's new SETTINGS tile and from pause): Music and Effects volume sliders, Vibration on/off (all vibration goes through `Sfx.vibrate`), Screen shake Off/Low/Normal/High (multiplies `juice.shake_mult`), Frame rate Battery 30 / 60 / Max (menus still at most 60, pause 30), Show FPS. Stored in `profile.settings` (free-form, no format change); an old "muted" flag becomes both volumes at 0.
+
 1. **Music:**
    - a calm menu loop and a run loop that builds intensity with time or waves (generated in `tools/build_assets.py`, or CC0 tracks listed in `assets/MANIFEST.md`),
    - SFX and music volume, with ducking on big hits.

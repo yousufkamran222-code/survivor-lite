@@ -31,6 +31,25 @@ var muted: bool:
 var mode: String:
 	get: return str(profile.settings.get("mode", "infection"))
 	set(v): profile.settings["mode"] = v
+# Settings (stored in profile.settings, a free-form dict: no format change).
+var music_volume: float:
+	get: return float(profile.settings.get("music_volume", 0.7))
+	set(v): profile.settings["music_volume"] = clampf(v, 0.0, 1.0)
+var sfx_volume: float:
+	get: return float(profile.settings.get("sfx_volume", 1.0))
+	set(v): profile.settings["sfx_volume"] = clampf(v, 0.0, 1.0)
+var vibration: bool:
+	get: return bool(profile.settings.get("vibration", true))
+	set(v): profile.settings["vibration"] = v
+var shake: float:  # screen-shake strength: 0, 0.5, 1, 1.5
+	get: return float(profile.settings.get("shake", 1.0))
+	set(v): profile.settings["shake"] = v
+var fps_cap: int:  # 0 = the screen's max, else 60 or 30
+	get: return int(profile.settings.get("fps_cap", 0))
+	set(v): profile.settings["fps_cap"] = v
+var show_fps: int:  # -1 = use balance.json debug.show_perf, 0 off, 1 on
+	get: return int(profile.settings.get("show_fps", -1))
+	set(v): profile.settings["show_fps"] = v
 var runs: int:
 	get: return int(profile.stats.runs)
 var deaths: int:

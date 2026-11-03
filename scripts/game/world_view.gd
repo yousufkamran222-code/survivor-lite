@@ -49,6 +49,7 @@ var _sp_next := 0
 var _num_by_uid := {}  # enemy uid -> its live damage number (merging)
 var _sparks_left := 0  # hit sparks still allowed this frame
 var _shake_t := 0.0
+var shake_setting := 1.0  # Settings → Screen shake (0, 0.5, 1, 1.5)
 var _cell_tex: Texture2D
 var _disc_tex: Texture2D
 var _face := 0.0  # smoothed facing angle (visual only; World's aim snaps)
@@ -272,7 +273,7 @@ func _process_view(delta: float) -> void:
 	shake = maxf(0.0, shake - float(juice.shake_decay) * delta)
 	_shake_t += delta
 	var off := Vector2(sin(_shake_t * 47.0) * 0.6 + sin(_shake_t * 21.0 + 1.7) * 0.4,
-		cos(_shake_t * 43.0) * 0.6 + sin(_shake_t * 19.0 + 0.4) * 0.4) * shake * float(juice.get("shake_mult", 1.0))
+		cos(_shake_t * 43.0) * 0.6 + sin(_shake_t * 19.0 + 0.4) * 0.4) * shake * float(juice.get("shake_mult", 1.0)) * shake_setting
 	cam.position = (world.core_pos if world.p_down > 0.0 else world.p_pos) + off
 	var vp := get_viewport_rect().size
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)

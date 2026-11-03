@@ -170,3 +170,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Also normal: each level needs more XP (level 20 needs ~100-140 XP vs ~10 early).
 - Rejected first try: merging into the gem nearest the kill.
 - Bot sims, Infection × 8, seeds 600/700/900/1000/1100: before 25/38/38/25/38% (≈33%) → after 13/13/25/13/0% (≈13%); p50 roughly unchanged (164-190 s vs 166-222 s), level 19-22 vs 18-24. Likely the greedy bot now runs into crowds for gems that used to vanish. Humans get correctly placed XP; watch Infection difficulty in the next playtest.
+
+### 2026-11-03 Polish Phase 4: music and settings
+- Generated music (menu loop; run loop in two synced layers, the drive layer fading in with intensity), Music/SFX buses with ducking, and a Settings screen (volumes, vibration, shake, frame rate, FPS readout) from the menu and pause. Details in `docs/POLISH_PLAN.md` Phase 4.

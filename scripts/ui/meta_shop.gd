@@ -343,7 +343,7 @@ func _try_buy(b: Button) -> void:
 	if spent <= 0:
 		# Can't afford: a soft "nope" and a head-shake.
 		Sfx.play("deny", 0.0)
-		Input.vibrate_handheld(25)
+		Sfx.vibrate(25)
 		var x0 := b.position.x
 		var tw := b.create_tween()
 		for dx in [14.0, -12.0, 8.0, -5.0, 0.0]:
@@ -355,10 +355,10 @@ func _try_buy(b: Button) -> void:
 	Analytics.event("meta_buy", {"id": m.id, "level": lv})
 	if maxed:
 		Sfx.play("evolve", 0.0)
-		Input.vibrate_handheld(120)
+		Sfx.vibrate(120)
 	else:
 		Sfx.play("upgrade", 0.0, 1.0 + 0.035 * lv)
-		Input.vibrate_handheld(35)
+		Sfx.vibrate(35)
 	_fill_popup(lv - 1)
 	_tween_gold(gold_before, Save.gold)
 	# Let the rebuilt popup lay out (containers sort a frame late).

@@ -152,6 +152,14 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 			for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 				ci.draw_line(c + d * k * 0.45, c + d * k * 1.0, w, lw)
 			ci.draw_circle(c, k * 0.14, w)
+		"settings":
+			# A cog: ring with teeth and a hole.
+			for t in 8:
+				var a := TAU * t / 8.0
+				var d := Vector2(cos(a), sin(a))
+				ci.draw_line(c + d * k * 0.45, c + d * k * 0.88, col, lw * 2.2)
+			ci.draw_circle(c, k * 0.62, col)
+			ci.draw_circle(c, k * 0.26, Color(0.12, 0.08, 0.22))
 		"trophy":
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.6, -k * 0.75), c + Vector2(k * 0.6, -k * 0.75), c + Vector2(k * 0.4, -k * 0.05), c + Vector2(-k * 0.4, -k * 0.05)]), col)
 			ci.draw_circle(c + Vector2(0, -k * 0.1), k * 0.4, col)
