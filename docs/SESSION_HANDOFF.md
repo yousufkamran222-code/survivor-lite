@@ -40,7 +40,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 | Core loop | Drag-anywhere joystick (base locks where you touch), auto weapons, XP gems, **banked level-ups** (UPGRADE button bottom-left with count badge; no pausing popups), 5:00 runs, boss (Mother Cell) at 3:50, death → revive (rewarded stub ad) → results → menu |
 | Content | 8 enemy types, 4 weapons, 11 general passives (incl. 4 dash cards) + 3 Swarm-only passives, 4 evolutions, elites every 40 s with chests, 3 rare pickups (vacuum/heal/bomb) |
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
-| Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
+| Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak; the run pauses while the fan is open), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
 | Meta | 15 permanent upgrades, 96 tiers (~17k gold), scrolling shop with icons and current totals |
 | Progress | `Profile`: lifetime stats, per-mode records, 18 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |

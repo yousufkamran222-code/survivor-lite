@@ -105,11 +105,11 @@ func in_outbreak_button(p: Vector2) -> bool:
 
 
 ## Swarm orders: a button left of Outbreak shows the current order; tapping
-## it fans out the three orders (the game keeps running); tap one to switch.
+## it fans out the three orders and pauses the run (Main stops stepping);
+## tap one to switch, or anywhere else to close.
 const ORDER_R := 44.0
 const ORDER_OPT_R := 42.0
 const ORDER_FAN := 124.0
-const ORDER_OPEN_S := 3.0  # the fan closes itself after this long
 var orders_open := false
 var _orders_t := 0.0
 
@@ -163,6 +163,13 @@ func _draw_orders() -> void:
 	var cur := world.ally_order
 	var c := order_center()
 	var col := _order_color(cur)
+	if orders_open:
+		# Paused: dim the field and say so.
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35 * clampf(_orders_t / 0.12, 0.0, 1.0)))
+		var ty := c.y - ORDER_FAN - 90.0
+		draw_string_outline(font, Vector2(0, ty), "SWARM ORDERS", HORIZONTAL_ALIGNMENT_CENTER, size.x, 34, 8, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, ty), "SWARM ORDERS", HORIZONTAL_ALIGNMENT_CENTER, size.x, 34, Color.WHITE)
+		draw_string(font, Vector2(0, ty + 34), "Paused. Tap an order, or anywhere to resume.", HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, Color(1, 1, 1, 0.75))
 	draw_circle(c, ORDER_R, Color(col, 0.22 if orders_open else 0.12))
 	draw_arc(c, ORDER_R, 0, TAU, 40, Color(col, 0.85), 3.0)
 	if world.order_cd > 0.0:
@@ -220,8 +227,6 @@ func _process(delta: float) -> void:
 	_streak_t += delta
 	if orders_open:
 		_orders_t += delta
-		if _orders_t > ORDER_OPEN_S:
-			orders_open = false
 	if _hint_text != "":
 		_hint_t += delta
 	if show_perf and world != null:

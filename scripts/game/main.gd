@@ -135,6 +135,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if screen != "playing":
 		return
+	if hud.orders_open and event is InputEventKey and event.pressed and not event.echo and not (event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_3):
+		if event.physical_keycode == KEY_ESCAPE:
+			hud.set_orders_open(false)
+		return  # paused in the order fan: only 1-3 (pick) and Esc (close)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		world.dash()
 		return
@@ -166,6 +170,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			if ob >= 0:
 				_set_order(ob)
+				return
+			if hud.orders_open:
+				hud.set_orders_open(false)  # tap anywhere else: close and resume
 				return
 		# Dash: tap the DASH button, or tap with a second finger while steering.
 		if event.pressed and hud.in_upgrade_button(event.position):
@@ -228,7 +235,9 @@ func _notification(what: int) -> void:
 		if screen == "playing":
 			_pause_run()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if screen == "playing":
+		if screen == "playing" and hud.orders_open:
+			hud.set_orders_open(false)  # Back closes the order fan first
+		elif screen == "playing":
 			_pause_run()
 		elif screen == "paused":
 			_resume()
@@ -242,6 +251,12 @@ func _notification(what: int) -> void:
 func _process(delta: float) -> void:
 	if screen != "playing" or world == null:
 		# Not stepping: drop the CPU timers so the perf readout stays honest.
+		view.cpu_ms = 0.0
+		hud.cpu_ms = 0.0
+		SpriteBatch.draw_ms = 0.0
+		return
+	if hud.orders_open:
+		# The Swarm order fan pauses the run while it's open.
 		view.cpu_ms = 0.0
 		hud.cpu_ms = 0.0
 		SpriteBatch.draw_ms = 0.0
@@ -438,6 +453,7 @@ func _start_run() -> void:
 	hud.world = world
 	hitstop = 0.0
 	_slowmo = 0.0
+	hud.set_orders_open(false)
 	Sfx.play_music("run")
 	_streak = 0
 	hud.set_streak(0)
