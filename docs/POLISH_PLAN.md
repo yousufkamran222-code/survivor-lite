@@ -166,6 +166,8 @@ Keep the current damage-number look; make every hit and kill read and feel bette
 
 ## Phase 4: the rest of the sweep (my suggestions; pick what you want)
 
+**Update 2026-11-03: the generated music was replaced by CC0 tracks (Juhani Junkala, "5 Chiptunes (Action)"; D-015), and the runtime audio buses were removed (silent on web). The music notes below are historical.**
+
 **Music + Settings built 2026-11-03** (Yousuf on Phase 3: "feels good"; asked for music and settings first):
 - **Music** (`tools/build_assets.py` `build_music()`, own RNG so the sound effects never change; `assets/processed/music/`, imported with loop on, QOA-compressed): `menu` (90 BPM, 21 s, Am-F-C-G pad + slow arpeggio + bubble blips) and the run in two synced 16 s layers at 120 BPM: `run_base` (pad, bass, arpeggio) always on, `run_drive` (kick, hats, snare, bright arpeggio) faded in by `Sfx.set_intensity()` from Main: run clock in timed modes, waves in Nucleus (low in breathers), full for bosses and Free Mode. Checked numerically: even loudness per bar, no clipping, silent loop seams.
 - **Audio buses** "Music" and "SFX" (created at startup); music ducks under boss/bomb/death/evolve sounds.

@@ -237,7 +237,7 @@ func _process(delta: float) -> void:
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
-	Sfx.set_intensity(_music_intensity())
+	Sfx.set_boss(world.boss_index >= 0)
 	view.cpu_ms += SpriteBatch.draw_ms  # batched sprite layers count as view too
 	SpriteBatch.draw_ms = 0.0
 	hud.view_ms = lerpf(hud.view_ms, view.cpu_ms, 0.1)
@@ -371,18 +371,6 @@ func _handle_events(events: Array) -> void:
 				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
 
 
-## How hard the run is pushing right now (fades the music's drive layer in):
-## the clock in timed modes, the waves in Nucleus, full for bosses.
-func _music_intensity() -> float:
-	if world.boss_index >= 0 or world.free_mode:
-		return 1.0
-	if world.def_on:
-		if world.wave_state == "breather":
-			return 0.15
-		return 0.35 + 0.65 * float(world.wave) / maxf(world.wave_count, 1)
-	return clampf(world.time / (world.run_length * 0.7), 0.15, 1.0)
-
-
 ## Kill sound climbs in pitch while kills keep chaining (cosmetic streak;
 ## no gameplay effect). Milestones get a chime and a HUD pop.
 func _on_kill_streak() -> void:
@@ -406,7 +394,6 @@ func _start_run() -> void:
 	hitstop = 0.0
 	_slowmo = 0.0
 	Sfx.play_music("run")
-	Sfx.set_intensity(0.0)
 	_streak = 0
 	hud.set_streak(0)
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
@@ -941,6 +928,8 @@ func _revive() -> void:
 func _show_results(won: bool) -> void:
 	_hide_all()
 	_set_screen("results")
+	if won:
+		Sfx.play_music("ending")
 	_results_gold = Progression.run_gold(bal, world.kills, world.time, world.boss_killed, won, float(world.stats.gold_gain))
 	_results_doubled = false
 	# Progress tracking: lifetime stats, per-mode records, achievements and
@@ -1008,7 +997,6 @@ func _pause_run() -> void:
 	if screen != "playing":
 		return
 	_set_screen("paused")
-	Sfx.set_intensity(0.0)
 	_build_pause()
 
 

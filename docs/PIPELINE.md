@@ -177,3 +177,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-03 Web audio fix; music direction
 - Yousuf: no sound at all on web since the music build. Cause: the "Music"/"SFX" buses were created at runtime, and the web build's Web Audio sample path never connects runtime buses to the output. Verified in Chromium by routing the output through an `AnalyserNode`: peak 0.45 (before) → 0.0000 (broken) → 0.4548 (fixed). Fix: no extra buses; `Sfx` applies the Music/Effects volumes per player.
 - Feedback on the generated music: "trash". Agreed: hand-synthesised melodic music won't reach the quality of composed tracks. Next: CC0 tracks from OpenGameArt (FreePD has shut down), chosen by Yousuf.
+
+### 2026-11-03 Real music: Juhani Junkala, "5 Chiptunes (Action)" (CC0)
+- Yousuf loved this pack (not "4 Chiptunes"). The WAVs (50 MB) re-encoded to OGG Vorbis q3 (4.1 MB) in `assets/raw/juhani_junkala_action_chiptunes/` with the pack's `INFO.txt` (CC0) and a MANIFEST row. Every track plays at full level from first to last sample (made as loops), so each loops whole (`loop=true` on import).
+- Menu: Title Screen. Runs: a random Level 1-3; while a boss is alive, a 1.5 s cross-fade to a different level track and back. Win results: Ending. Generated music removed.
+- Verified in Chromium (AnalyserNode on the output): menu music peak 0.43 with no taps; a run with effects 0.69.
