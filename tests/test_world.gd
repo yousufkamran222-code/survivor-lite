@@ -256,3 +256,43 @@ func test_outbreak_can_fire_pickups() -> void:
 	check_eq(w.g_pull[1], 0, "but not the whole map")
 	check(w.p_hp > 10.0, "heal")
 	check_eq(w.outbreak, 0.0, "the bomb's kills don't refill the meter")
+
+
+
+func test_plague_trail_infects_spreads_and_fades() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	var o: Dictionary = w.bal.outbreak
+	w.p_pos = Vector2.ZERO
+	w.outbreak = 1.0
+	check(w.trigger_outbreak())
+	w.step(1.0 / 60.0, Vector2.ZERO)
+	check(w.pt_pos.size() >= 1, "the trail starts under the player")
+	w._add_enemy("brute", Vector2(10, 0))
+	var hp := w.e_hp[0]
+	w._rebuild_grid()
+	w._update_plague(float(o.tick_s) + 0.001)
+	check(w.e_plague[0] > 0.0, "touching the trail infects")
+	w._update_plague(float(o.tick_s) + 0.001)
+	check(w.e_hp[0] < hp, "infection deals damage over time")
+	# An infected germ that dies infects its neighbours.
+	w._add_enemy("grunt", w.e_pos[0] + Vector2(30, 0))
+	w._rebuild_grid()
+	w._damage(0, 1.0e6, Vector2.ZERO, false)
+	w._process_dead()
+	check(w.e_plague[0] > 0.0, "the neighbour caught it")
+	# The trail fades after its lifetime once the Outbreak is over.
+	w.outbreak_t = 0.0
+	w._update_plague(float(o.trail_life_s) + 0.1)
+	check_eq(w.pt_pos.size(), 0, "trail gone")
+
+
+func test_plague_is_weak_against_elites() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w._add_enemy("brute", Vector2(500, 0))
+	w._add_enemy("brute", Vector2(-500, 0), true)
+	w.e_plague[0] = 5.0
+	w.e_plague[1] = 5.0
+	var a := w.e_hp[0]
+	var b := w.e_hp[1]
+	w._update_plague(0.5)
+	check((b - w.e_hp[1]) / w.e_maxhp[1] < (a - w.e_hp[0]) / w.e_maxhp[0] * 0.5, "elites lose a much smaller share of their HP")

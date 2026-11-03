@@ -343,11 +343,10 @@ func _handle_events(events: Array) -> void:
 				Sfx.vibrate(40)
 				hud.toast("OUTBREAK READY", pal.outbreak, 1.6)
 			"outbreak_start":
-				Sfx.play("bomb", 0.0)
 				Sfx.play("evolve", 0.0)
-				Sfx.play("vacuum", 0.0)
-				Sfx.vibrate(150)
-				hud.toast("OUTBREAK!", pal.outbreak, 1.6)
+				Sfx.play("convert", 0.0, 0.7)
+				Sfx.vibrate(120)
+				hud.toast("PLAGUE TRAIL!", pal.outbreak, 1.6)
 				Analytics.event("outbreak", {"t": int(world.time), "mode": world.bal.get("mode_id", "")})
 			"volatile":
 				Sfx.play("nova", 0.1, 1.5)

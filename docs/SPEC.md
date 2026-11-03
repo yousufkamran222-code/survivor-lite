@@ -83,3 +83,4 @@ Hit flash, knockback and its decay, dash afterimages, elite auras, chest reveal 
 
 ## Later (not v1)
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
+- **Boss Rift (Yousuf's idea, 2026-11-03):** every few minutes a glowing rift opens; step in (your choice) and the run freezes while you fight a unique mini-boss with special attack patterns for ~20 s in a cleared arena. Win: pick a rare reward (1 of 3 upgrades, or a guaranteed evolution step). Lose or run out of time: back to the run as it was (damage taken in the arena carries over, so it's a real risk). Open points: a new boss vs the 8-enemy-type cap (or a Mother Cell variant with new patterns); implement as a separate arena World that the run's World waits behind.

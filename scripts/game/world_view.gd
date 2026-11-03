@@ -40,6 +40,7 @@ var _blob_scale := 1.0
 var _core_flash := 0.0
 var digits: DigitAtlas  # set by Main; baked digits for damage numbers
 var _splats: SpriteBatch  # goo left on the floor by kills (under everything)
+var _plague: SpriteBatch  # Outbreak's toxic trail
 var _rings: SpriteBatch  # kill rings (batched ring texture)
 var _sp_pos := PackedVector2Array()
 var _sp_size := PackedFloat32Array()
@@ -91,6 +92,7 @@ func setup(game_data: Dictionary) -> void:
 	var perf: Dictionary = bal.perf
 	var disc := ShapeTextures.disc()
 	_splats = _batch(ShapeTextures.splat(), int(juice.get("splat_max", 50)))
+	_plague = _batch(ShapeTextures.splat(), 200)
 	_gems = _batch(ShapeTextures.diamond(), int(bal.xp.max_gems))
 	_shots = _batch(disc, int(perf.max_enemy_shots) * 2)
 	_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
@@ -227,11 +229,8 @@ func consume(events: Array) -> void:
 					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 360), "color": IconArt.COLORS.dash, "r": 4.0, "life": 0.3}, max_fx + 20)
 				add_shake(3.0)
 			"outbreak_start":
-				# Bomb + vacuum + heal in one: one big burst in the Outbreak colour.
-				add_shake(float(juice.shake_bomb))
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.outbreak.get("bomb_radius", bal.pickups.bomb_radius)), "life": 0.55, "color": pal.outbreak}, max_fx + 4)
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.outbreak.get("vacuum_radius", 900.0)), "life": 0.7, "color": pal.gem_small}, max_fx + 4)
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 110.0, "life": 0.5, "color": pal.gem_medium}, max_fx + 4)
+				add_shake(6.0)
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 200.0, "life": 0.5, "color": pal.outbreak}, max_fx + 4)
 			"respawn":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.5, "color": pal.player}, max_fx + 4)
 			"player_down":
@@ -306,6 +305,7 @@ func _process_view(delta: float) -> void:
 	_fill_bullets()
 	_fill_dots()
 	_fill_splats()
+	_fill_plague()
 	queue_redraw()
 	_top.queue_redraw()
 
@@ -452,6 +452,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = white
 		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
+		elif world.e_plague[i] > 0.0:
+			c = c.lerp(pal.outbreak, 0.7)  # infected by the Plague Trail
 		elif world.def_on and world.e_slow[i] > 0.0:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
 		var pulse := 1.0 + pulse_k * maxf(world.e_flash[i], 0.0)  # pops a little when hit
@@ -790,3 +792,15 @@ func _draw_telegraph(ci: CanvasItem, i: int) -> void:
 				return
 			var k := clampf(1.0 - world.e_timer[i] / tele, 0.0, 1.0)
 			ci.draw_arc(p, r * (2.6 - 1.4 * k), 0, TAU, 48, Color(pal.enemy_shot, 0.25 + 0.6 * k), 3.0 + 4.0 * k)
+
+
+## The Plague Trail: soft green blobs that fade as they age (one batch).
+func _fill_plague() -> void:
+	_plague.begin()
+	var life := float(bal.get("outbreak", {}).get("trail_life_s", 3.0))
+	var r := float(bal.get("outbreak", {}).get("trail_radius", 30.0))
+	var c: Color = pal.outbreak
+	for k in world.pt_pos.size():
+		var f := 1.0 - world.pt_age[k] / life
+		_plague.add(world.pt_pos[k], r * 2.6 * (0.7 + 0.3 * f), Color(c, 0.45 * f))
+	_plague.commit()

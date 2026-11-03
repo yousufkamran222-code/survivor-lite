@@ -122,9 +122,18 @@
     "pickups": [],
     "elite_fill": 0.15,
     "boss_fill": 0.5,
-    "duration_s": 5.0,
-    "weapon_speed": 1.6,
-    "damage_mult": 1.25
+    "duration_s": 6.0,
+    "weapon_speed": 1.0,
+    "damage_mult": 1.0,
+    "trail_spacing": 22,
+    "trail_life_s": 3.0,
+    "trail_radius": 30,
+    "infect_s": 3.0,
+    "plague_dps_frac": 0.35,
+    "plague_elite_mult": 0.2,
+    "plague_boss_mult": 0.05,
+    "spread_radius": 60,
+    "tick_s": 0.1
   },
   "defense": {
     "enabled": false,
@@ -225,7 +234,7 @@
     "boss_telegraph_s": 0.7
   },
   "palette": {
-    "outbreak": "#ff5dd6",
+    "outbreak": "#a66bff",
     "core": "#ffb27a",
     "core_nucleus": "#ff6f59",
     "pad": "#7cff9b",

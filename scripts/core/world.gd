@@ -84,6 +84,10 @@ var _volatile := {}  # enemy uid -> chain generation, for germs killed by the da
 var outbreak := 0.0  # 0..1
 var outbreak_t := 0.0  # frenzy time left
 var outbreaks := 0
+# Plague Trail (the Outbreak ability): a fading toxic trail behind the player.
+var pt_pos := PackedVector2Array()
+var pt_age := PackedFloat32Array()
+var _plague_tick := 0.0
 
 # --- Evolutions ---
 var evolution_defs := {}  # weapon id -> evolution def
@@ -126,6 +130,7 @@ var e_elite := PackedByteArray()
 var e_team := PackedByteArray()  # 0 = enemy, 1 = ally (converted, Swarm mode)
 var e_life := PackedFloat32Array()  # ally lifetime left
 var e_slow := PackedFloat32Array()  # seconds of Fever Node slow left
+var e_plague := PackedFloat32Array()  # seconds of Outbreak plague left
 var _next_uid := 1
 var _dead := {}
 
@@ -269,6 +274,7 @@ func step(dt: float, move: Vector2) -> void:
 	_update_enemies(dt)
 	if ally_count > 0:
 		_update_ally_combat(dt)
+	_update_plague(dt)
 	if p_down <= 0.0:
 		_update_weapons(dt)
 	else:
@@ -615,6 +621,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	e_team.append(0)
 	e_life.append(0.0)
 	e_slow.append(0.0)
+	e_plague.append(0.0)
 	e_type.append(t)
 	e_uid.append(_next_uid)
 	_next_uid += 1
@@ -649,9 +656,11 @@ func _remove_enemy(i: int) -> void:
 		e_team[i] = e_team[last]
 		e_life[i] = e_life[last]
 		e_slow[i] = e_slow[last]
+		e_plague[i] = e_plague[last]
 	e_team.resize(last)
 	e_life.resize(last)
 	e_slow.resize(last)
+	e_plague.resize(last)
 	e_rad.resize(last)
 	e_spd.resize(last)
 	e_elite.resize(last)
@@ -836,7 +845,9 @@ func _enemy_shot(pos: Vector2, dir: Vector2, speed: float, dmg: float) -> void:
 	s_dmg.append(dmg)
 
 
-func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
+## `flash` false for damage-over-time ticks (plague), so infected germs show
+## their tint instead of flashing white ten times a second.
+func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bool = true) -> void:
 	if e_hp[i] <= 0.0:
 		return
 	var d: Dictionary = enemy_defs[e_type[i]]
@@ -847,7 +858,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
 	e_hp[i] -= amount
-	e_flash[i] = float(bal.juice.flash_s)
+	if flash:
+		e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
 	if e_elite[i] == 1:
 		resist = maxf(resist, float(data.waves.elites.knock_resist))
@@ -1091,6 +1103,7 @@ func _process_dead() -> void:
 	idx.reverse()
 	_dead = {}
 	var bursts := []  # Volatile explosions from germs the dash killed
+	var spreads := []  # plague jumps from infected germs that died
 	for i: int in idx:
 		var d: Dictionary = enemy_defs[e_type[i]]
 		var pos := e_pos[i]
@@ -1102,6 +1115,8 @@ func _process_dead() -> void:
 			continue
 		kills += 1
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
+		if e_plague[i] > 0.0:
+			spreads.append(pos)
 		_fill_outbreak(elite, d.behavior == "boss")
 		if _volatile.has(e_uid[i]):
 			bursts.append([pos, e_maxhp[i], int(_volatile[e_uid[i]])])
@@ -1138,6 +1153,11 @@ func _process_dead() -> void:
 				_add_enemy(d.split_into, pos + Vector2(rng.randf_range(-14, 14), rng.randf_range(-14, 14)))
 	# Indices moved: keep the spatial grid valid for the rest of this step.
 	_rebuild_grid()
+	if not spreads.is_empty():
+		var o: Dictionary = bal.outbreak
+		for p in spreads:
+			for k: int in query(p, float(o.spread_radius)):
+				e_plague[k] = maxf(e_plague[k], float(o.infect_s))
 	if not bursts.is_empty():
 		_volatile_bursts(bursts)
 
@@ -2040,3 +2060,58 @@ func trigger_outbreak() -> bool:
 
 func _frenzy_speed() -> float:
 	return float(bal.outbreak.weapon_speed) if outbreak_t > 0.0 else 1.0
+
+
+# ============================================================ Plague Trail
+
+## Outbreak's effect: while active, the player drops a toxic trail; germs
+## touching it are infected (damage over time, scaled to their max HP, much
+## less for elites and bosses), and an infected germ that dies infects its
+## neighbours. Checked on a short tick, not every frame.
+func _update_plague(dt: float) -> void:
+	if not bal.has("outbreak"):
+		return
+	var o: Dictionary = bal.outbreak
+	# Age and drop old trail points.
+	var life := float(o.get("trail_life_s", 0.0))
+	var keep := 0
+	for k in pt_pos.size():
+		pt_age[k] += dt
+		if pt_age[k] < life:
+			pt_pos[keep] = pt_pos[k]
+			pt_age[keep] = pt_age[k]
+			keep += 1
+	pt_pos.resize(keep)
+	pt_age.resize(keep)
+	if outbreak_t > 0.0 and p_down <= 0.0:
+		var spacing := float(o.get("trail_spacing", 22.0))
+		if pt_pos.is_empty() or pt_pos[pt_pos.size() - 1].distance_squared_to(p_pos) >= spacing * spacing:
+			pt_pos.append(p_pos)
+			pt_age.append(0.0)
+	_plague_tick += dt
+	var tick := float(o.get("tick_s", 0.1))
+	if _plague_tick < tick:
+		return
+	_plague_tick -= tick
+	var infect := float(o.get("infect_s", 0.0))
+	var r := float(o.get("trail_radius", 0.0))
+	for p in pt_pos:
+		for i: int in query(p, r):
+			e_plague[i] = infect
+	var frac := float(o.get("plague_dps_frac", 0.0)) * tick
+	var any := false
+	for i in e_pos.size():
+		if e_plague[i] <= 0.0:
+			continue
+		e_plague[i] -= tick
+		if e_team[i] != 0:
+			continue
+		var mult := 1.0
+		if e_elite[i] == 1:
+			mult = float(o.plague_elite_mult)
+		elif _tbeh[e_type[i]] == BEH_BOSS:
+			mult = float(o.plague_boss_mult)
+		_damage(i, e_maxhp[i] * frac * mult, Vector2.ZERO, false, false)
+		any = true
+	if any:
+		_process_dead()

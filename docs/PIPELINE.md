@@ -209,3 +209,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Outbreak back to frenzy-only (interim)
 - Yousuf: "nerf this thing to the ground"; the pickup version is out. Data only: `outbreak.pickups` [] , 180 kills, 5 s frenzy (x1.6 weapons, x1.25 damage): the config measured at ~38% Classic bot wins (63/25/25%, level 17-19). The pickup mechanism stays in code (tested) but unused. Next: design an *active* Outbreak (creates an opportunity the player must exploit, like the dash) instead of a panic button.
+
+### 2026-11-03 Outbreak = Plague Trail (D-017)
+- Tap a full Outbreak meter (180 kills): for 6 s the player leaves a violet toxic trail (points every 22 px, fading over 3 s). Germs within 30 px of it are infected for 3 s and lose 35% of their max HP per second (elites x0.2, bosses x0.05); an infected germ that dies infects germs within 60 px. Checked 10x a second; trail drawn as one sprite batch; infected germs tint violet (plague ticks don't white-flash). The frenzy's weapon speed and damage are set to 1.0 (neutral). Violet because every germ colour family except violet is taken.
+- Boss Rift idea recorded in SPEC "Later" and the handoff backlog.
+- **Yousuf's constraint: Classic bot wins must stay at or under 40-45%.** Classic bot, x 8 runs: before (frenzy) 63/25/25% (~38%) on seeds 600/700/800; Plague 0.25 HP/s 25/25/25%; **Plague 0.35 HP/s (shipped) 38/13/0% on 600/700/800 and 13/38/25% on 900/1000/1100: 21% over 48 runs**, p50 2:47-4:13, level 9-23. The bot doesn't herd germs into the trail, so humans get more out of it. 130 tests.
