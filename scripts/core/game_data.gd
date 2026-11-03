@@ -131,6 +131,9 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	for kind in d.balance.get("outbreak", {}).get("pickups", []):
+		if not (kind in World.PICKUP_KINDS):
+			errors.append("outbreak.pickups: unknown pickup '%s'" % kind)
 	if d.waves.has("elites"):
 		for t in d.waves.elites.types:
 			if not enemy_ids.has(t):

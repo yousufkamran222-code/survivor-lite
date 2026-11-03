@@ -235,3 +235,20 @@ func test_outbreak_fills_triggers_and_speeds_weapons() -> void:
 	check_near(w.cooldowns["bolt"], 1.0 - 0.1 * float(o.weapon_speed), 0.001)
 	w.step(float(o.duration_s) + 0.1, Vector2.ZERO)
 	check_eq(w.outbreak_t, 0.0, "the frenzy ends")
+
+
+func test_outbreak_fires_bomb_vacuum_and_heal() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.p_pos = Vector2.ZERO
+	w._add_enemy("grunt", Vector2(120, 0))
+	w._drop_gem(Vector2(300, 0), 3.0)
+	w._drop_gem(Vector2(5000, 0), 3.0)  # far off: Outbreak's vacuum is local
+	w.p_hp = 10.0
+	w.outbreak = 1.0
+	w._rebuild_grid()
+	check(w.trigger_outbreak())
+	check_eq(w.kills, 1, "bomb: the nearby germ died")
+	check_eq(w.g_pull[0], 1, "vacuum: nearby gems are pulled in")
+	check_eq(w.g_pull[1], 0, "but not the whole map")
+	check(w.p_hp > 10.0, "heal")
+	check_eq(w.outbreak, 0.0, "the bomb's kills don't refill the meter")

@@ -227,7 +227,11 @@ func consume(events: Array) -> void:
 					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 360), "color": IconArt.COLORS.dash, "r": 4.0, "life": 0.3}, max_fx + 20)
 				add_shake(3.0)
 			"outbreak_start":
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 260.0, "life": 0.6, "color": pal.outbreak}, max_fx + 4)
+				# Bomb + vacuum + heal in one: one big burst in the Outbreak colour.
+				add_shake(float(juice.shake_bomb))
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.outbreak.get("bomb_radius", bal.pickups.bomb_radius)), "life": 0.55, "color": pal.outbreak}, max_fx + 4)
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.outbreak.get("vacuum_radius", 900.0)), "life": 0.7, "color": pal.gem_small}, max_fx + 4)
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 110.0, "life": 0.5, "color": pal.gem_medium}, max_fx + 4)
 			"respawn":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.5, "color": pal.player}, max_fx + 4)
 			"player_down":

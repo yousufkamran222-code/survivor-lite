@@ -74,14 +74,18 @@ func in_dash_button(p: Vector2) -> bool:
 	return p.distance_to(dash_center()) <= dash_radius * 1.15
 
 
-## The banked-upgrades pill sits top-right beside the pause button, out of
-## the thumb zone (bottom-left clashed with the drag-anywhere joystick).
-func upgrade_rect() -> Rect2:
-	return Rect2(size.x - 90.0 - 14.0 - 200.0, 32.0, 200.0, 64.0)
+## UPGRADE sits in the right column above Outbreak and DASH (bottom-left
+## clashed with the drag-anywhere joystick; the top-right pill was too small
+## and too far).
+const UPGRADE_R := 54.0
+
+
+func upgrade_center() -> Vector2:
+	return outbreak_center() + Vector2(0, -(OUTBREAK_R + UPGRADE_R + 26.0))
 
 
 func in_upgrade_button(p: Vector2) -> bool:
-	return upgrade_rect().grow(10.0).has_point(p)
+	return p.distance_to(upgrade_center()) <= UPGRADE_R * 1.2
 
 
 ## The Outbreak button sits above DASH (right thumb owns both).
@@ -233,14 +237,14 @@ func _draw_strip(ci: CanvasItem) -> void:
 	_draw_owned(ci)
 	var dc := dash_center()
 	ci.draw_string(font, dc + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if world.can_dash() else 0.35))
-	var rc := upgrade_rect()
+	var uc := upgrade_center()
 	var n := world.pending_levelups
 	var on := n > 0
 	var accent: Color = pal.ui_accent
-	ci.draw_string(font, Vector2(rc.position.x + 16.0, rc.get_center().y + 9.0), "UPGRADE", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(1, 1, 1, 0.95 if on else 0.35))
-	var b := Vector2(rc.end.x - 34.0, rc.get_center().y)
-	ci.draw_circle(b, 21.0, accent if on else Color(1, 1, 1, 0.15))
-	ci.draw_string(font, b + Vector2(-21, 9), str(n), HORIZONTAL_ALIGNMENT_CENTER, 42, 24, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
+	ci.draw_string(font, uc + Vector2(-UPGRADE_R, 8.0), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, UPGRADE_R * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.35))
+	var b := uc + Vector2(UPGRADE_R * 0.72, -UPGRADE_R * 0.72)
+	ci.draw_circle(b, 20.0, accent if on else Color(1, 1, 1, 0.15))
+	ci.draw_string(font, b + Vector2(-20, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
 
 
 ## Decides which cached layers need a redraw this frame.
@@ -334,20 +338,18 @@ func _draw_dash_button() -> void:
 
 
 func _draw_upgrade_button() -> void:
-	var rc := upgrade_rect()
+	var c := upgrade_center()
 	var n := world.pending_levelups
 	var on := n > 0
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if on else 0.0
 	var accent: Color = pal.ui_accent
-	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(32)
-	sb.bg_color = Color(accent, 0.16 + 0.14 * pulse) if on else Color(1, 1, 1, 0.05)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(accent, 0.6 + 0.4 * pulse) if on else Color(1, 1, 1, 0.14)
-	draw_style_box(sb, rc)
+	if on:
+		draw_circle(c, UPGRADE_R + 6.0 + 5.0 * pulse, Color(accent, 0.12 + 0.12 * pulse))
+	draw_circle(c, UPGRADE_R, Color(accent, 0.22 + 0.14 * pulse) if on else Color(1, 1, 1, 0.06))
+	draw_arc(c, UPGRADE_R, 0, TAU, 44, Color(accent, 0.7 + 0.3 * pulse) if on else Color(1, 1, 1, 0.16), 3.0)
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
-		draw_string(font, Vector2(rc.end.x - 360.0, rc.end.y + 28.0), _notice_text, HORIZONTAL_ALIGNMENT_RIGHT, 360.0, 24, Color(accent, a))
+		draw_string(font, Vector2(c.x - UPGRADE_R - 372.0, c.y + 8.0), _notice_text, HORIZONTAL_ALIGNMENT_RIGHT, 360.0, 24, Color(accent, a))
 
 
 ## Outbreak: the rim fills with kills, the button glows when ready, and
@@ -458,9 +460,9 @@ func _draw_defense_live(w: float) -> void:
 
 # ---------------------------------------------------- Nucleus tower bar
 
-const BAR_W := 150.0
-const BAR_H := 124.0
-const BAR_GAP := 10.0
+const BAR_W := 122.0
+const BAR_H := 118.0
+const BAR_GAP := 8.0
 
 
 ## Shown while standing on an empty pad: tap a tower to build it (no pause).
@@ -469,10 +471,8 @@ func tower_bar_visible() -> bool:
 
 
 func _tower_rect(i: int) -> Rect2:
-	var n := world.tower_defs.size()
-	var total := n * BAR_W + (n - 1) * BAR_GAP
-	var x0 := (size.x - total) / 2.0
-	return Rect2(x0 + i * (BAR_W + BAR_GAP), size.y - 540.0, BAR_W, BAR_H)
+	# Left side: the right column holds UPGRADE / Outbreak / DASH.
+	return Rect2(20.0 + i * (BAR_W + BAR_GAP), size.y - 540.0, BAR_W, BAR_H)
 
 
 ## Index of the tower button under a screen point, or -1.
@@ -487,8 +487,9 @@ func tower_button_at(p: Vector2) -> int:
 
 func _draw_tower_bar() -> void:
 	var first := _tower_rect(0)
-	draw_string_outline(font, Vector2(0, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, 6, Color(0, 0, 0, 0.6))
-	draw_string(font, Vector2(0, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, size.x, 24, pal.pad)
+	var bar_w := _tower_rect(world.tower_defs.size() - 1).end.x - first.position.x
+	draw_string_outline(font, Vector2(first.position.x, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 24, 6, Color(0, 0, 0, 0.6))
+	draw_string(font, Vector2(first.position.x, first.position.y - 14), "TAP A TOWER TO BUILD", HORIZONTAL_ALIGNMENT_CENTER, bar_w, 24, pal.pad)
 	for i in world.tower_defs.size():
 		var d: Dictionary = world.tower_defs[i]
 		var r := _tower_rect(i)
@@ -499,8 +500,8 @@ func _draw_tower_bar() -> void:
 		draw_rect(r, Color(0.16, 0.11, 0.29, 0.9))
 		draw_rect(r, Color(tc, 0.85 * a), false, 3.0)
 		IconArt.draw(self, d.weapon, r.position + Vector2(r.size.x / 2.0, 40), 52, Color(tc, a))
-		draw_string(font, r.position + Vector2(0, 88), str(d.name), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 18, Color(1, 1, 1, a))
-		draw_string(font, r.position + Vector2(0, 113), str(cost), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color(pal.pad, a) if ok else Color("#ff9a9a"))
+		draw_string(font, r.position + Vector2(0, 86), str(d.name), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 15, Color(1, 1, 1, a))
+		draw_string(font, r.position + Vector2(0, 109), str(cost), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color(pal.pad, a) if ok else Color("#ff9a9a"))
 
 
 ## Perf readout (debug.show_perf): FPS with the worst 1 s minimum, the
@@ -555,12 +556,12 @@ func _draw_hint(w: float) -> void:
 	if not hint_showing():
 		return
 	var a := clampf(minf(_hint_t / 0.25, (HINT_S - _hint_t) / 0.4), 0.0, 1.0)
-	var width := minf(w - 60.0, 600.0)
+	var width := minf(w - 220.0, 540.0)  # the right column holds the buttons
 	var fs := 26
 	var sz := font.get_multiline_string_size(_hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs)
 	# Above the DASH/UPGRADE buttons; higher when the Nucleus tower bar is up.
 	var bottom := size.y - (660.0 if tower_bar_visible() else 360.0)
-	var rect := Rect2((w - width) / 2.0, bottom - sz.y - 28.0 + 12.0 * (1.0 - a), width, sz.y + 28.0)
+	var rect := Rect2(24.0, bottom - sz.y - 28.0 + 12.0 * (1.0 - a), width, sz.y + 28.0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.05, 0.14, 0.88 * a)
 	sb.set_corner_radius_all(18)

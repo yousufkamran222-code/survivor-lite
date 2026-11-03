@@ -1357,21 +1357,30 @@ func _update_pickups() -> void:
 			_apply_pickup(kind, pos)
 
 
-func _apply_pickup(kind: String, pos: Vector2) -> void:
+## `vacuum_radius` / `bomb_radius` > 0 override the pickup's reach
+## (Outbreak's versions are local: a full-screen bomb was too strong).
+func _apply_pickup(kind: String, pos: Vector2, announce: bool = true, vacuum_radius: float = 0.0, bomb_radius: float = 0.0) -> void:
 	var pk: Dictionary = bal.pickups
 	match kind:
 		"vacuum":
-			g_pull.fill(1)
+			if vacuum_radius <= 0.0:
+				g_pull.fill(1)
+			else:
+				var r2 := vacuum_radius * vacuum_radius
+				for i in g_pos.size():
+					if g_pos[i].distance_squared_to(p_pos) < r2:
+						g_pull[i] = 1
 		"heal":
 			p_hp = minf(p_max_hp, p_hp + p_max_hp * float(pk.heal_frac))
 		"bomb":
-			var r := float(pk.bomb_radius)
+			var r := bomb_radius if bomb_radius > 0.0 else float(pk.bomb_radius)
 			for i: int in query(p_pos, r):
 				var tough := e_elite[i] == 1 or _tbeh[e_type[i]] == BEH_BOSS
 				var push := (e_pos[i] - p_pos).normalized() * 300.0
 				_damage(i, float(pk.bomb_damage) if tough else 1.0e6, push, tough)
 			_process_dead()
-	_emit({"type": "pickup_item", "kind": kind, "pos": pos})
+	if announce:
+		_emit({"type": "pickup_item", "kind": kind, "pos": pos})
 
 
 # ================================================================ territory
@@ -2019,9 +2028,13 @@ func trigger_outbreak() -> bool:
 	if state != "playing" or not outbreak_ready() or p_down > 0.0:
 		return false
 	outbreak = 0.0
-	outbreak_t = float(bal.outbreak.duration_s)
+	outbreak_t = float(bal.outbreak.duration_s)  # set first: its kills don't refill the meter
 	outbreaks += 1
 	_emit({"type": "outbreak_start", "pos": p_pos})
+	# All the rare pickups at once (bomb + vacuum + heal), announced as one
+	# Outbreak instead of three separate pickups.
+	for kind in bal.outbreak.get("pickups", []):
+		_apply_pickup(str(kind), p_pos, false, float(bal.outbreak.get("vacuum_radius", 0.0)), float(bal.outbreak.get("bomb_radius", 0.0)))
 	return true
 
 
