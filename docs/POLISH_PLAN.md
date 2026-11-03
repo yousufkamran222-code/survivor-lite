@@ -4,7 +4,7 @@ Yousuf's brief: make kills and damage more satisfying (he likes the current dama
 
 **Yousuf's decisions (2026-11-02):** perf first (Phase 0 → 1 → 2 → 3 → 4); crits and kill streaks are **visual only** (no new mechanics, balance untouched); the new player is a **faceless cell**; **generated music** (synthesised loops in `tools/build_assets.py`).
 
-Status: **plan only.** Each phase ends with an APK playtest plus the on-device benchmark from Phase 0. Tick items off here as they land, and log them in `PIPELINE.md`.
+Status: **phases 0-4 built (2026-11-03)**; only optional items left (HUD declutter). Each phase ends with an APK playtest plus the on-device benchmark from Phase 0. Tick items off here as they land, and log them in `PIPELINE.md`.
 
 ---
 
