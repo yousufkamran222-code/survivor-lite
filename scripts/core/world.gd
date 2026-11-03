@@ -85,6 +85,7 @@ var outbreak := 0.0  # 0..1
 var outbreak_t := 0.0  # frenzy time left
 var outbreaks := 0
 var frenzy_kills := 0  # kills during an Outbreak frenzy (they pay extra gold)
+var gilded_kills := 0  # gold-coated germs killed (each pays outbreak.gild_gold)
 # Plague Trail (the Outbreak ability): a fading toxic trail behind the player.
 var pt_pos := PackedVector2Array()
 var pt_age := PackedFloat32Array()
@@ -132,6 +133,7 @@ var e_team := PackedByteArray()  # 0 = enemy, 1 = ally (converted, Swarm mode)
 var e_life := PackedFloat32Array()  # ally lifetime left
 var e_slow := PackedFloat32Array()  # seconds of Fever Node slow left
 var e_plague := PackedFloat32Array()  # seconds of Outbreak plague left
+var e_gild := PackedByteArray()  # 1 = coated in gold by an Outbreak (pays gild_gold when killed)
 var _next_uid := 1
 var _dead := {}
 
@@ -623,6 +625,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	e_life.append(0.0)
 	e_slow.append(0.0)
 	e_plague.append(0.0)
+	e_gild.append(0)
 	e_type.append(t)
 	e_uid.append(_next_uid)
 	_next_uid += 1
@@ -658,10 +661,12 @@ func _remove_enemy(i: int) -> void:
 		e_life[i] = e_life[last]
 		e_slow[i] = e_slow[last]
 		e_plague[i] = e_plague[last]
+		e_gild[i] = e_gild[last]
 	e_team.resize(last)
 	e_life.resize(last)
 	e_slow.resize(last)
 	e_plague.resize(last)
+	e_gild.resize(last)
 	e_rad.resize(last)
 	e_spd.resize(last)
 	e_elite.resize(last)
@@ -1121,6 +1126,8 @@ func _process_dead() -> void:
 		_fill_outbreak(elite, d.behavior == "boss")
 		if outbreak_t > 0.0:
 			frenzy_kills += 1
+		if e_gild[i] == 1:
+			gilded_kills += 1
 		if _volatile.has(e_uid[i]):
 			bursts.append([pos, e_maxhp[i], int(_volatile[e_uid[i]])])
 			_volatile.erase(e_uid[i])
@@ -1131,7 +1138,7 @@ func _process_dead() -> void:
 				biomass += float(dcfg.biomass_boss)
 			else:
 				biomass += float(d.cost) * float(dcfg.biomass_per_cost)
-		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite})
+		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite, "gilded": e_gild[i] == 1})
 		if elite:
 			elites_killed += 1
 			_drop_gem(pos, float(data.waves.elites.xp))
@@ -2069,7 +2076,17 @@ func trigger_outbreak() -> bool:
 	outbreak = 0.0
 	outbreak_t = float(bal.outbreak.duration_s)  # set first: its kills don't refill the meter
 	outbreaks += 1
-	_emit({"type": "outbreak_start", "pos": p_pos})
+	# A harmless gold blast: every germ it reaches is coated in gold and pays
+	# outbreak.gild_gold when killed (instead of the usual few cents).
+	var gr := float(bal.outbreak.get("gild_radius", 0.0))
+	var gilded := 0
+	if gr > 0.0:
+		_rebuild_grid()
+		for i: int in query(p_pos, gr):
+			if e_gild[i] == 0:
+				e_gild[i] = 1
+				gilded += 1
+	_emit({"type": "outbreak_start", "pos": p_pos, "radius": gr, "gilded": gilded})
 	# All the rare pickups at once (bomb + vacuum + heal), announced as one
 	# Outbreak instead of three separate pickups.
 	for kind in bal.outbreak.get("pickups", []):
@@ -2138,10 +2155,14 @@ func _update_plague(dt: float) -> void:
 		_process_dead()
 
 
-## Extra kill-equivalents of gold earned in Outbreak frenzies (gold_mult - 1
-## per frenzy kill), added on top of the normal per-kill gold.
+## Extra kill-equivalents of gold from Outbreaks, on top of the normal
+## per-kill gold: frenzy kills (gold_mult - 1 each) and gilded germs.
+## Gilded germs pay gild_gold instead of gold_per_kill.
 func bonus_gold_kills() -> float:
-	return frenzy_kills * (float(bal.get("outbreak", {}).get("gold_mult", 1.0)) - 1.0)
+	var o: Dictionary = bal.get("outbreak", {})
+	var per_kill := maxf(float(bal.economy.gold_per_kill), 0.0001)
+	var gild := gilded_kills * (float(o.get("gild_gold", per_kill)) / per_kill - 1.0)
+	return frenzy_kills * (float(o.get("gold_mult", 1.0)) - 1.0) + gild
 
 
 ## Gold earned so far this run (the HUD counter; results use the same maths).

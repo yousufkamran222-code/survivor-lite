@@ -283,6 +283,8 @@ func _handle_events(events: Array) -> void:
 				Sfx.play("hit")
 			"kill":
 				_on_kill_streak()
+				if ev.get("gilded", false):
+					Sfx.play("pickup", 0.05, 1.6)
 			"pickup":
 				Sfx.play("pickup", 0.15)
 			"nova":
@@ -345,7 +347,7 @@ func _handle_events(events: Array) -> void:
 			"outbreak_start":
 				Sfx.play("evolve", 0.0)
 				Sfx.vibrate(120)
-				hud.toast("OUTBREAK!  x3 GOLD", pal.outbreak, 1.6)
+				hud.toast("OUTBREAK!  %d GILDED" % int(ev.get("gilded", 0)), pal.ui_accent, 1.6)
 				Analytics.event("outbreak", {"t": int(world.time), "mode": world.bal.get("mode_id", "")})
 			"volatile":
 				Sfx.play("nova", 0.1, 1.5)

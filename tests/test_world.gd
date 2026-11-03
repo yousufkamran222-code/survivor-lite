@@ -313,14 +313,30 @@ func test_frenzy_halves_damage_and_pays_triple_gold() -> void:
 	check(w.trigger_outbreak())
 	w._hurt(20.0, "test")
 	check_near(hp - w.p_hp, normal * float(o.damage_taken_mult), 0.01, "half damage during the frenzy")
-	var before := w.run_gold_now()
-	for k in 200:
-		w._add_enemy("grunt", Vector2(900, 0))
-		w._damage(0, 1.0e6, Vector2.ZERO)
-		w._process_dead()
-	check_eq(w.frenzy_kills, 200)
-	var per_kill := float(w.bal.economy.gold_per_kill)
-	check(w.run_gold_now() >= before + int(200 * per_kill * float(o.gold_mult)) - 1, "frenzy kills pay gold_mult times")
+	check_eq(w.frenzy_kills, 0)
+
+
+func test_outbreak_gilds_nearby_germs_which_pay_more_gold() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	var o: Dictionary = w.bal.outbreak
+	w.p_pos = Vector2.ZERO
+	for k in 10:
+		w._add_enemy("grunt", Vector2(100 + k * 5, 0))  # inside the gold blast
+	w._add_enemy("grunt", Vector2(float(o.gild_radius) + 400.0, 0))  # outside
+	w.outbreak = 1.0
+	check(w.trigger_outbreak())
+	var n := 0
+	for i in w.e_pos.size():
+		n += w.e_gild[i]
+	check_eq(n, 10, "only germs inside the blast are gilded")
+	check_eq(w.kills, 0, "the gold blast deals no damage")
+	var before := float(w.run_gold_now())
+	for i in w.e_pos.size():
+		w._damage(i, 1.0e6, Vector2.ZERO)
+	w._process_dead()
+	check_eq(w.gilded_kills, 10)
+	var expected := 10.0 * float(o.gild_gold) + 1.0 * float(w.bal.economy.gold_per_kill)
+	check(float(w.run_gold_now()) >= before + expected - 1.0, "gilded kills pay gild_gold each")
 
 
 func test_mode_difficulty_knobs() -> void:

@@ -162,6 +162,11 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.18}, max_fx)
 				_add_fx({"kind": "kring", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.22}, max_fx + 10)
 				_add_splat(ev.pos, ev.radius * (3.4 if ev.elite else 2.6), c)
+				if ev.get("gilded", false):
+					# Gold coin sparkle: the germ paid out.
+					for n in 6:
+						var a := -PI / 2.0 + randf_range(-1.2, 1.2)
+						_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 			"nova":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova)}, max_fx + 4)
 				if not ev.get("tower", false):
@@ -230,7 +235,8 @@ func consume(events: Array) -> void:
 				add_shake(3.0)
 			"outbreak_start":
 				add_shake(6.0)
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 200.0, "life": 0.5, "color": pal.outbreak}, max_fx + 4)
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": maxf(float(ev.get("radius", 0.0)), 200.0), "life": 0.55, "color": pal.ui_accent}, max_fx + 4)
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 160.0, "life": 0.4, "color": pal.outbreak}, max_fx + 4)
 			"respawn":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.5, "color": pal.player}, max_fx + 4)
 			"player_down":
@@ -452,6 +458,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = white
 		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
+		elif world.e_gild[i] == 1:
+			c = c.lerp(pal.ui_accent, 0.7)  # coated in gold by an Outbreak
 		elif world.e_plague[i] > 0.0:
 			c = c.lerp(pal.outbreak, 0.7)  # infected by the Plague Trail
 		elif world.def_on and world.e_slow[i] > 0.0:

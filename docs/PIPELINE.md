@@ -220,3 +220,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - **Gold counter** on the HUD next to the kills (`World.run_gold_now()`, same maths as the results screen). Note: a kill is 0.05 gold, so the frenzy's triple gold adds only a few gold per frenzy.
 - **Key finding:** Classic was already above Yousuf's 40-45% cap *without* Outbreak: 50% over 48 runs (seeds 600-1100 x 8; earlier "38%" figures came from 24 runs and were noise). Frenzy at 180 kills: 59%; 300 kills: 52%; 300 kills + 4 s: 56%.
 - **Per-mode difficulty** (`balance.difficulty`: `enemy_hp_mult`, `damage_taken_mult` (player only), set via `modes.json`): Classic enemy HP x1.2 -> **40%** (38/38/50/38/50/25, p50 3:31-5:00, level 15-17). Swarm: HP x1.2 47%, x1.3 56% (allies inherit enemy HP), convert 7% 56%, **damage taken x1.3 -> 38%** (25/50/38/38, level 11-23). Infection 25% and Nucleus 38% (2 seeds x 8) without knobs. 132 tests.
+
+### 2026-11-03 Outbreak gold blast (D-019)
+- Replaces x3 gold (Yousuf's idea): triggering Outbreak sends a no-damage 380 px gold ring; germs inside are gilded (gold tint, `World.e_gild`) and pay `outbreak.gild_gold` 0.5 each when killed (vs 0.05), with a coin sparkle + pickup tick. Toast "OUTBREAK! N GILDED". `gold_mult` set to 1.0.
+- Bot, Classic seeds 600/700 x 8: survival unchanged (38% win, p50 4:16 / 4:06, level 15). Mean bot gold seed 600: 92.6 (x3) -> 116.6 (gild). 133 tests.
