@@ -29,6 +29,19 @@ var _perf_text := ""
 var _perf_t := 0.0
 var _perf_worst := 0.0  # longest frame in the current 1 s window
 var _perf_min_fps := 0.0
+# Layers that redraw only when what they show changes (cheap HUD, see
+# docs/POLISH_PLAN.md Phase 1): the owned-upgrade strip + button labels, and
+# the top bars/readouts (at most 20x a second). Everything that animates every
+# frame stays in this node's own _draw.
+var _strip_layer: Control
+var _bars_layer: Control
+var _sig_strip := PackedInt32Array()
+var _sig_strip_drawn := PackedInt32Array()
+var _sig_bars := PackedInt32Array()
+var _sig_bars_drawn := PackedInt32Array()
+var _bars_wait := 0.0
+var _sig_world: World = null
+var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
 
 
 func flash_xp() -> void:
@@ -73,7 +86,23 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	font = ThemeDB.fallback_font
+	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
+	_bars_layer = _layer(func() -> void: _draw_bars(_bars_layer))
+	_sig_strip.resize(5)
+	_sig_bars.resize(16)
 
+
+func _layer(painter: Callable) -> Control:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.draw.connect(func() -> void:
+		if world != null:
+			var t0 := Time.get_ticks_usec()
+			painter.call()
+			cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0)
+	add_child(c)
+	return c
 
 func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
@@ -89,6 +118,8 @@ func _process(delta: float) -> void:
 			i += 1
 	if visible:
 		queue_redraw()
+		if world != null:
+			_update_layers(delta)
 
 
 func _draw() -> void:
@@ -101,33 +132,8 @@ func _draw() -> void:
 
 func _draw_hud() -> void:
 	var w := size.x
-	# XP bar along the top edge.
-	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
-	draw_rect(Rect2(0, 0, w, 16), Color(0, 0, 0, 0.5))
-	draw_rect(Rect2(0, 0, w * xp_f, 16), pal.xp_bar)
-	if _xp_flash > 0.0:
-		draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
-	_draw_owned()
-	draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
-	draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
-	draw_string(font, Vector2(16, 96), "%d kills" % world.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
-	if world.conv_on:
-		var txt := "SWARM %d/%d" % [world.ally_count, world._ally_cap()]
-		if world.swarm_power > 0.0:
-			txt += "  +%d%%" % roundi(world.swarm_power * 100.0)
-		draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
-	if world.terr != null:
-		var pct := roundi(world.terr.infected_fraction() * 100.0)
-		draw_string(font, Vector2(0, 96), "INFECTED %d%%" % pct, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
 	if world.def_on:
-		_draw_defense(w)
-	# Boss bar.
-	if world.boss_index >= 0 and world.boss_index < world.e_hp.size():
-		var f := world.e_hp[world.boss_index] / world.e_maxhp[world.boss_index]
-		var r := Rect2(60, 120, w - 120, 18)
-		draw_rect(r, Color(0, 0, 0, 0.55))
-		draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
-		draw_string(font, Vector2(0, 112), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+		_draw_defense_live(w)
 	_draw_arrows()
 	_draw_dash_button()
 	_draw_upgrade_button()
@@ -153,6 +159,89 @@ func _draw_hud() -> void:
 		draw_arc(stick_origin, stick_radius, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0)
 		var knob := stick_origin + (stick_pos - stick_origin).limit_length(stick_radius)
 		draw_circle(knob, 34, Color(1, 1, 1, 0.35))
+
+
+## Top bars and readouts (bars layer): XP, level, timer, kills, mode readout,
+## Nucleus bars, boss bar. Redrawn only when one of them changes.
+func _draw_bars(ci: CanvasItem) -> void:
+	var w := size.x
+	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
+	ci.draw_rect(Rect2(0, 0, w, 16), Color(0, 0, 0, 0.5))
+	ci.draw_rect(Rect2(0, 0, w * xp_f, 16), pal.xp_bar)
+	if _xp_flash > 0.0:
+		ci.draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
+	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
+	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
+	ci.draw_string(font, Vector2(16, 96), "%d kills" % world.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
+	if world.conv_on:
+		var txt := "SWARM %d/%d" % [world.ally_count, world._ally_cap()]
+		if world.swarm_power > 0.0:
+			txt += "  +%d%%" % roundi(world.swarm_power * 100.0)
+		ci.draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
+	if world.terr != null:
+		var pct := roundi(world.terr.infected_fraction() * 100.0)
+		ci.draw_string(font, Vector2(0, 96), "INFECTED %d%%" % pct, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
+	if world.def_on:
+		_draw_defense_bars(ci, w)
+	if world.boss_index >= 0 and world.boss_index < world.e_hp.size():
+		var f := world.e_hp[world.boss_index] / world.e_maxhp[world.boss_index]
+		var r := Rect2(60, 120, w - 120, 18)
+		ci.draw_rect(r, Color(0, 0, 0, 0.55))
+		ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
+		ci.draw_string(font, Vector2(0, 112), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+
+
+## Owned-upgrade strip and the DASH / UPGRADE labels (strip layer).
+func _draw_strip(ci: CanvasItem) -> void:
+	_draw_owned(ci)
+	var dc := dash_center()
+	ci.draw_string(font, dc + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if world.can_dash() else 0.35))
+	var uc := upgrade_center()
+	var n := world.pending_levelups
+	var on := n > 0
+	var accent: Color = pal.ui_accent
+	ci.draw_string(font, uc + Vector2(-dash_radius, 9), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.3))
+	var b := uc + Vector2(dash_radius * 0.72, -dash_radius * 0.72)
+	ci.draw_circle(b, 19.0, accent if on else Color(1, 1, 1, 0.15))
+	ci.draw_string(font, b + Vector2(-19, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 38, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
+
+
+## Decides which cached layers need a redraw this frame.
+func _update_layers(delta: float) -> void:
+	var fresh := world != _sig_world
+	_sig_world = world
+	var owned_sum := 0
+	for id in world.owned:
+		owned_sum = owned_sum * 31 + int(world.owned[id]) + id.hash() % 997
+	_sig_strip[0] = owned_sum
+	_sig_strip[1] = world.evolved.size()
+	_sig_strip[2] = world.pending_levelups
+	_sig_strip[3] = 1 if world.can_dash() else 0
+	_sig_strip[4] = 1 if icon_atlas != null and icon_atlas.baked else 0
+	if fresh or _sig_strip != _sig_strip_drawn:
+		_sig_strip_drawn = _sig_strip.duplicate()
+		_strip_layer.queue_redraw()
+	var w := size.x
+	_sig_bars[0] = int(clampf(world.xp / world.xp_next, 0.0, 1.0) * w)
+	_sig_bars[1] = int(_xp_flash * 20.0)
+	_sig_bars[2] = world.level
+	_sig_bars[3] = int(world.time)
+	_sig_bars[4] = world.kills
+	_sig_bars[5] = world.ally_count * 1000 + roundi(world.swarm_power * 100.0)
+	_sig_bars[6] = roundi(world.terr.infected_fraction() * 100.0) if world.terr != null else 0
+	var bi := world.boss_index
+	_sig_bars[7] = int(world.e_hp[bi] / world.e_maxhp[bi] * w) if bi >= 0 and bi < world.e_hp.size() else -1
+	if world.def_on:
+		_sig_bars[8] = world.wave * 4 + (0 if world.wave_state == "breather" else 1) + (2 if world.free_mode else 0)
+		_sig_bars[9] = ceili(world.wave_t) if world.wave_state == "breather" else 0
+		_sig_bars[10] = floori(world.biomass)
+		_sig_bars[11] = int(world.core_hp / maxf(world.core_max, 1.0) * w)
+		_sig_bars[12] = int(fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25) if world.core_hp < world.core_max * 0.3 else 0
+	_bars_wait -= delta
+	if fresh or (_bars_wait <= 0.0 and _sig_bars != _sig_bars_drawn):
+		_sig_bars_drawn = _sig_bars.duplicate()
+		_bars_wait = 0.05
+		_bars_layer.queue_redraw()
 
 
 ## Arrows at the screen edge pointing to off-screen chests, elites and boss.
@@ -200,7 +289,6 @@ func _draw_dash_button() -> void:
 	if world.p_dash_charges < max_c:
 		var f := 1.0 - world.p_dash_cd / world.dash_cooldown()
 		draw_arc(c, dash_radius - 6.0, -PI / 2.0, -PI / 2.0 + TAU * clampf(f, 0.0, 1.0), 48, Color(pal.xp_bar, 0.8), 6.0)
-	draw_string(font, c + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if ready else 0.35))
 	# Charge pips under the label when you have more than one.
 	if max_c > 1:
 		for k in max_c:
@@ -216,11 +304,6 @@ func _draw_upgrade_button() -> void:
 	var accent: Color = pal.ui_accent
 	draw_circle(c, dash_radius, Color(accent, 0.1 + 0.12 * pulse) if on else Color(1, 1, 1, 0.05))
 	draw_arc(c, dash_radius, 0, TAU, 48, Color(accent, 0.6 + 0.4 * pulse) if on else Color(1, 1, 1, 0.12), 3.0)
-	draw_string(font, c + Vector2(-dash_radius, 9), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.3))
-	# Badge with the number of banked level-ups (always shown).
-	var b := c + Vector2(dash_radius * 0.72, -dash_radius * 0.72)
-	draw_circle(b, 19.0, accent if on else Color(1, 1, 1, 0.15))
-	draw_string(font, b + Vector2(-19, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 38, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
 		draw_string(font, c + Vector2(-dash_radius, -dash_radius - 18.0), _notice_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(accent, a))
@@ -228,23 +311,33 @@ func _draw_upgrade_button() -> void:
 
 ## Left-edge column of owned upgrades: icon plus level number (weapons
 ## first, evolved ones starred).
-func _draw_owned() -> void:
-	var y := 152.0
+func _draw_owned(ci: CanvasItem) -> void:
 	var px := 34.0
+	# Icons first (baked atlas: one batched draw call), then all the level
+	# numbers (one text batch), so the two never interleave.
+	var slots := []
+	var y := 152.0
 	for pass_type in ["weapon", "passive"]:
 		for u in world.upgrade_list:
 			if u.type != pass_type or not world.owned.has(u.id):
 				continue
-			var c := Vector2(10.0 + px / 2.0, y)
-			IconArt.draw(self, u.id, c, px, IconArt.color_for(u), world.evolved.has(u.id))
-			draw_string(font, c + Vector2(px * 0.3, px * 0.55), str(world.owned[u.id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.85))
+			slots.append([u, Vector2(10.0 + px / 2.0, y)])
 			y += px + 8.0
 		y += 6.0
+	for sl in slots:
+		var u: Dictionary = sl[0]
+		var evo: bool = world.evolved.has(u.id)
+		if icon_atlas != null and icon_atlas.has_icon(u.id, evo):
+			icon_atlas.draw_icon(ci, u.id, sl[1], px, evo)
+		else:
+			IconArt.draw(ci, u.id, sl[1], px, IconArt.color_for(u), evo)
+	for sl in slots:
+		ci.draw_string(font, sl[1] + Vector2(px * 0.3, px * 0.55), str(world.owned[sl[0].id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.85))
 
 
 ## Nucleus mode: wave counter / countdown, nucleus health, biomass, the pad
 ## you're standing on, and the respawn countdown.
-func _draw_defense(w: float) -> void:
+func _draw_defense_bars(ci: CanvasItem, w: float) -> void:
 	var wd := world
 	var txt := ""
 	if wd.wave_state == "breather":
@@ -253,14 +346,19 @@ func _draw_defense(w: float) -> void:
 		txt = "FREE MODE  WAVE %d" % wd.wave
 	else:
 		txt = "FINAL WAVE" if wd.wave >= wd.wave_count else "WAVE %d / %d" % [wd.wave, wd.wave_count]
-	draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, pal.core)
-	draw_string(font, Vector2(16, 128), "BIOMASS %d" % floori(wd.biomass), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, pal.pad)
+	ci.draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, pal.core)
+	ci.draw_string(font, Vector2(16, 128), "BIOMASS %d" % floori(wd.biomass), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, pal.pad)
 	var f := wd.core_hp / maxf(wd.core_max, 1.0)
 	var r := Rect2(60, 150, w - 120, 16)
-	draw_rect(r, Color(0, 0, 0, 0.55))
+	ci.draw_rect(r, Color(0, 0, 0, 0.55))
 	var low := f < 0.3 and fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
-	draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.player_hurt if low else pal.core)
-	draw_string(font, Vector2(0, 145), "NUCLEUS", HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color(pal.text, 0.8))
+	ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.player_hurt if low else pal.core)
+	ci.draw_string(font, Vector2(0, 145), "NUCLEUS", HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color(pal.text, 0.8))
+
+
+## Nucleus mode parts that animate every frame.
+func _draw_defense_live(w: float) -> void:
+	var wd := world
 	# Big 3-2-1 before each wave, and a warning before the boss.
 	if wd.wave_state == "breather" and wd.state == "playing":
 		if wd.next_wave_is_boss():

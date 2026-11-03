@@ -24,4 +24,7 @@ func _process(_delta: float) -> bool:
 	if f > 5 and main.bench_result != "":
 		print(main.bench_result)
 		return true
+	if f > 60 * 300:  # broken build: fail fast instead of hanging
+		print("BENCH FAILED: no result")
+		return true
 	return false

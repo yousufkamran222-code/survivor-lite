@@ -52,6 +52,17 @@ Done when: Yousuf has posted the benchmark line for web and APK on his phone.
 
 ## Phase 1: performance and battery (large, top priority)
 
+**Phone baseline (Phase 0, build 4316537):**
+- APK: `120Hz | 87.7 fps avg 11.40 p95 13.89 worst 24.4 ms, slow 18.6% | sim 1.79 view 1.21 hud 1.94 ms | dc 104`. Not capped at 60: the screen is 120 Hz and the APK already averages 88, so no Gradle work is needed for high refresh.
+- Web: `?Hz | 48.1 fps avg 20.80 p95 28.76 worst 115.0 ms, slow 10.9% | sim 2.45 view 1.91 hud 2.45 ms | dc 95`.
+- The HUD cost more than the whole simulation; ~6.5 ms of the APK frame is engine/GPU (draw calls). Target: 120 fps (8.3 ms).
+
+**Chunk 1 (2026-11-03), desktop bench before → after:** 71-75 → 87 fps, HUD 0.40 → 0.10-0.12 ms, draw calls 93-104 → 53-55.
+- HUD split into cached layers: the owned-upgrade strip + button labels redraw only on change; the top bars/readouts redraw on change at most 20x a second; only animated parts draw every frame.
+- `IconAtlas`: every upgrade icon (and evolved weapon icon) baked once at startup into one texture via a one-shot SubViewport; the HUD strip draws same-texture quads (one batch) with the level numbers in a second batch.
+- Battery: `perf.menu_max_fps` 60 for menus, shop, results and pickers; `perf.pause_max_fps` 30; runs uncapped.
+- Next: view (fx dictionaries → packed arrays, damage numbers from a digit atlas), sim (`_rebuild_grid` allocates an Array per cell every frame → counting-sort grid in packed arrays), the dish-darkening overdraw.
+
 Targets: **a steady 90 fps on Yousuf's phone at peak load** (11.1 ms/frame), **a steady 60 on the cheap test phone**, menus at a low capped rate. Quote benchmark before/after in every commit.
 
 ### 1.1 Refresh rate and frame pacing

@@ -74,6 +74,16 @@ func _ready() -> void:
 		_evo_by_weapon[ev.weapon] = ev
 	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
 	ui_root.add_child(hud)
+	# Bake every upgrade icon (and evolved weapon icon) once for the HUD strip.
+	var atlas := IconAtlas.new()
+	add_child(atlas)
+	var entries := []
+	for u in data.upgrades:
+		entries.append([u.id, IconArt.color_for(u), false])
+		if _evo_by_weapon.has(u.id):
+			entries.append([u.id, IconArt.color_for(u), true])
+	atlas.bake(entries)
+	hud.icon_atlas = atlas
 
 	pause_btn = UiKit.button("II", _pause_run, 72)
 	pause_btn.custom_minimum_size = Vector2(72, 72)
@@ -341,6 +351,11 @@ func _start_run() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
+	# Battery: only gameplay runs at the screen's full rate (90/120 Hz).
+	# Menus and pickers still animate smoothly at 60; pause barely moves.
+	Engine.max_fps = int(bal.perf.get("menu_max_fps", 60)) if s != "playing" else 0
+	if s == "paused":
+		Engine.max_fps = int(bal.perf.get("pause_max_fps", 30))
 	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"

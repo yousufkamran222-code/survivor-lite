@@ -152,3 +152,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-02 Polish Phase 0: on-device benchmark
 - Hidden benchmark (tap the build label 5 times; F9 on desktop): a fixed 45 s heavy Classic fight that ends with one pasteable line (fps, avg/p95/worst frame ms, % hitches, sim/view/HUD ms, draw calls, refresh rate). Perf readout v2. `tools/sim/bench_render.gd` for desktop comparisons. Baseline and findings in `docs/POLISH_PLAN.md` Phase 0. 120 tests.
+
+### 2026-11-03 Polish Phase 1, chunk 1: HUD layers, icon atlas, menu frame cap
+- Yousuf's phone baseline: APK 87.7 fps on a 120 Hz screen (HUD 1.94 ms, dc 104), web 48.1 fps. Changes: cached HUD layers, baked icon atlas for the HUD strip, menu/pause frame caps. Desktop bench 71-75 → 87 fps, HUD 0.40 → ~0.11 ms, dc ~100 → ~54. Details in `docs/POLISH_PLAN.md`.

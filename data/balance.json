@@ -154,7 +154,9 @@
     "despawn_distance": 1300,
     "spawn_min_distance": 760,
     "spawn_max_distance": 860,
-    "max_enemy_radius": 72
+    "max_enemy_radius": 72,
+    "menu_max_fps": 60,
+    "pause_max_fps": 30
   },
   "debug": {
     "show_perf": true,
