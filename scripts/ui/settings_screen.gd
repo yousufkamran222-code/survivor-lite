@@ -44,6 +44,14 @@ func _build() -> void:
 	add_child(_choice_row("Show FPS", ["Off", "On"], 1 if fps_on else 0, func(i: int) -> void:
 		Save.show_fps = i))
 	add_child(UiKit.label("Max uses your screen's full refresh rate (smoothest). Battery 30 saves the most power.", 19, Color(pal.text, 0.55)))
+	var tips := UiKit.button("Show tips again", func() -> void: pass, 70)
+	tips.add_theme_font_size_override("font_size", 22)
+	tips.pressed.connect(func() -> void:
+		Save.hints_seen = []
+		tips.text = "Tips will show again"
+		tips.disabled = true)
+	tips.disabled = Save.hints_seen.is_empty()
+	add_child(tips)
 	add_child(UiKit.button("BACK", func() -> void:
 		Save.write()
 		on_back.call(), 90))

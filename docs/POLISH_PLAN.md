@@ -210,4 +210,9 @@ Risks: WebGL and Android behave differently (always verify on the APK); a high r
 - **Level-up:** "LEVEL n" header with a picks chip; cards with a glowing icon, accent stripe, NEW/LV chip, the shop's tier bar with the next level pulsing, and an evolution chip.
 - **Chest:** reward cards that spin and land with a particle burst; evolutions get a gold card and an "EVOLUTION!" banner.
 - **Results:** stats card; score and gold count up with rising ticks (`UiKit.count_up`); NEW BEST stamps in; new achievements pop in one by one; the double-gold ad counts gold up from the old total; PLAY AGAIN is the primary (gold) button.
-- Still open in Phase 4: enemy telegraphs, first-run hints.
+- **Fix (Yousuf):** the Profile only scrolled from the gaps between boxes. `UiKit.panel` now uses `MOUSE_FILTER_PASS` (PanelContainer defaults to STOP), so drags over tiles, cards and achievements reach the `DragScroll`.
+
+### Phase 4, telegraphs and hints (built 2026-11-03)
+- **Telegraphs** (WorldView, visual only, timings from World): Lancer wind-up draws its exact dash lane (diameter-wide, filling with a line and an arrowhead); a Spitter's mouth glows with a closing ring for the last `spit_telegraph_s` (0.5 s) before a shot, and stays lit while ready; the Mother Cell shows a closing ring for `boss_telegraph_s` (0.7 s) before a burst.
+- **First-run hints** (`data/hints.json`, validated; a test checks every event hint names an event World emits): shared (move, dash, first level-up → UPGRADE, first elite → chest) plus per mode (Infection claim + erosion, Swarm allies, Nucleus defend/build/upgrade). Triggered by run time (`at`) or a World event; one banner at a time above the buttons (higher when the tower bar is up); each shown once ever (`Save.hints_seen` in `profile.settings`); Settings → "Show tips again". The old Infection/Swarm start toasts were replaced; none during the benchmark.
+- Phase 4 list is now done except the optional items (HUD declutter).

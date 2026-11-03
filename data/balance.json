@@ -203,7 +203,9 @@
     "cell_squash": 0.1,
     "dash_stretch": 0.3,
     "cell_breathe": 0.03,
-    "cilia": 12
+    "cilia": 12,
+    "spit_telegraph_s": 0.5,
+    "boss_telegraph_s": 0.7
   },
   "palette": {
     "core": "#ffb27a",

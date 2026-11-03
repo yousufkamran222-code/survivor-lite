@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -130,6 +130,7 @@ static func validate(d: Dictionary) -> Array:
 			if float(a.goal) <= 0.0:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
+	_validate_hints(d, errors)
 	if d.waves.has("elites"):
 		for t in d.waves.elites.types:
 			if not enemy_ids.has(t):
@@ -181,3 +182,28 @@ static func _validate_defense(d: Dictionary, enemy_ids: Dictionary, errors: Arra
 				errors.append("defense wave %d uses vent %d (only %d)" % [k + 1, int(v), vents])
 		if float(wv.duration) <= 0.0 or float(wv.budget) <= 0.0:
 			errors.append("defense wave %d needs a positive duration and budget" % [k + 1])
+
+
+## First-run hints: a "shared" list plus one per mode, each with an id, text
+## and either "at" (run seconds) or "event" (a World event type).
+static func _validate_hints(d: Dictionary, errors: Array) -> void:
+	var h: Variant = d.get("hints", {})
+	if not (h is Dictionary):
+		errors.append("hints.json must be an object")
+		return
+	var mode_ids := {}
+	for m in d.get("modes", []):
+		mode_ids[m.id] = true
+	var seen := {}
+	for key in h:
+		if key != "shared" and not mode_ids.has(key):
+			errors.append("hints: unknown mode '%s'" % key)
+		for hint in h[key]:
+			var id := str(hint.get("id", ""))
+			if id == "" or str(hint.get("text", "")) == "":
+				errors.append("hints.%s: every hint needs an id and text" % key)
+			if seen.has(id):
+				errors.append("hints: duplicate id '%s'" % id)
+			seen[id] = true
+			if not hint.has("at") and not hint.has("event"):
+				errors.append("hints: '%s' needs 'at' or 'event'" % id)

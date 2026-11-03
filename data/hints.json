@@ -1,0 +1,21 @@
+{
+  "shared": [
+    {"id": "move", "at": 0.6, "text": "Drag anywhere to move. Your weapons fire on their own."},
+    {"id": "dash", "at": 8.0, "text": "Tap DASH (or tap with a second finger) to zip through danger."},
+    {"id": "upgrade", "event": "level_gained", "text": "Level up! Tap UPGRADE whenever you're ready to pick."},
+    {"id": "elite", "event": "elite_spawn", "text": "An elite! Kill it for a chest. Follow the gold arrow."}
+  ],
+  "infection": [
+    {"id": "claim", "at": 3.0, "text": "Leave your land and loop back in to claim everything inside."},
+    {"id": "erosion", "event": "land_lost", "text": "Germs on your land eat it back. Keep claiming!"}
+  ],
+  "swarm": [
+    {"id": "swarm", "at": 3.0, "text": "Some kills rise as allies that guard you."}
+  ],
+  "nucleus": [
+    {"id": "defend", "at": 0.6, "text": "Germs march on the nucleus. Keep it alive for 12 waves!"},
+    {"id": "build", "at": 3.0, "text": "Stand on a green pad, then tap a tower to build it."},
+    {"id": "tower_up", "event": "tower_built", "text": "Stand on a tower again to upgrade it."}
+  ],
+  "classic": []
+}

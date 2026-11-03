@@ -42,6 +42,9 @@ var _sig_bars_drawn := PackedInt32Array()
 var _bars_wait := 0.0
 var _sig_world: World = null
 var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
+var _hint_text := ""
+var _hint_t := 0.0  # time the current hint has been up
+const HINT_S := 4.5
 var _streak := 0
 var _streak_t := 99.0  # time since the streak last grew
 var streak_show := 10
@@ -112,6 +115,8 @@ func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
 	_streak_t += delta
+	if _hint_text != "":
+		_hint_t += delta
 	if show_perf and world != null:
 		_update_perf(delta)
 	var i := 0
@@ -153,6 +158,7 @@ func _draw_hud() -> void:
 		draw_string(font, Vector2(0, ty), t.text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(t.color, a))
 		ty += 52.0
 	_draw_streak(w)
+	_draw_hint(w)
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
 		draw_string(font, Vector2(0, size.y - 14), _perf_text, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
@@ -480,3 +486,32 @@ func _draw_streak(w: float) -> void:
 	var pos := Vector2(w - 24.0, 120.0)
 	draw_string_outline(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, 8, Color(0, 0, 0, 0.6 * a))
 	draw_string(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, Color(col, a))
+
+
+## First-run hint banner (Main queues them, one at a time).
+func show_hint(text: String) -> void:
+	_hint_text = text
+	_hint_t = 0.0
+
+
+func hint_showing() -> bool:
+	return _hint_text != "" and _hint_t < HINT_S
+
+
+func _draw_hint(w: float) -> void:
+	if not hint_showing():
+		return
+	var a := clampf(minf(_hint_t / 0.25, (HINT_S - _hint_t) / 0.4), 0.0, 1.0)
+	var width := minf(w - 60.0, 600.0)
+	var fs := 26
+	var sz := font.get_multiline_string_size(_hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs)
+	# Above the DASH/UPGRADE buttons; higher when the Nucleus tower bar is up.
+	var bottom := size.y - (500.0 if tower_bar_visible() else 300.0)
+	var rect := Rect2((w - width) / 2.0, bottom - sz.y - 28.0 + 12.0 * (1.0 - a), width, sz.y + 28.0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.05, 0.14, 0.88 * a)
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(pal.ui_accent, 0.7 * a)
+	draw_style_box(sb, rect)
+	draw_multiline_string(font, rect.position + Vector2(20, 14 + fs * 0.85), _hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs, -1, Color(1, 1, 1, a))

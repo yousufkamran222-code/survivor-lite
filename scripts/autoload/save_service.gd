@@ -50,6 +50,12 @@ var fps_cap: int:  # 0 = the screen's max, else 60 or 30
 var show_fps: int:  # -1 = use balance.json debug.show_perf, 0 off, 1 on
 	get: return int(profile.settings.get("show_fps", -1))
 	set(v): profile.settings["show_fps"] = v
+var hints_seen: Array:  # first-run hint ids already shown
+	get:
+		if not profile.settings.has("hints_seen"):
+			profile.settings["hints_seen"] = []
+		return profile.settings["hints_seen"]
+	set(v): profile.settings["hints_seen"] = v
 var runs: int:
 	get: return int(profile.stats.runs)
 var deaths: int:

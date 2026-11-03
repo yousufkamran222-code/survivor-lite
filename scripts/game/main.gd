@@ -42,6 +42,8 @@ var _touch_index := -1
 var _streak := 0  # kills chained within juice.streak_window_s (cosmetic)
 var _streak_ms := 0
 var _slowmo := 0.0  # boss-kill slow motion left (real seconds)
+var _hints: Array = []  # this run's not-yet-seen hints (data/hints.json)
+var _hint_queue: Array = []
 
 
 func _ready() -> void:
@@ -250,6 +252,7 @@ func _process(delta: float) -> void:
 	hud.cpu_ms = 0.0
 	if world.def_on:
 		_tick_countdown()
+	_update_hints()
 	match world.state:
 		"defense_won":
 			_show_defense_won()
@@ -265,6 +268,7 @@ func _process(delta: float) -> void:
 
 func _handle_events(events: Array) -> void:
 	for ev in events:
+		_hint_event(ev.type)
 		match ev.type:
 			"shoot":
 				Sfx.play("shoot")
@@ -397,10 +401,7 @@ func _start_run() -> void:
 	_streak = 0
 	hud.set_streak(0)
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
-	if world.terr != null:
-		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)
-	if world.conv_on:
-		hud.toast("Kills join your swarm. They guard you.", pal.player_nucleus, 3.0)
+	_load_hints(_current_mode().id)
 	_hide_all()
 	_set_screen("playing")
 
@@ -1257,6 +1258,8 @@ func start_benchmark() -> void:
 	_bench.build = _build_label().replace("build ", "")
 	_bench.refresh = DisplayServer.screen_get_refresh_rate()
 	_bench_bot = BalanceBot.new(Benchmark.SEED)
+	_hints = []  # no first-run tips during the benchmark
+	_hint_queue = []
 	_bench_perf = hud.show_perf
 	hud.show_perf = false  # same HUD load on every device
 	_hide_all()
@@ -1300,3 +1303,39 @@ func _finish_benchmark() -> void:
 		hud.toast("Copied", pal.ui_accent, 1.0), 100))
 	col.add_child(UiKit.button("DONE", _show_menu, 80))
 	_results[0].visible = true
+
+
+# ------------------------------------------------------- first-run hints
+
+## This run's hints: shared ones plus the mode's, minus those already seen.
+func _load_hints(mode_id: String) -> void:
+	_hints = []
+	_hint_queue = []
+	var h: Dictionary = data.get("hints", {})
+	for hint in h.get("shared", []) + h.get(mode_id, []):
+		if not Save.hints_seen.has(hint.id):
+			_hints.append(hint)
+
+
+func _queue_hint(hint: Dictionary) -> void:
+	_hints.erase(hint)
+	_hint_queue.append(hint)
+
+
+func _hint_event(type: String) -> void:
+	for hint in _hints.duplicate():
+		if hint.get("event", "") == type:
+			_queue_hint(hint)
+
+
+## Timed hints, and one hint on screen at a time (each shown once, ever).
+func _update_hints() -> void:
+	for hint in _hints.duplicate():
+		if hint.has("at") and world.time >= float(hint.at):
+			_queue_hint(hint)
+	if _hint_queue.is_empty() or hud.hint_showing():
+		return
+	var next: Dictionary = _hint_queue.pop_front()
+	hud.show_hint(str(next.text))
+	Save.hints_seen.append(next.id)
+	Save.write()

@@ -57,6 +57,11 @@ var _squash := 0.0  # current stretch along the movement direction
 var _move_ang := 0.0
 var _hurt_squish := 0.0
 var _cell_t := 0.0
+# Telegraph data per enemy type (from enemies.json): Lancer dash lane length
+# and wind-up, Spitter fire range.
+var _dash_len := PackedFloat32Array()
+var _windup := PackedFloat32Array()
+var _fire_range := PackedFloat32Array()
 ## CPU ms spent in this view since Main last read it (fill + draw recording);
 ## Main resets it each frame (benchmark and perf readout).
 var cpu_ms := 0.0
@@ -68,8 +73,14 @@ func setup(game_data: Dictionary) -> void:
 	for k in bal.palette:
 		pal[k] = GameData.color(bal.palette[k])
 	enemy_colors.clear()
+	_dash_len.clear()
+	_windup.clear()
+	_fire_range.clear()
 	for e in game_data.enemies:
 		enemy_colors.append(GameData.color(e.color))
+		_dash_len.append(float(e.get("dash_speed", 0.0)) * float(e.get("dash_s", 0.0)))
+		_windup.append(float(e.get("windup_s", 1.0)))
+		_fire_range.append(float(e.get("keep_distance", 0.0)) + 220.0)
 	font = ThemeDB.fallback_font
 	for ev in game_data.get("evolutions", []):
 		evo_colors[ev.weapon] = GameData.color(ev.color)
@@ -490,6 +501,7 @@ func _draw_top_layer() -> void:
 			var r := world.enemy_radius(i) * 1.25 + 4.0 * sin(now * 8.0)
 			ci.draw_arc(world.e_pos[i], r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)
 			ci.draw_circle(world.e_pos[i], r + 10.0, Color(elite_color, 0.12))
+		_draw_telegraph(ci, i)
 	for j in world.tower_orbs.size():
 		var tc := GameData.color(world.tower_defs[world.tower_orb_type[j]].get("color", "#ffffff"))
 		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j] + 3.0, Color(tc, 0.35))
@@ -714,3 +726,51 @@ func _fill_splats() -> void:
 			c.a *= 1.0 - k * k
 			_splats.add(_sp_pos[i], _sp_size[i] * (1.0 + 0.15 * minf(_sp_t[i] * 8.0, 1.0)), c)
 	_splats.commit()
+
+
+## Warnings before enemy attacks (visual only; timings come from the World):
+## a Lancer's dash lane fills during its wind-up, a Spitter's mouth glows as
+## its shot charges (and stays lit while ready), and the Mother Cell shows a
+## closing ring before its burst.
+func _draw_telegraph(ci: CanvasItem, i: int) -> void:
+	var t := world.e_type[i]
+	var beh := world._tbeh[t]
+	if beh == World.BEH_CHASE:
+		return
+	var p := world.e_pos[i]
+	var r := world.enemy_radius(i)
+	match beh:
+		World.BEH_DASH:
+			if world.e_phase[i] != 1:
+				return
+			var k := clampf(1.0 - world.e_timer[i] / maxf(_windup[t], 0.01), 0.0, 1.0)
+			var d := world.e_dir[i]
+			var end := p + d * _dash_len[t]
+			var warn: Color = pal.player_hurt
+			ci.draw_line(p, end, Color(warn, 0.10 + 0.18 * k), r * 2.0)
+			ci.draw_line(p, p + (end - p) * k, Color(warn, 0.55), 4.0)
+			var side := d.orthogonal() * r * 0.8
+			ci.draw_colored_polygon(PackedVector2Array([end + d * r, end - side, end + side]), Color(warn, 0.25 + 0.5 * k))
+		World.BEH_RANGED:
+			if world.e_team[i] != 0:
+				return
+			var tele := float(juice.get("spit_telegraph_s", 0.5))
+			var k := clampf(1.0 - world.e_timer[i] / tele, 0.0, 1.0)
+			if k <= 0.0:
+				return
+			var target := world.p_pos
+			if world.def_on and (world.p_down > 0.0 or p.distance_squared_to(world.p_pos) > float(world.dcfg.aggro_radius) ** 2):
+				target = world.core_pos
+			if p.distance_squared_to(target) > _fire_range[t] * _fire_range[t]:
+				return
+			var mouth := p + (target - p).normalized() * r * 0.9
+			var c: Color = pal.enemy_shot
+			ci.draw_circle(mouth, 4.0 + 8.0 * k, Color(c, 0.3 + 0.4 * k))
+			ci.draw_circle(mouth, 2.5 + 4.0 * k, Color(1, 1, 0.85, 0.35 + 0.6 * k))
+			ci.draw_arc(p, r + 4.0 + 10.0 * (1.0 - k), 0, TAU, 24, Color(c, 0.6 * k), 2.5)
+		World.BEH_BOSS:
+			var tele := float(juice.get("boss_telegraph_s", 0.7))
+			if world.e_timer[i] > tele:
+				return
+			var k := clampf(1.0 - world.e_timer[i] / tele, 0.0, 1.0)
+			ci.draw_arc(p, r * (2.6 - 1.4 * k), 0, TAU, 48, Color(pal.enemy_shot, 0.25 + 0.6 * k), 3.0 + 4.0 * k)

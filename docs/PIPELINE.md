@@ -185,3 +185,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Phase 4 UI: transitions, restyled screens, counting results
 - Overlay reveals and screen cross-fades, button press squash, restyled Profile (`ProfileScreen`), level-up cards, chest reveal and results with count-ups. Details in `docs/POLISH_PLAN.md` Phase 4.
+
+### 2026-11-03 Enemy telegraphs, first-run hints, Profile scroll fix
+- Lancer dash lanes, Spitter charge glow, Mother Cell burst ring; one-time hints from `data/hints.json` (time or event triggered, Settings can reset). Profile panels now pass drags to the scroll list (Yousuf: it only scrolled from the gaps). 122 tests. Details in `docs/POLISH_PLAN.md` Phase 4.

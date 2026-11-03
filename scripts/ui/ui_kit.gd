@@ -111,6 +111,9 @@ static func fade_in(c: Control, delay: float = 0.0) -> void:
 ## Rounded panel with an optional coloured border.
 static func panel(bg: Color, border: Color = Color(0, 0, 0, 0), radius: int = 20, margin: int = 16) -> PanelContainer:
 	var p := PanelContainer.new()
+	# PASS, not the default STOP: panels inside a DragScroll must let the drag
+	# through, or the list only scrolls from the gaps between them.
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb := _box(bg, radius, margin)
 	if border.a > 0.0:
 		sb.set_border_width_all(3)

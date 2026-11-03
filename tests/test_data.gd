@@ -36,3 +36,16 @@ func test_modes_apply_overrides() -> void:
 	d.balance.territory.enabled = true
 	GameData.apply_mode(d, "classic")
 	check(d.balance.territory.enabled, "original data untouched")
+
+
+func test_hint_events_exist_in_the_world() -> void:
+	# An event-triggered hint with a typo would silently never show.
+	var src := FileAccess.get_file_as_string("res://scripts/core/world.gd")
+	var h: Dictionary = data().hints
+	var n := 0
+	for key in h:
+		for hint in h[key]:
+			if hint.has("event"):
+				n += 1
+				check(('"type": "%s"' % hint.event) in src, "hint '%s' waits for unknown event '%s'" % [hint.id, hint.event])
+	check(n > 0, "some hints are event-triggered")
