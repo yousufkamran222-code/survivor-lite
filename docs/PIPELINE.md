@@ -155,3 +155,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Polish Phase 1, chunk 1: HUD layers, icon atlas, menu frame cap
 - Yousuf's phone baseline: APK 87.7 fps on a 120 Hz screen (HUD 1.94 ms, dc 104), web 48.1 fps. Changes: cached HUD layers, baked icon atlas for the HUD strip, menu/pause frame caps. Desktop bench 71-75 → 87 fps, HUD 0.40 → ~0.11 ms, dc ~100 → ~54. Details in `docs/POLISH_PLAN.md`.
+
+### 2026-11-03 Polish Phase 1, chunk 2: separation and damage numbers
+- Phone after chunk 1: APK 87.7 → 117.4 fps (120 Hz), hitches 18.6% → 1.4%; web 48 → 56 fps. Chunk 2: time-based enemy separation (sims identical; sim step 1.14 → 0.63 ms in bench.gd), damage numbers from a baked digit atlas, benchmark v2 counts sprite batches in "view". A 2x2 separation search was rejected (Classic bot wins 33% → 54%). Details in `docs/POLISH_PLAN.md`.

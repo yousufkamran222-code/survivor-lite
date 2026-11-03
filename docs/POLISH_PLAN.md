@@ -61,7 +61,15 @@ Done when: Yousuf has posted the benchmark line for web and APK on his phone.
 - HUD split into cached layers: the owned-upgrade strip + button labels redraw only on change; the top bars/readouts redraw on change at most 20x a second; only animated parts draw every frame.
 - `IconAtlas`: every upgrade icon (and evolved weapon icon) baked once at startup into one texture via a one-shot SubViewport; the HUD strip draws same-texture quads (one batch) with the level numbers in a second batch.
 - Battery: `perf.menu_max_fps` 60 for menus, shop, results and pickers; `perf.pause_max_fps` 30; runs uncapped.
-- Next: view (fx dictionaries → packed arrays, damage numbers from a digit atlas), sim (`_rebuild_grid` allocates an Array per cell every frame → counting-sort grid in packed arrays), the dish-darkening overdraw.
+- Phone after chunk 1 (build 110f7d6): **APK 117.4 fps on 120 Hz (was 87.7), p95 10.0 ms, slow 1.4% (was 18.6%), HUD 0.42 ms (was 1.94), dc 52 (was 104)**; web 56.0 fps (was 48.1), slow 1.7% (was 10.9%).
+
+**Chunk 2 (2026-11-03): sim and view.**
+- Profiling showed **enemy separation was ~70% of the sim** (bench.gd: 1.14 → 0.33 ms/step with it switched off). Separation is now **time-based** (`World.SEP_PASSES_PER_S` = 30 passes/s, each pass 1/3 of the enemies): identical at the sims' 30 steps/s (Classic and Nucleus sims byte-identical before/after), 2x less work per frame at 60 fps and 4x less at 120. The 9-cell search is now one flat loop (faster than nested `range`). bench.gd at 150+ enemies: **1.14 → 0.63 ms/step**, no balance change.
+- Tried and **rejected**: searching only the 2x2 nearest cells (another ~20%), because crowds clumped and Classic bot wins jumped 33% → 54%.
+- View profile: the top layer (player, effects, damage numbers) was about half. **Damage numbers now come from `DigitAtlas`** (digits baked once at startup, white with a dark outline), drawn last in one batch; same look.
+- The benchmark's "view" now includes the batched sprite layers' draw time (it was missing): **`Benchmark.VERSION` 2**, don't compare v1 and v2 view numbers.
+- The desktop is CPU-rasterised, so it can't show GPU-side gains; phone numbers decide.
+- Still open: effects as packed arrays instead of dictionaries, the grid's per-cell Array allocations, the dish-darkening ring (Infection/Nucleus only).
 
 Targets: **a steady 90 fps on Yousuf's phone at peak load** (11.1 ms/frame), **a steady 60 on the cheap test phone**, menus at a low capped rate. Quote benchmark before/after in every commit.
 

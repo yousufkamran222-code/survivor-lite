@@ -58,7 +58,18 @@ func count() -> int:
 	return _n
 
 
+## CPU ms spent recording sprite draws since the view last read it (all
+## batches together; added to the view's cost in the benchmark/readout).
+static var draw_ms := 0.0
+
+
 func _draw() -> void:
+	var t0 := Time.get_ticks_usec()
+	_draw_sprites()
+	draw_ms += (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _draw_sprites() -> void:
 	for i in _n:
 		var s := _size[i]
 		draw_texture_rect_region(tex, Rect2(_pos[i].x - s * 0.5, _pos[i].y - s * 0.5, s, s),

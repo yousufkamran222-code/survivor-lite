@@ -25,7 +25,13 @@ const BEH_DASH := 2
 const BEH_BOSS := 3
 const BEHAVIORS := {"chase": BEH_CHASE, "ranged": BEH_RANGED, "dash": BEH_DASH, "boss": BEH_BOSS}
 var _frame := 0
-const SEP_EVERY := 3  # separation cadence (frames); see _update_enemies
+const SEP_EVERY := 3  # separation: each pass handles 1/SEP_EVERY of the enemies
+## Separation passes per second. Time-based, not per rendered frame: at 30
+## steps/s (the sims) it's one pass per step as before; at 60/120 fps the
+## phone does 2x/4x less separation work per frame for the same crowd.
+const SEP_PASSES_PER_S := 30.0
+var _sep_acc := 0.0
+var _sep_phase := 0
 
 ## Set false in headless sims to skip building event dictionaries.
 var emit_events := true
@@ -660,7 +666,12 @@ func _update_enemies(dt: float) -> void:
 	var despawn2 := float(bal.perf.despawn_distance) ** 2
 	boss_index = -1
 	_frame += 1
-	var phase := _frame % SEP_EVERY
+	_sep_acc = minf(_sep_acc + dt * SEP_PASSES_PER_S, 2.0)
+	var sep_pass := _sep_acc >= 0.999
+	if sep_pass:
+		_sep_acc = maxf(_sep_acc - 1.0, 0.0)
+		_sep_phase = (_sep_phase + 1) % SEP_EVERY
+	var phase := _sep_phase if sep_pass else -1
 	_ally_slot = 0
 	_ally_slots = maxi(ally_count, 1)
 	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
@@ -696,32 +707,31 @@ func _update_enemies(dt: float) -> void:
 			if beh != BEH_CHASE:
 				vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
 		# Soft separation so swarms read as a crowd, not one blob. Each enemy
-		# resolves overlaps every SEP_EVERY frames, with a matching push strength.
+		# resolves overlaps every SEP_EVERY passes, with a matching push strength.
 		var sep := Vector2.ZERO
 		if i % SEP_EVERY == phase:
 			var ri := e_rad[i]
 			var cx := floori(pos.x / CELL)
 			var cy := floori(pos.y / CELL)
 			var found := 0
-			for ox in range(-1, 2):
-				for oy in range(-1, 2):
-					var cell: Variant = _grid.get(_key(cx + ox, cy + oy))
-					if cell == null:
+			# All 9 cells: a 2x2 search was ~20% faster but let crowds clump,
+			# which made Classic much easier (bot win 33% -> 54%).
+			for k in 9:
+				var cell: Variant = _grid.get(_key(cx + k / 3 - 1, cy + k % 3 - 1))
+				if cell == null:
+					continue
+				for j: int in cell:
+					if j == i:
 						continue
-					for j: int in cell:
-						if j == i:
-							continue
-						var off := pos - e_pos[j]
-						var md := ri + e_rad[j]
-						var d2 := off.length_squared()
-						if d2 < md * md and d2 > 0.0001:
-							var dd := sqrt(d2)
-							sep += off / dd * (md - dd) * (0.5 * SEP_EVERY)
-							found += 1
-							if found >= 6:
-								break
-					if found >= 6:
-						break
+					var off := pos - e_pos[j]
+					var md := ri + e_rad[j]
+					var d2 := off.length_squared()
+					if d2 < md * md and d2 > 0.0001:
+						var dd := sqrt(d2)
+						sep += off / dd * (md - dd) * (0.5 * SEP_EVERY)
+						found += 1
+						if found >= 6:
+							break
 				if found >= 6:
 					break
 		var kn := e_knock[i]

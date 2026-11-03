@@ -84,6 +84,10 @@ func _ready() -> void:
 			entries.append([u.id, IconArt.color_for(u), true])
 	atlas.bake(entries)
 	hud.icon_atlas = atlas
+	var digits := DigitAtlas.new()
+	add_child(digits)
+	digits.bake()
+	view.digits = digits
 
 	pause_btn = UiKit.button("II", _pause_run, 72)
 	pause_btn.custom_minimum_size = Vector2(72, 72)
@@ -205,6 +209,8 @@ func _process(delta: float) -> void:
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
+	view.cpu_ms += SpriteBatch.draw_ms  # batched sprite layers count as view too
+	SpriteBatch.draw_ms = 0.0
 	hud.view_ms = lerpf(hud.view_ms, view.cpu_ms, 0.1)
 	if _bench != null:
 		_bench_frame(delta, (Time.get_ticks_usec() - t0) / 1000.0)

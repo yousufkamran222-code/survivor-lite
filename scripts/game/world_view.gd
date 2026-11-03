@@ -38,6 +38,7 @@ var _terr_tex: ImageTexture
 var _land_color := Color(0.36, 0.88, 0.9, 0.3)
 var _blob_scale := 1.0
 var _core_flash := 0.0
+var digits: DigitAtlas  # set by Main; baked digits for damage numbers
 ## CPU ms spent in this view since Main last read it (fill + draw recording);
 ## Main resets it each frame (benchmark and perf readout).
 var cpu_ms := 0.0
@@ -112,7 +113,7 @@ func consume(events: Array) -> void:
 			"hit":
 				if juice.damage_numbers and _damage_numbers < int(bal.perf.max_damage_numbers):
 					_damage_numbers += 1
-					_add_fx({"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -10), "text": str(roundi(ev.amount)), "life": 0.55}, max_fx)
+					_add_fx({"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -10), "text": str(roundi(ev.amount)), "value": roundi(ev.amount), "life": 0.55}, max_fx)
 			"kill":
 				var c := GameData.color(ev.color)
 				for k in int(juice.kill_burst_particles):
@@ -470,8 +471,16 @@ func _draw_top_layer() -> void:
 					for i: int in f.cells:
 						ci.draw_rect(Rect2(t.center_of(i) - Vector2.ONE * t.cell * 0.5, Vector2.ONE * t.cell), c)
 			"num":
-				var pos: Vector2 = f.pos + Vector2(0, -40.0 * k)
-				ci.draw_string(font, pos + Vector2(-20, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(1, 1, 1, 1.0 - k * k))
+				if digits == null or not digits.baked:
+					var pos: Vector2 = f.pos + Vector2(0, -40.0 * k)
+					ci.draw_string(font, pos + Vector2(-20, 0), f.text, HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(1, 1, 1, 1.0 - k * k))
+	# Damage numbers last, from the baked digit texture: one batch, no text
+	# layout per frame (same look: rise 40 px and fade).
+	if digits != null and digits.baked:
+		for f in fx:
+			if f.kind == "num":
+				var k: float = f.t / f.life
+				digits.draw_number(ci, int(f.value), f.pos + Vector2(0, -40.0 * k - 8.0), 26.0, Color(1, 1, 1, 1.0 - k * k))
 	var bi := world.boss_index
 	if bi >= 0 and bi < world.e_pos.size():
 		var p := world.e_pos[bi]
