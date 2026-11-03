@@ -169,8 +169,15 @@ func _move_input() -> Vector2:
 	var v := Vector2.ZERO
 	if hud.stick_active:
 		v = (hud.stick_pos - hud.stick_origin) / hud.stick_radius
-		if v.length() < float(bal.juice.stick_deadzone):
+		# Rescale past the dead zone so speed starts from 0 at its edge (no
+		# jump), with a gentle curve for fine control at small tilts.
+		var dz := float(bal.juice.stick_deadzone)
+		var l := v.length()
+		if l < dz:
 			v = Vector2.ZERO
+		else:
+			var k := clampf((l - dz) / (1.0 - dz), 0.0, 1.0)
+			v = v / l * pow(k, float(bal.juice.get("stick_curve", 1.0)))
 	var k := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))

@@ -163,8 +163,15 @@ func _draw_hud() -> void:
 	if stick_active:
 		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
 		draw_arc(stick_origin, stick_radius, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0)
-		var knob := stick_origin + (stick_pos - stick_origin).limit_length(stick_radius)
+		var off := (stick_pos - stick_origin).limit_length(stick_radius)
+		var knob := stick_origin + off
 		draw_circle(knob, 34, Color(1, 1, 1, 0.35))
+		# Direction marker on the base rim once you're past the dead zone.
+		if off.length() > stick_radius * 0.15:
+			var d := off.normalized()
+			var tip := stick_origin + d * (stick_radius + 14.0)
+			var side := d.orthogonal() * 9.0
+			draw_colored_polygon(PackedVector2Array([tip, tip - d * 14.0 + side, tip - d * 14.0 - side]), Color(1, 1, 1, 0.5))
 
 
 ## Top bars and readouts (bars layer): XP, level, timer, kills, mode readout,

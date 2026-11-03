@@ -108,3 +108,32 @@ static func splat(size: int = 64) -> ImageTexture:
 				a = maxf(a, _aa(dr[1], p.distance_to(dr[0]), px))
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 	return ImageTexture.create_from_image(img)
+
+
+## The player cell (tinted by the player colour): a soft outer glow, a bright
+## membrane rim, a slightly darker cytoplasm and a few small organelles. The nucleus is drawn separately so it can lead turns.
+const CELL_BODY := 0.78  # body radius as a fraction of the texture half-width
+
+
+static func player_cell(size: int = 128) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.0 / h
+	var body := CELL_BODY
+	var organelles := [[Vector2(0.32, 0.36), 0.08], [Vector2(-0.38, 0.22), 0.06], [Vector2(0.12, -0.45), 0.05], [Vector2(-0.2, 0.5), 0.045]]
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h)
+			var d := p.length()
+			var glow := clampf(1.0 - (d - body) / (1.0 - body), 0.0, 1.0)
+			var a := maxf(_aa(body, d, px), glow * glow * 0.35)
+			# Shade: bright membrane rim, a touch darker inside. Radial only,
+			# because the body rotates with the movement direction.
+			var rim := clampf((d - body * 0.8) / (body * 0.2), 0.0, 1.0)
+			var v := 0.93 + 0.07 * rim
+			for o in organelles:
+				v = minf(v, lerpf(1.0, 0.8, _aa(o[1], p.distance_to(o[0]), px)))
+			if d > body:
+				v = 1.0
+			img.set_pixel(x, y, Color(v, v, v, a))
+	return ImageTexture.create_from_image(img)

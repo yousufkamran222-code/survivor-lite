@@ -5,6 +5,8 @@
   "player": {
     "max_hp": 100,
     "speed": 175,
+    "accel_s": 0.07,
+    "decel_s": 0.09,
     "radius": 18,
     "pickup_radius": 125,
     "iframes_s": 0.5,
@@ -176,6 +178,7 @@
     "levelup_input_delay_s": 0.35,
     "stick_radius": 90,
     "stick_deadzone": 0.12,
+    "stick_curve": 1.25,
     "stick_follow": false,
     "dash_button_radius": 72,
     "dash_button_margin": 40,
@@ -195,7 +198,12 @@
     "hitstop_elite_s": 0.08,
     "slowmo_boss_s": 0.8,
     "slowmo_scale": 0.3,
-    "shake_mult": 1.0
+    "shake_mult": 1.0,
+    "turn_rate": 14.0,
+    "cell_squash": 0.1,
+    "dash_stretch": 0.3,
+    "cell_breathe": 0.03,
+    "cilia": 12
   },
   "palette": {
     "core": "#ffb27a",

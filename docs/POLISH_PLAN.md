@@ -142,6 +142,12 @@ Keep the current damage-number look; make every hit and kill read and feel bette
 
 ## Phase 3: the player cell (medium)
 
+**Built 2026-11-03** (Yousuf on Phase 2: "feels good"):
+- **Movement weight** (World): velocity eases toward the stick, full speed in `player.accel_s` 0.07 s, stop in `decel_s` 0.09 s; a dash exits still moving its way. **Stick response** (Main): speed is rescaled from 0 at the dead-zone edge (no jump) with `juice.stick_curve` 1.25 for fine control.
+- Sims, Classic × 8 runs: seeds 600/700/800 before 25/38/38% → after 63/38/63%; fresh seeds 900/1000/1100 easing off 38/38/38% vs on 25/50/25%. Six seeds together ≈ 36% vs 44%, inside the noise of 8-run samples: **no real balance shift**.
+- **Look** (WorldView, visual only): generated `ShapeTextures.player_cell` (glow, bright membrane rim, organelles; radial shading so it can rotate), squash/stretch along the movement (`cell_squash` 0.1, `dash_stretch` 0.3), idle breathing (`cell_breathe`), `cilia` 12 hairs waving faster with speed, squish on hurt, glossy nucleus that swings toward the aim at `turn_rate` 14 rad/s (World's aim still snaps).
+- **Joystick:** direction marker on the base rim past the dead zone.
+
 1. **Movement feel** (in `World`, knobs in `juice` / `player`):
    - short acceleration and deceleration (~0.08 s / ~0.10 s) so the cell has weight but still responds instantly,
    - a smoothstep response curve past the dead zone for fine control.

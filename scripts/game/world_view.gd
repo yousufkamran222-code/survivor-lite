@@ -49,6 +49,13 @@ var _sp_next := 0
 var _num_by_uid := {}  # enemy uid -> its live damage number (merging)
 var _sparks_left := 0  # hit sparks still allowed this frame
 var _shake_t := 0.0
+var _cell_tex: Texture2D
+var _disc_tex: Texture2D
+var _face := 0.0  # smoothed facing angle (visual only; World's aim snaps)
+var _squash := 0.0  # current stretch along the movement direction
+var _move_ang := 0.0
+var _hurt_squish := 0.0
+var _cell_t := 0.0
 ## CPU ms spent in this view since Main last read it (fill + draw recording);
 ## Main resets it each frame (benchmark and perf readout).
 var cpu_ms := 0.0
@@ -80,6 +87,8 @@ func setup(game_data: Dictionary) -> void:
 	_dots = _batch(disc, int(perf.max_effects) + 40)
 	_rings = _batch(ShapeTextures.ring(), 48)
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
+	_cell_tex = ShapeTextures.player_cell()
+	_disc_tex = disc
 	_top = Node2D.new()
 	_top.draw.connect(_draw_top)
 	add_child(_top)
@@ -188,6 +197,7 @@ func consume(events: Array) -> void:
 			"hurt":
 				add_shake(float(juice.shake_hurt))
 				_hurt_t = float(bal.player.iframes_s)
+				_hurt_squish = 1.0
 			"core_hit":
 				_core_flash = 0.2
 				add_shake(2.5)
@@ -251,6 +261,7 @@ func _process_view(delta: float) -> void:
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
+	_update_cell_pose(delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
 	if world.p_dash_t > 0.0:
 		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(pal.player, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
@@ -539,6 +550,27 @@ func _draw_top_layer() -> void:
 		ci.draw_rect(Rect2(p + Vector2(-r, -r - 18), Vector2(r * 2 * f, 8)), pal.hp_bar)
 
 
+## Smoothed pose for the player cell: the nucleus swings toward where you
+## steer instead of snapping, the body stretches along the movement (more
+## in a dash), breathes when idle, and squishes when hurt. Visual only.
+func _update_cell_pose(delta: float) -> void:
+	_cell_t += delta
+	var target := world.p_facing.angle()
+	var turn := float(juice.get("turn_rate", 14.0)) * delta
+	_face = rotate_toward(_face, target, turn)
+	var spd := float(bal.player.speed)
+	var v := world.p_vel
+	var stretch := 0.0
+	if world.p_dash_t > 0.0:
+		stretch = float(juice.get("dash_stretch", 0.3))
+		_move_ang = world.p_dash_dir.angle()
+	elif v.length_squared() > 1.0:
+		stretch = float(juice.get("cell_squash", 0.1)) * clampf(v.length() / spd, 0.0, 1.0)
+		_move_ang = rotate_toward(_move_ang, v.angle(), turn)
+	_squash = lerpf(_squash, stretch, 1.0 - exp(-14.0 * delta))
+	_hurt_squish = maxf(0.0, _hurt_squish - delta * 5.0)
+
+
 func _draw_player(ci: CanvasItem) -> void:
 	if world.p_down > 0.0:
 		return  # reforming at the nucleus
@@ -547,9 +579,31 @@ func _draw_player(ci: CanvasItem) -> void:
 	var body: Color = pal.player
 	if _hurt_t > 0.0 and fmod(_hurt_t, 0.12) < 0.06:
 		body = pal.player_hurt
-	ci.draw_circle(p, r + 3.0, Color(body, 0.3))
-	ci.draw_circle(p, r, body)
-	ci.draw_circle(p + world.p_facing * r * 0.25, r * 0.42, pal.player_nucleus)
+	var breathe := float(juice.get("cell_breathe", 0.03)) * sin(_cell_t * 2.4) * (1.0 - clampf(_squash * 8.0, 0.0, 1.0))
+	var squish := 0.18 * _hurt_squish
+	var sx := 1.0 + _squash + breathe - squish
+	var sy := 1.0 - _squash * 0.6 + breathe * 0.5 + squish * 0.6
+	# Cilia: short hairs around the membrane that wave faster with speed.
+	var speed_k := clampf(world.p_vel.length() / float(bal.player.speed), 0.0, 1.0)
+	var n := int(juice.get("cilia", 12))
+	var cc := Color(body, 0.55)
+	ci.draw_set_transform(p, _move_ang, Vector2(sx, sy))
+	for k in n:
+		var a := TAU * k / n
+		var wave := sin(_cell_t * (6.0 + 10.0 * speed_k) + k * 1.7) * 0.35
+		var base := Vector2.from_angle(a) * r * 1.0
+		var tip := Vector2.from_angle(a + wave * 0.5) * r * (1.32 + 0.08 * speed_k)
+		ci.draw_line(base, tip, cc, 2.0)
+	var q := r / ShapeTextures.CELL_BODY
+	ci.draw_texture_rect(_cell_tex, Rect2(-q, -q, q * 2.0, q * 2.0), false, body)
+	ci.draw_set_transform(p, 0.0, Vector2(sx * 0.5 + 0.5, sy * 0.5 + 0.5))
+	# Nucleus leads the turn, with a small highlight.
+	var nc := Vector2.from_angle(_face) * r * 0.28
+	var nr := r * 0.44
+	ci.draw_texture_rect(_disc_tex, Rect2(nc - Vector2(nr, nr), Vector2(nr, nr) * 2.0), false, pal.player_nucleus)
+	var hl := nc + Vector2(-0.35, -0.35) * nr
+	ci.draw_texture_rect(_disc_tex, Rect2(hl - Vector2(nr, nr) * 0.3, Vector2(nr, nr) * 0.6), false, Color(1, 1, 1, 0.55))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if world.p_hp < world.p_max_hp:
 		var w := 48.0
 		var pos := p + Vector2(-w / 2.0, r + 10.0)

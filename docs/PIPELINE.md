@@ -161,3 +161,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Polish Phase 2: combat feel
 - Hit pulse + sparks, merging/popping/gold damage numbers, kill rings, floor goo splats, kill-sound pitch ladder with a second variant, elite hit-stop + gold shower, boss slow-mo, smooth shake, cosmetic "x25" streak. Presentation only (balance sims unchanged). Details in `docs/POLISH_PLAN.md` Phase 2.
+
+### 2026-11-03 Polish Phase 3: the player cell
+- Eased movement (accel 0.07 s / decel 0.09 s), rescaled stick response, a new generated cell (rim, organelles, cilia, squash/stretch, breathing, hurt squish, nucleus that leads turns), joystick direction marker. Sims: no real balance shift (6 seeds × 8, ≈36% vs 44%, noise). Details in `docs/POLISH_PLAN.md` Phase 3.

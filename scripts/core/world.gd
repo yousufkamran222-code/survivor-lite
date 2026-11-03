@@ -69,6 +69,7 @@ var dashes := 0
 
 # --- Dash ---
 var p_move := Vector2.ZERO  # last movement input
+var p_vel := Vector2.ZERO  # actual velocity (eases toward the input: player.accel_s / decel_s)
 var p_dash_t := 0.0  # time left in the current dash
 var p_dash_cd := 0.0
 var p_dash_dir := Vector2.RIGHT
@@ -501,9 +502,16 @@ func _update_player(dt: float, move: Vector2) -> void:
 		p_pos += p_dash_dir * float(bal.player.dash_speed) * dt
 		if float(stats.get("dash_damage", 0.0)) > 0.0:
 			_lunge_hits()
+		# Leave the dash still moving that way (eases out instead of a dead stop).
+		p_vel = p_dash_dir * float(bal.player.speed) * (1.0 + float(stats.move))
 	else:
 		var spd := float(bal.player.speed) * (1.0 + float(stats.move))
-		p_pos += m * spd * dt
+		var target := m * spd
+		var pl: Dictionary = bal.player
+		# A touch of weight: reach full speed in accel_s, stop in decel_s.
+		var ease_s := float(pl.get("accel_s", 0.0)) if target.length_squared() >= p_vel.length_squared() * 0.98 else float(pl.get("decel_s", 0.0))
+		p_vel = p_vel.move_toward(target, spd / ease_s * dt) if ease_s > 0.0 else target
+		p_pos += p_vel * dt
 	if m.length_squared() > 0.01:
 		p_facing = m.normalized()
 	var regen := float(bal.player.regen) + float(stats.regen)
@@ -1634,6 +1642,7 @@ func _update_down(dt: float) -> void:
 	if p_down > 0.0:
 		return
 	p_down = 0.0
+	p_vel = Vector2.ZERO
 	p_pos = core_pos + Vector2(0, core_r + 40.0)
 	p_hp = p_max_hp
 	p_iframes = float(dcfg.respawn_iframes_s)
