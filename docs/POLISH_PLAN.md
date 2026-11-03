@@ -202,3 +202,12 @@ Keep the current damage-number look; make every hit and kill read and feel bette
 | 4 | Sweep | large, à la carte | Pick items by value |
 
 Risks: WebGL and Android behave differently (always verify on the APK); a high refresh rate on Android may require pulling the Gradle build (M3) forward; every new effect must go through `SpriteBatch` or the atlas, or Phase 1's gains get eaten.
+
+
+### Phase 4, UI round (built 2026-11-03; Yousuf on music: "fine for now")
+- **Transitions:** overlays fade in with the column rising into place (`UiKit.reveal`); screens rebuilt in place (menu, shop, profile, settings) cross-fade (`UiKit.fade_in`); every button squashes slightly while held (`UiKit.press_feedback`).
+- **Profile** (`ProfileScreen`): lifetime stat tiles, a best-run card per mode (icon, best time, score/kills/runs), achievements done-first with rounded progress bars and an overall completion bar.
+- **Level-up:** "LEVEL n" header with a picks chip; cards with a glowing icon, accent stripe, NEW/LV chip, the shop's tier bar with the next level pulsing, and an evolution chip.
+- **Chest:** reward cards that spin and land with a particle burst; evolutions get a gold card and an "EVOLUTION!" banner.
+- **Results:** stats card; score and gold count up with rising ticks (`UiKit.count_up`); NEW BEST stamps in; new achievements pop in one by one; the double-gold ad counts gold up from the old total; PLAY AGAIN is the primary (gold) button.
+- Still open in Phase 4: enemy telegraphs, first-run hints.

@@ -72,8 +72,85 @@ static func button(text: String, on_press: Callable, height: float = 96.0) -> Bu
 	b.pressed.connect(func() -> void:
 		Sfx.play("click", 0.0)
 		on_press.call())
+	press_feedback(b)
 	return b
 
+
+# ------------------------------------------------- motion and small widgets
+
+## Squashes a button a little while it's held (every button gets this).
+static func press_feedback(b: Control) -> void:
+	b.resized.connect(func() -> void: b.pivot_offset = b.size / 2.0)
+	b.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			var tw := b.create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(b, "scale", Vector2(0.95, 0.95) if e.pressed else Vector2.ONE, 0.08 if e.pressed else 0.18))
+
+
+## Shows an overlay with a short fade, its column rising slightly into place.
+static func reveal(overlay: Array) -> void:
+	var root: Control = overlay[0]
+	var col: Control = overlay[1]
+	root.visible = true
+	root.modulate.a = 0.0
+	root.create_tween().tween_property(root, "modulate:a", 1.0, 0.16)
+	fade_in(col)
+
+
+## Cross-fade for a screen rebuilt in place (menu ↔ shop/profile/settings).
+static func fade_in(c: Control, delay: float = 0.0) -> void:
+	c.modulate.a = 0.0
+	c.scale = Vector2(0.97, 0.97)
+	c.resized.connect(func() -> void: c.pivot_offset = c.size / 2.0)
+	c.pivot_offset = c.size / 2.0
+	var tw := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "modulate:a", 1.0, 0.2).set_delay(delay)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.25).set_delay(delay)
+
+
+## Rounded panel with an optional coloured border.
+static func panel(bg: Color, border: Color = Color(0, 0, 0, 0), radius: int = 20, margin: int = 16) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := _box(bg, radius, margin)
+	if border.a > 0.0:
+		sb.set_border_width_all(3)
+		sb.border_color = border
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+## Small pill with text ("NEW", "EVOLVES", "x2 picks").
+static func chip(text: String, bg: Color, fg: Color = Color(0.1, 0.06, 0.15), size: int = 17) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := _box(bg, 12, 8)
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	p.add_theme_stylebox_override("panel", sb)
+	p.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := label(text, size, fg)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(l)
+	return p
+
+
+## Counts a label up from `from` to `to` (format with one %d), ticking.
+static func count_up(l: Label, from: int, to: int, dur: float, fmt: String, delay: float = 0.0, tick_pitch: float = 1.0) -> void:
+	l.text = fmt % from
+	if to <= from:
+		l.text = fmt % to
+		return
+	var last := [from]
+	var tw := l.create_tween()
+	tw.tween_interval(delay)
+	tw.tween_method(func(f: float) -> void:
+		var v := roundi(f)
+		if v != last[0]:
+			last[0] = v
+			l.text = fmt % v
+			Sfx.play("pickup", 0.0, tick_pitch + 0.5 * (f - from) / maxf(to - from, 1.0)), float(from), float(to), dur).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
 static func clear(node: Node) -> void:
 	for c in node.get_children():
@@ -124,6 +201,7 @@ static func icon_card(icon: Control, title: String, body: String, hint: String, 
 	b.pressed.connect(func() -> void:
 		Sfx.play("click", 0.0)
 		on_press.call())
+	press_feedback(b)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -167,3 +245,28 @@ static func _card_label(text: String, size: int, color: Color) -> Label:
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+
+## An icon on a soft glowing disc (level-up and chest cards).
+static func glow_icon(key: String, col: Color, px: float, evolved: bool = false) -> GlowIcon:
+	var g := GlowIcon.new()
+	g.key = key
+	g.color = col
+	g.evolved = evolved
+	g.custom_minimum_size = Vector2(px, px)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return g
+
+
+class GlowIcon:
+	extends Control
+	var key := ""
+	var color := Color.WHITE
+	var evolved := false
+
+	func _draw() -> void:
+		var c := size / 2.0
+		var r := minf(size.x, size.y) / 2.0
+		draw_circle(c, r, Color(color, 0.10))
+		draw_circle(c, r * 0.82, Color(color, 0.14))
+		IconArt.draw(self, key, c, r * 1.3, color, evolved)

@@ -501,11 +501,16 @@ class TierBar:
 	var total := 5
 	var color := Color.WHITE
 	var flash_index := -1
+	var pulse_index := -1  # a segment that glows on and off (the level you'd get)
 	var _flash := 1.0
+	var _t := 0.0
 
 	func _process(delta: float) -> void:
 		if flash_index >= 0 and _flash > 0.0:
 			_flash = maxf(0.0, _flash - delta * 2.0)
+			queue_redraw()
+		if pulse_index >= 0:
+			_t += delta
 			queue_redraw()
 
 	func _draw() -> void:
@@ -517,6 +522,8 @@ class TierBar:
 			# cost one each, ~80 extra calls across the shop grid).
 			if k < have:
 				draw_rect(rect, color.lerp(Color.WHITE, _flash if k == flash_index else 0.0))
+			elif k == pulse_index:
+				draw_rect(rect, Color(color.lerp(Color.WHITE, 0.4), 0.45 + 0.4 * sin(_t * 6.0)))
 			else:
 				draw_rect(rect, Color(1, 1, 1, 0.12))
 

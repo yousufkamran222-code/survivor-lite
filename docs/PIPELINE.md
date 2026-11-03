@@ -182,3 +182,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Yousuf loved this pack (not "4 Chiptunes"). The WAVs (50 MB) re-encoded to OGG Vorbis q3 (4.1 MB) in `assets/raw/juhani_junkala_action_chiptunes/` with the pack's `INFO.txt` (CC0) and a MANIFEST row. Every track plays at full level from first to last sample (made as loops), so each loops whole (`loop=true` on import).
 - Menu: Title Screen. Runs: a random Level 1-3; while a boss is alive, a 1.5 s cross-fade to a different level track and back. Win results: Ending. Generated music removed.
 - Verified in Chromium (AnalyserNode on the output): menu music peak 0.43 with no taps; a run with effects 0.69.
+
+### 2026-11-03 Phase 4 UI: transitions, restyled screens, counting results
+- Overlay reveals and screen cross-fades, button press squash, restyled Profile (`ProfileScreen`), level-up cards, chest reveal and results with count-ups. Details in `docs/POLISH_PLAN.md` Phase 4.

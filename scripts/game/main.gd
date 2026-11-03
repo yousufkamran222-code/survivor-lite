@@ -509,6 +509,7 @@ func _show_menu() -> void:
 	build.gui_input.connect(_on_build_label_input)
 	col.add_child(build)
 	_menu[0].visible = true
+	UiKit.fade_in(col)
 
 
 func _gold_pill() -> Control:
@@ -590,81 +591,15 @@ func _tile_button(icon_key: String, accent: Color, text: String, on_press: Calla
 	return b
 
 
-## Lifetime stats, per-mode records and achievements.
+## Lifetime stats, per-mode records and achievements (ProfileScreen).
 func _show_profile() -> void:
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 12)
-	col.add_child(UiKit.label("PROFILE", 52, pal.ui_accent))
-	var online := "Local profile" if not Online.is_signed_in() else Online.player_name()
-	col.add_child(UiKit.label(online + "  -  Play Games sync coming soon", 18, Color(pal.text, 0.5)))
-	var scroll := DragScroll.new()
-	scroll.custom_minimum_size = Vector2(600, 900)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
-	scroll.add_child(list)
-	col.add_child(scroll)
-	var st: Dictionary = Save.profile.stats
-	list.add_child(_section("LIFETIME"))
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	for pair in [["Runs", st.runs], ["Wins", st.wins], ["Germs killed", st.kills], ["Time played", UiKit.fmt_time(float(st.time_played))],
-			["Elites killed", st.elites], ["Mother Cells", st.bosses], ["Evolutions found", "%d / %d" % [st.evolved_ids.size(), data.evolutions.size()]],
-			["Germs converted", st.conversions], ["Dashes", st.dashes], ["Gold earned", st.gold_earned], ["Highest level", st.best_level]]:
-		var k := UiKit.label(str(pair[0]), 22, Color(pal.text, 0.7))
-		k.autowrap_mode = TextServer.AUTOWRAP_OFF
-		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(k)
-		var v := UiKit.label(str(pair[1]), 22, pal.text)
-		v.autowrap_mode = TextServer.AUTOWRAP_OFF
-		v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(v)
-	list.add_child(grid)
-	list.add_child(_section("BEST RUNS"))
-	for m in data.modes:
-		var r := Save.profile.record(m.id)
-		var line := "%s:  %s, %d kills, score %d" % [m.name, UiKit.fmt_time(float(r.get("best_time", 0.0))), int(r.get("best_kills", 0)), int(r.get("best_score", 0))]
-		if int(r.get(m.get("special", ""), 0)) > 0 and m.special != "best_kills":
-			line += ", " + (str(m.special_label) % int(r[m.special])).to_lower()
-		var l := UiKit.label(line if int(r.get("runs", 0)) > 0 else "%s:  not played yet" % m.name, 21, pal.text)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		list.add_child(l)
-	var achs: Array = data.online.achievements
-	list.add_child(_section("ACHIEVEMENTS  %d / %d" % [Save.profile.achievements.size(), achs.size()]))
-	for a in achs:
-		var done: bool = Save.profile.achievements.has(a.id)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
-		row.add_child(UpgradeIcon.make("trophy", pal.ui_accent if done else Color(1, 1, 1, 0.25), 48))
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var nm := UiKit.label(a.name, 22, pal.ui_accent if done else pal.text)
-		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		v.add_child(nm)
-		var prog := Save.profile.achievement_progress(a)
-		var have := minf(float(Save.profile.flat().get(a.stat, 0)), float(a.goal))
-		var ds := UiKit.label("%s   %s" % [a.desc, "done" if done else "%d / %d" % [int(have), int(a.goal)]], 18, Color(pal.text, 0.65))
-		ds.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		v.add_child(ds)
-		var bar := ProgressBar.new()
-		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(0, 8)
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE  # don't block drag-scrolling
-		bar.value = prog * 100.0
-		v.add_child(bar)
-		row.add_child(v)
-		list.add_child(row)
-	col.add_child(UiKit.button("BACK", _show_menu, 90))
-
-
-func _section(text: String) -> Label:
-	var l := UiKit.label(text, 24, pal.ui_accent)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	return l
+	var ps := ProfileScreen.new()
+	ps.setup(pal, data, _show_menu)
+	col.add_child(ps)
+	UiKit.fade_in(ps)
 
 
 func _current_mode() -> Dictionary:
@@ -688,6 +623,7 @@ func _show_shop() -> void:
 	var shop := MetaShop.new()
 	shop.setup(data.meta, pal, _menu[0], _show_menu)
 	col.add_child(shop)
+	UiKit.fade_in(shop)
 
 
 ## "build abc1234 #12" from data/build_info.json (written by CI), else "dev build".
@@ -710,18 +646,20 @@ func _show_levelup() -> void:
 	_set_screen("levelup")
 	var col: VBoxContainer = _levelup[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label("UPGRADE", 56, pal.ui_accent))
-	col.add_child(UiKit.label("Choose one  -  %d to spend" % world.pending_levelups, 26, Color(pal.text, 0.8)))
+	col.add_theme_constant_override("separation", 14)
+	col.add_child(UiKit.label("LEVEL %d" % world.level, 58, pal.ui_accent))
+	var sub := HBoxContainer.new()
+	sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	sub.add_theme_constant_override("separation", 10)
+	sub.add_child(UiKit.chip("%d %s" % [world.pending_levelups, "pick" if world.pending_levelups == 1 else "picks"], pal.ui_accent, Color(0.1, 0.06, 0.15), 20))
+	var choose := UiKit.label("Choose one upgrade", 24, Color(pal.text, 0.75))
+	choose.autowrap_mode = TextServer.AUTOWRAP_OFF
+	sub.add_child(choose)
+	col.add_child(sub)
 	var buttons: Array[Button] = []
 	var k := 0
 	for id in world.offers:
-		var def: Dictionary = world.upgrade_defs[id]
-		var nl := world.next_level_of(id)
-		var tag := ("NEW " + ("WEAPON" if def.type == "weapon" else "PASSIVE")) if nl == 1 else "Lv %d" % nl
-		var accent := IconArt.color_for(def)
-		var icon := UpgradeIcon.make(id, accent, 96)
-		var b := UiKit.icon_card(icon, "%s   %s" % [def.name, tag], Upgrades.describe(def, nl), _evolution_hint(id, nl),
-			nl - 1, nl, Upgrades.max_level(def), accent, _pick.bind(id), 160)
+		var b := _upgrade_card(id)
 		col.add_child(b)
 		buttons.append(b)
 		_pop_in(b, k * 0.07)
@@ -735,7 +673,8 @@ func _show_levelup() -> void:
 	later.add_theme_font_size_override("font_size", 22)
 	col.add_child(later)
 	buttons.append(later)
-	_levelup[0].visible = true
+	if not _levelup[0].visible:
+		UiKit.reveal(_levelup)
 	# Ignore taps for a moment so a finger still dragging can't mis-pick.
 	for b in buttons:
 		b.disabled = true
@@ -743,6 +682,81 @@ func _show_levelup() -> void:
 	for b in buttons:
 		if is_instance_valid(b):
 			b.disabled = false
+
+
+## One level-up offer: glowing icon, name with a NEW/level chip, a tier bar
+## whose next segment pulses, the effect text, and an evolution chip.
+func _upgrade_card(id: String) -> Button:
+	var def: Dictionary = world.upgrade_defs[id]
+	var nl := world.next_level_of(id)
+	var total := Upgrades.max_level(def)
+	var accent := IconArt.color_for(def)
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 172)
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := UiKit._box(Color("#2f2357"), 20, 12)
+	sb.set_border_width_all(2)
+	sb.border_width_left = 8
+	sb.border_color = Color(accent, 0.85)
+	var sbp := sb.duplicate()
+	sbp.bg_color = Color("#46368a")
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("pressed", sbp)
+	b.add_theme_stylebox_override("disabled", sb)
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		_pick(id))
+	UiKit.press_feedback(b)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 14)
+	m.add_theme_constant_override("margin_left", 20)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 16)
+	m.add_child(h)
+	var ic := UiKit.glow_icon(id, accent, 104)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 6)
+	h.add_child(v)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", 10)
+	var name := UiKit.label(def.name, 27, Color.WHITE)
+	name.autowrap_mode = TextServer.AUTOWRAP_OFF
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(name)
+	if nl == 1:
+		top.add_child(UiKit.chip("NEW " + ("WEAPON" if def.type == "weapon" else ""), accent))
+	else:
+		top.add_child(UiKit.chip("LV %d" % nl, Color(1, 1, 1, 0.85)))
+	v.add_child(top)
+	if total > 1:
+		var bar := MetaShop.TierBar.new()
+		bar.have = nl - 1
+		bar.total = total
+		bar.color = accent
+		bar.pulse_index = nl - 1
+		bar.custom_minimum_size = Vector2(0, 10)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(bar)
+	var body := UiKit.label(Upgrades.describe(def, nl), 21, Color(1, 1, 1, 0.85))
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(body)
+	var hint := _evolution_hint(id, nl)
+	if hint != "":
+		v.add_child(UiKit.chip(hint.replace("* ", ""), Color(pal.ui_accent, 0.9), Color(0.1, 0.06, 0.15), 16))
+	return b
 
 
 ## "Evolves with X" style hint for a level-up card, or "".
@@ -759,7 +773,8 @@ func _evolution_hint(id: String, next_level: int) -> String:
 
 # ------------------------------------------------------------------ chest
 
-## Slot-machine style reveal: names spin, then the real rewards land.
+## Slot-machine style reveal: each reward card spins through icons and
+## names, then lands with a burst (evolutions get a gold banner).
 func _show_chest() -> void:
 	_set_screen("chest")
 	var rewards: Array = world.chest_rewards.duplicate()
@@ -768,32 +783,52 @@ func _show_chest() -> void:
 	Analytics.event("chest_open", {"items": rewards.size(), "t": int(world.time)})
 	var col: VBoxContainer = _chest[1]
 	UiKit.clear(col)
-	col.add_child(UiKit.label("CHEST!", 60, pal.gem_large))
+	col.add_theme_constant_override("separation", 16)
+	var title := UiKit.label("CHEST!", 64, pal.gem_large)
+	title.add_theme_constant_override("outline_size", 12)
+	title.add_theme_color_override("font_outline_color", Color(0.15, 0.08, 0.02))
+	col.add_child(title)
+	var burst := MetaShop.Burst.new()
+	burst.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chest[0].add_child(burst)
+	var cards: Array[PanelContainer] = []
 	var slots: Array[Label] = []
-	var icons: Array[UpgradeIcon] = []
+	var subs: Array[Label] = []
+	var icons: Array = []
 	var keys := []
 	for u in data.upgrades:
 		keys.append(u.id)
 	for r in rewards:
+		var card := UiKit.panel(Color("#2f2357"), Color(1, 1, 1, 0.15), 22, 16)
 		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_theme_constant_override("separation", 18)
-		var ic := UpgradeIcon.make(keys[0], pal.ui_accent, 104)
+		var ic := UiKit.glow_icon(keys[0], pal.ui_accent, 112)
 		row.add_child(ic)
 		icons.append(ic)
-		var l := UiKit.label("?", 36, pal.text)
-		l.custom_minimum_size = Vector2(380, 120)
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(l)
-		col.add_child(row)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		var l := UiKit.label("?", 32, pal.text)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		l.custom_minimum_size = Vector2(380, 0)
+		v.add_child(l)
+		var sd := UiKit.label("", 21, Color(pal.text, 0.75))
+		sd.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(sd)
+		row.add_child(v)
+		card.add_child(row)
+		col.add_child(card)
+		cards.append(card)
 		slots.append(l)
-	_chest[0].visible = true
+		subs.append(sd)
+	UiKit.reveal(_chest)
 	var names := []
 	for u in data.upgrades:
 		names.append(u.name)
 	for ev in data.evolutions:
 		names.append(ev.name)
-	# Spin, slowing down, then land each slot in turn.
+	# Spin, slowing down, then land each card in turn.
 	var delay := 0.05
 	for step in 12:
 		for k in slots.size():
@@ -810,29 +845,38 @@ func _show_chest() -> void:
 			return
 		var r: Dictionary = rewards[k]
 		var evo: bool = r.kind == "evolution"
-		var head := "EVOLUTION!\n" if evo else ""
-		var lvl := "  Lv %d" % r.level if r.kind == "upgrade" else ""
-		slots[k].text = "%s%s%s\n%s" % [head, r.name, lvl, r.desc]
-		var ic := icons[k]
+		var ic = icons[k]
 		ic.evolved = evo
+		var accent: Color = pal.ui_accent
 		if evo:
 			for ev in data.evolutions:
 				if ev.id == r.id:
 					ic.key = ev.weapon
-					ic.color = GameData.color(ev.color)
+					accent = GameData.color(ev.color)
 		elif r.kind == "upgrade":
 			ic.key = r.id
-			ic.color = IconArt.color_for(world.upgrade_defs[r.id])
+			accent = IconArt.color_for(world.upgrade_defs[r.id])
 		else:
 			ic.key = "regen"
-			ic.color = pal.gem_medium
+			accent = pal.gem_medium
+		ic.color = accent
 		ic.queue_redraw()
-		var tw := ic.create_tween()
-		ic.pivot_offset = ic.size / 2.0
-		ic.scale = Vector2(1.35, 1.35)
-		tw.tween_property(ic, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		slots[k].add_theme_color_override("font_color", pal.ui_accent if evo else pal.text)
-		slots[k].add_theme_font_size_override("font_size", 40 if evo else 32)
+		slots[k].text = ("%s  Lv %d" % [r.name, r.level]) if r.kind == "upgrade" else str(r.name)
+		slots[k].add_theme_color_override("font_color", pal.ui_accent if evo else Color.WHITE)
+		subs[k].text = r.desc
+		var sb := UiKit._box(Color("#3a2a5e") if evo else Color("#2f2357"), 22, 16)
+		sb.set_border_width_all(4 if evo else 3)
+		sb.border_color = pal.ui_accent if evo else Color(accent, 0.8)
+		cards[k].add_theme_stylebox_override("panel", sb)
+		if evo:
+			var banner := UiKit.chip("EVOLUTION!", pal.ui_accent, Color(0.1, 0.06, 0.15), 22)
+			slots[k].get_parent().add_child(banner)
+			slots[k].get_parent().move_child(banner, 0)
+		cards[k].pivot_offset = cards[k].size / 2.0
+		cards[k].scale = Vector2(1.08, 1.08)
+		cards[k].create_tween().tween_property(cards[k], "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var at: Vector2 = ic.global_position + ic.size / 2.0 - burst.global_position
+		burst.emit(at, pal.ui_accent if evo else accent, 40 if evo else 18, 1.4 if evo else 0.8)
 		if evo:
 			Sfx.play("evolve", 0.0)
 			Sfx.vibrate(150)
@@ -842,11 +886,16 @@ func _show_chest() -> void:
 			Sfx.play("level_up", 0.0)
 		await get_tree().create_timer(0.35).timeout
 	if is_instance_valid(col):
-		col.add_child(UiKit.button("CONTINUE", _close_chest, 110))
+		var cont := UiKit.button("CONTINUE", _close_chest, 110)
+		col.add_child(cont)
+		UiKit.fade_in(cont)
 
 
 func _close_chest() -> void:
 	_chest[0].visible = false
+	for c in _chest[0].get_children():
+		if c is MetaShop.Burst:
+			c.queue_free()
 	world.close_chest()
 	if world.state == "levelup":
 		_show_levelup()
@@ -911,7 +960,7 @@ func _on_death() -> void:
 	col.add_child(UiKit.label("Survived %s" % UiKit.fmt_time(world.time), 32))
 	col.add_child(UiKit.button("REVIVE  (watch ad)", _revive, 130))
 	col.add_child(UiKit.button("No thanks", func() -> void: _show_results(false), 80))
-	_dead[0].visible = true
+	UiKit.reveal(_dead)
 
 
 func _revive() -> void:
@@ -945,37 +994,122 @@ func _show_results(won: bool) -> void:
 	_build_results(won)
 
 
-func _build_results(won: bool) -> void:
+## Results: headline, a stats card, then score and gold counting up with
+## ticks; NEW BEST stamps in and new achievements pop in one by one.
+## `gold_from` lets the double-gold ad count from the old total.
+func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void:
 	var col: VBoxContainer = _results[1]
 	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 14)
 	var head := "YOU SURVIVED!" if won else "RUN OVER"
 	if world.def_on:
 		head = "NUCLEUS DEFENDED!" if won and not world.free_mode else ("FREE MODE OVER" if world.free_mode else "NUCLEUS LOST")
-	col.add_child(UiKit.label(head, 56, pal.ui_accent))
-	col.add_child(UiKit.label("Time %s    Level %d    Kills %d" % [UiKit.fmt_time(world.time), world.level, world.kills], 28))
+	var title := UiKit.label(head, 56, pal.ui_accent if won else pal.text)
+	title.add_theme_constant_override("outline_size", 12)
+	title.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
+	col.add_child(title)
+	# Stats card.
+	var card := UiKit.panel(Color("#2a1f4a"), Color(1, 1, 1, 0.08), 22, 18)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 6)
+	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)]]
 	if world.terr != null:
-		col.add_child(UiKit.label("Dish infected: %d%%" % roundi(world.terr.infected_fraction() * 100.0), 32, pal.player_nucleus))
+		rows.append(["Dish infected", "%d%%" % roundi(world.terr.infected_fraction() * 100.0)])
 	if world.conv_on:
-		col.add_child(UiKit.label("Germs converted: %d" % world.conversions, 32, pal.player_nucleus))
+		rows.append(["Germs converted", str(world.conversions)])
 	if world.def_on:
 		if world.free_mode:
-			col.add_child(UiKit.label("Free Mode: reached wave %d    Towers: %d" % [world.wave, world.towers_built], 30, pal.core))
+			rows.append(["Free Mode wave", str(world.wave)])
 		else:
-			col.add_child(UiKit.label("Waves cleared: %d / %d    Towers: %d" % [world.waves_cleared, world.wave_count, world.towers_built], 30, pal.core))
-	col.add_child(UiKit.label("Score %d%s" % [int(_summary.score), "   NEW BEST!" if _new_best else ""], 32, pal.ui_accent if _new_best else pal.text))
+			rows.append(["Waves cleared", "%d / %d" % [world.waves_cleared, world.wave_count]])
+		rows.append(["Towers", str(world.towers_built)])
+	for r in rows:
+		var k := UiKit.label(r[0], 24, Color(pal.text, 0.65))
+		k.autowrap_mode = TextServer.AUTOWRAP_OFF
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(k)
+		var v := UiKit.label(r[1], 24, pal.text)
+		v.autowrap_mode = TextServer.AUTOWRAP_OFF
+		v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(v)
+	card.add_child(grid)
+	col.add_child(card)
+	# Score (counts up), NEW BEST stamp.
+	var score_row := HBoxContainer.new()
+	score_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	score_row.add_theme_constant_override("separation", 14)
+	var score := UiKit.label("", 40, pal.text)
+	score.autowrap_mode = TextServer.AUTOWRAP_OFF
+	score_row.add_child(score)
+	col.add_child(score_row)
+	var score_v := int(_summary.score)
+	var t := 0.25 if animate else 0.0
+	if animate:
+		UiKit.count_up(score, 0, score_v, 1.1, "Score %d", t, 1.0)
+	else:
+		score.text = "Score %d" % score_v
+	if _new_best:
+		var best := UiKit.chip("NEW BEST!", pal.ui_accent, Color(0.1, 0.06, 0.15), 24)
+		score_row.add_child(best)
+		if animate:
+			best.modulate.a = 0.0
+			best.resized.connect(func() -> void: best.pivot_offset = best.size / 2.0)
+			var tw := best.create_tween()
+			tw.tween_interval(t + 1.15)
+			tw.tween_callback(func() -> void:
+				best.modulate.a = 1.0
+				best.scale = Vector2(1.8, 1.8)
+				best.rotation = -0.15
+				Sfx.play("upgrade", 0.0)
+				Sfx.vibrate(40))
+			tw.tween_property(best, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(best, "rotation", 0.0, 0.25)
+	# Achievements, staggered.
+	var k := 0
 	for a in _new_achievements:
-		col.add_child(UiKit.label("Achievement: %s" % a.name, 26, pal.gem_medium))
-	col.add_child(UiKit.label("+%d gold" % _results_gold, 48, pal.gem_large))
+		var ach := UiKit.chip("Achievement: %s" % a.name, Color(pal.gem_medium, 0.9), Color(0.08, 0.05, 0.12), 22)
+		ach.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(ach)
+		if animate:
+			UiKit.fade_in(ach, t + 1.3 + 0.2 * k)
+		k += 1
+	# Gold (counts up).
+	var gold_row := HBoxContainer.new()
+	gold_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	gold_row.add_theme_constant_override("separation", 10)
+	gold_row.add_child(UpgradeIcon.make("gold", pal.gem_large, 52))
+	var gold := UiKit.label("", 52, pal.gem_large)
+	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
+	gold_row.add_child(gold)
+	col.add_child(gold_row)
+	if animate or gold_from > 0:
+		UiKit.count_up(gold, gold_from, _results_gold, 0.9, "+%d gold", t + (0.6 if animate else 0.0), 1.3)
+	else:
+		gold.text = "+%d gold" % _results_gold
 	if not _results_doubled and Ads.is_rewarded_available():
 		col.add_child(UiKit.button("DOUBLE GOLD  (watch ad)", func() -> void:
 			Ads.show_rewarded("double_gold", func(ok: bool) -> void:
 				if ok and not _results_doubled:
 					_results_doubled = true
+					var before := _results_gold
 					_results_gold *= 2
-				_build_results(won)), 120))
-	col.add_child(UiKit.button("PLAY AGAIN", _collect.bind(true), 110))
+					_build_results(won, false, before)
+				else:
+					_build_results(won, false)), 120))
+	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 110)
+	var ps := UiKit._box(pal.ui_accent, 22)
+	again.add_theme_stylebox_override("normal", ps)
+	again.add_theme_stylebox_override("hover", ps)
+	again.add_theme_stylebox_override("pressed", UiKit._box(pal.ui_accent.darkened(0.15), 22))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		again.add_theme_color_override(c, Color(0.12, 0.07, 0.2))
+	col.add_child(again)
 	col.add_child(UiKit.button("Menu", _collect.bind(false), 80))
-	_results[0].visible = true
+	if not _results[0].visible:
+		UiKit.reveal(_results)
 
 
 func _collect(again: bool) -> void:
@@ -1009,7 +1143,10 @@ func _build_pause() -> void:
 		UiKit.clear(col)
 		col.add_child(_settings_screen(_build_pause)), 90))
 	col.add_child(UiKit.button("Quit run", func() -> void: _show_results(false), 80))
-	_pause[0].visible = true
+	if not _pause[0].visible:
+		UiKit.reveal(_pause)
+	else:
+		UiKit.fade_in(col)
 
 
 func _settings_screen(back: Callable) -> SettingsScreen:
@@ -1022,7 +1159,9 @@ func _show_settings() -> void:
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_child(_settings_screen(_show_menu))
+	var st := _settings_screen(_show_menu)
+	col.add_child(st)
+	UiKit.fade_in(st)
 
 
 func _resume() -> void:
@@ -1070,7 +1209,7 @@ func _show_defense_won() -> void:
 	keep.add_theme_stylebox_override("pressed", UiKit._box(MetaShop.GREEN_DARK, 26))
 	col.add_child(keep)
 	col.add_child(UiKit.button("COLLECT", _collect_win, 100))
-	_victory[0].visible = true
+	UiKit.reveal(_victory)
 	_pop_in(head, 0.0)
 
 
