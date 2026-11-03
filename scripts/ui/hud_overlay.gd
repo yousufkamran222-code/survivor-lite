@@ -304,7 +304,7 @@ func _draw_bars(ci: CanvasItem) -> void:
 	if _xp_flash > 0.0:
 		ci.draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
 	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
-	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
+	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.player_hurt if world.final_minute else pal.text)
 	var kills_txt := "%d kills" % world.kills
 	ci.draw_string(font, Vector2(16, 96), kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
 	# Live run gold: coin + amount after the kills (gold-tinted in a frenzy).
@@ -324,10 +324,12 @@ func _draw_bars(ci: CanvasItem) -> void:
 		_draw_defense_bars(ci, w)
 	if world.boss_index >= 0 and world.boss_index < world.e_hp.size():
 		var f := world.e_hp[world.boss_index] / world.e_maxhp[world.boss_index]
-		var r := Rect2(60, 120, w - 120, 18)
+		# Below the SWARM / INFECTED readout when there is one.
+		var dy := 26.0 if (world.conv_on or world.terr != null) else 0.0
+		var r := Rect2(60, 120 + dy, w - 120, 18)
 		ci.draw_rect(r, Color(0, 0, 0, 0.55))
 		ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
-		ci.draw_string(font, Vector2(0, 112), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+		ci.draw_string(font, Vector2(0, 112 + dy), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
 
 
 ## Owned-upgrade strip and the DASH / UPGRADE labels (strip layer).

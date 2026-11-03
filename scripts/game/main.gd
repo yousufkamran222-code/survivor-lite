@@ -366,6 +366,12 @@ func _handle_events(events: Array) -> void:
 			"trail_lost":
 				Sfx.play("hurt", 0.0)
 				hud.toast("Trail lost", pal.player_hurt, 1.0)
+			"final_minute":
+				Sfx.play("boss", 0.0, 1.15)
+				Sfx.vibrate(120)
+				view.add_shake(8.0)
+				hud.toast("FINAL MINUTE!", pal.player_hurt, 2.2)
+				hud.toast("Survive the surge", Color(pal.text, 0.9), 2.2)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				hud.toast("ELITE GERM!", hud.elite_color, 1.8)

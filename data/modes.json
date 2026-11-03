@@ -4,7 +4,7 @@
    "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
   {"id": "swarm", "name": "Swarm", "tag": "NEW", "icon": "mode_swarm", "color": "#7cff9b", "special": "best_conversions", "special_label": "Best %d converted",
    "desc": "Kills can convert germs into your allies. Grow an army that fights for you.",
-   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.22}, "difficulty": {"damage_taken_mult": 2.0}}},
+   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.27}, "difficulty": {"damage_taken_mult": 2.0}}},
   {"id": "nucleus", "name": "Nucleus", "tag": "NEW", "icon": "mode_nucleus", "color": "#ff9e5e", "special": "best_kills", "special_label": "Best %d kills",
    "desc": "Defend the nucleus for 12 waves. Stand on a pad to build or upgrade a tower with biomass.",
    "overrides": {"territory": {"enabled": false}, "defense": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},

@@ -257,9 +257,9 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 
 | Mode | Win | p50 | Level p50 | Notes |
 |---|---|---|---|---|
-| Classic | ~29-34% | 3:25-4:45 | 12-20 | Dash cards dilute the bot's random picks |
-| Infection | ~34% (high variance) | 2:55-5:00 | 20-32 | 12-21% infected; top killer: Lump |
-| Swarm | 40% (48 runs) | 2:38-5:00 | 14-30 | Orders build: allies deal ~22% of damage; without conversions 9%. Damage taken x2.0 |
+| Classic | 27% (48 runs) | 2:56-5:00 | 12-18 | After the final-minute pass (was 40%) |
+| Infection | 27% (48 runs) | 2:31-3:42 | 20-26 | Was 31% |
+| Swarm | 27% (48 runs) | 2:26-5:00 | 13-32 | Orders build: allies deal ~17-22% of damage; damage taken x2.0, XP quad 0.27 (was 40%) |
 | All meta maxed | 100% | 5:00 | ~41 | Expected for a fully maxed account |
 
 **Bot biases:**
@@ -326,10 +326,11 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 
 **Planned features (agreed or proposed):**
 0000. **Boss Rift** (Yousuf, later): a glowing rift opens every few minutes; optional mini-boss arena fight for a rare reward. Spec in `docs/SPEC.md` "Later".
-000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Yousuf: bot win rate must stay <= 40-45% per mode.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
+000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
-00000. **Swarm orders: awaiting playtest** (D-020). Questions: is damage taken x2 fair, is Harvest too strong (bot reaches level ~30), does Hunt read on screen? Offered but not chosen: type roles per order, one Swarm card per order. Sacrifice order: SPEC "Later".
+000000. **Final minute + harder late game: awaiting playtest** (D-021). He beat Swarm and Infection first try (with a revive). Ask: does the final minute feel like a climax or a wall? Did a first win take 3-5 runs? **Difficulty levels** (unlock Lv 2+ per mode after a win) are agreed for later: spec in SPEC "Later".
+00000. **Swarm orders: awaiting playtest** (D-020). The fan now pauses the run (his request). Questions: is damage taken x2 fair, is Harvest too strong (bot reaches level ~30), does Hunt read on screen? Offered but not chosen: type roles per order, one Swarm card per order. Sacrifice order: SPEC "Later".
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:
    - Leukocyte / Spore Burst
    - Virus / Hijack

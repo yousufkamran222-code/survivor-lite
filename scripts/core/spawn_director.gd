@@ -56,8 +56,12 @@ func damage_mult(t: float) -> float:
 ## Returns spawn orders: [{id, count, pattern, elite?}] for this tick.
 func update(dt: float, t: float, alive: int) -> Array:
 	var out := []
+	# Final minute: elites come twice as often (waves.elites.final_*).
+	var final_from := float(waves.get("elites", {}).get("final_from_s", INF))
+	if t >= final_from:
+		_next_elite_t = minf(_next_elite_t, t + float(waves.elites.final_every_s))
 	if t >= _next_elite_t:
-		_next_elite_t += float(waves.elites.every_s)
+		_next_elite_t += float(waves.elites.final_every_s if t >= final_from else waves.elites.every_s)
 		var choices := []
 		for p in pool_at(t):
 			if waves.elites.types.has(p.enemy):

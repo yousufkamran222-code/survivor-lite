@@ -233,3 +233,14 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Swarm order fan pauses the run
 - Yousuf ("really love these changes"): pause while the fan is open. Main stops stepping while `hud.orders_open`; the field dims with "SWARM ORDERS / Paused"; tap an order to switch and resume, tap anywhere else (or Esc / Android Back) to resume without switching; other keys are ignored while it's open. The 3 s auto-close is gone. No sim change (the sim never opens the fan). 146 tests.
+
+### 2026-11-03 Harder, more satisfying late game: bigger crowds + final minute (D-021)
+- Yousuf beat Swarm and Infection on his first try with no permanent upgrades (one revive each; he'd have lost without it). Target: a good player's first win after about 3-5 runs. The bot cap is now only a sanity alarm (±10-15 points is fine).
+- Finding: in Classic the 170 cap is full from 1:00 (the bot drags its crowd), in Infection/Swarm almost never. More budget alone made the bot *stronger* (more kills, more XP: Classic 40%, Infection 36%, Swarm 44%), so the final minute also needed real bite (not HP sponges).
+- Data: budget curve x1.25-1.3 from 2:30 and a surge from 4:00 (`waves.budget_curve` ... 240: 24, 300: 30); enemy damage growth 0.3 → 0.4/min; **final minute** (`waves.final_minute_s` 240): germs x1.15 speed (`final_speed_mult`), elites every 20 s (`elites.final_from_s`/`final_every_s`), FINAL MINUTE warning (toast, boss sound, shake, red timer); Swarm XP quad 0.22 → 0.27 (Harvest feeds lots of XP). Boss bar moved below the SWARM/INFECTED readout (they overlapped).
+- **Bot, seeds 600-1100 x 8 (48 runs per mode), before → after:**
+  - Classic: win 40% → 27%, p10 2:22-3:05 → 2:18-3:08, p50 3:31-5:00 → 2:56-5:00, p90 5:00 → 4:44-5:00, level 15-17 → 12-18
+  - Infection: win 31% → 27%, p10 1:56-3:07 → 1:56-2:41, p50 2:48-5:00 → 2:31-3:42, p90 5:00 → 2:59-5:00, level 20-34 → 20-26
+  - Swarm: win 40% → 27%, p10 1:19-2:30 → 1:08-2:18, p50 2:37-5:00 → 2:26-5:00, p90 2:47-5:00 → 3:26-5:00, level 14-30 → 13-32
+  - Nucleus: byte-identical (wave mode; no final minute). Peak enemies unchanged (~210).
+- Sim `--set` now also takes `waves.*` keys. 150 tests.

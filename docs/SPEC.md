@@ -16,10 +16,11 @@
 9. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
 
 ## Run structure and difficulty curve (`data/waves.json`)
-- A spawn **budget** (points/s) ramps 1.6 → 3.5 → 5.5 → 8.5 → 13 → 17 → 20 at 0/45/90/150/210/270/300 s. Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
-- Enemy HP grows +120% per minute (not the boss), and enemy damage +30% per minute. The on-screen cap is 170, plus short overshoot from rings and splits.
+- A spawn **budget** (points/s) ramps 2.4 → 3.8 → 5.5 → 8.5 → 13.5 → 16.9 → 24 → 30 at 0/45/90/150/180/210/240/300 s (bigger crowds from 2:30, a surge in the final minute). Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
+- Enemy HP grows +120% per minute (not the boss), and enemy damage +40% per minute.
+- **Final minute** (timed modes, from 4:00): a FINAL MINUTE warning, the timer turns red, germs move 15% faster, elites come every 20 s instead of 40 s, and the spawn budget surges. Nucleus keeps its own finale (the boss wave). The on-screen cap is 170, plus short overshoot from rings and splits.
 - New enemy types unlock over time (table below). Scripted beats: Spore ring at 1:00, Zipper ring at 2:15, Lump ring at 3:20, **boss at 3:50**, final Spore flood at 4:40.
-- **Targets** (checked with `tools/sim/balance_sim.gd`, then real playtests): median first-time death 3:00-4:30, win rate under 30% without meta upgrades and over 60% with most meta bought, a level-up roughly every 15 s, and the boss killed in about half of the runs that reach it.
+- **Targets** (checked with `tools/sim/balance_sim.gd`, then real playtests): **a good player's first win after about 3-5 runs** with no permanent upgrades (Yousuf, 2026-11-03; he won Swarm and Infection on his first try, with one revive, before the final-minute change), median first-time death 3:00-4:30, bot win rate under ~30% without meta upgrades (a sanity check, ±10-15 points is fine) and over 60% with most meta bought, a level-up roughly every 15 s, and the boss killed in about half of the runs that reach it.
 
 ## Enemies (`data/enemies.json`), 8 types
 | id | Name | Unlock | Behaviour | Role |
@@ -84,5 +85,6 @@ Hit flash, knockback and its decay, dash afterimages, elite auras, chest reveal 
 
 ## Later (not v1)
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
+- **Difficulty levels (agreed for later, 2026-11-03):** beating a mode unlocks Lv 2, 3, ... for that mode (like heat/danger levels). Each level adds one modifier from data (faster germs, extra elites, a tougher boss, ...) and +20% gold, so the first win stays a celebration, good players get a ladder, and a maxed account has something to beat (it wins 100% today). Needs: per-mode unlocked/selected level in `Profile` (bump `Profile.VERSION`), a level selector on the mode card, a `difficulty_levels` table merged like mode overrides, per-level records/leaderboards.
 - **Sacrifice order (Swarm, 2026-11-03, revisit later):** a 4th swarm order: every ally bursts at once for damage based on its remaining HP, spending the swarm for a panic clear. Held back because it overlaps with Outbreak as a panic button; it would need a cost (e.g. no conversions for a while) or a different trigger so it doesn't become the obvious answer.
 - **Boss Rift (Yousuf's idea, 2026-11-03):** every few minutes a glowing rift opens; step in (your choice) and the run freezes while you fight a unique mini-boss with special attack patterns for ~20 s in a cleared arena. Win: pick a rare reward (1 of 3 upgrades, or a guaranteed evolution step). Lose or run out of time: back to the run as it was (damage taken in the arena carries over, so it's a real risk). Open points: a new boss vs the 8-enemy-type cap (or a Mother Cell variant with new patterns); implement as a separate arena World that the run's World waits behind.

@@ -167,6 +167,8 @@ var p_on_land := false
 var _terr_tick := 0.0
 
 # --- Conversion (prototype 2, Swarm mode; off unless balance.conversion.enabled) ---
+var final_minute := false  # timed modes: waves.final_minute_s reached (climax)
+var final_speed := 1.0  # germ speed multiplier during the final minute
 var conv_on := false
 var ally_count := 0
 var swarm_power := 0.0  # grows each time a conversion "feeds" a full swarm
@@ -274,6 +276,10 @@ func step(dt: float, move: Vector2) -> void:
 		state = "won"
 		_emit({"type": "victory"})
 		return
+	if not final_minute and not def_on and time >= float(data.waves.get("final_minute_s", INF)):
+		final_minute = true
+		final_speed = float(data.waves.get("final_speed_mult", 1.0))
+		_emit({"type": "final_minute"})
 	if p_down > 0.0:
 		_update_down(dt)
 	else:
@@ -764,6 +770,8 @@ func _update_enemies(dt: float) -> void:
 			if def_on and e_slow[i] > 0.0:
 				e_slow[i] -= dt
 				spd *= 1.0 - float(dcfg.fever_slow)
+			if final_minute:
+				spd *= final_speed
 			vel = dir * spd
 			if beh != BEH_CHASE:
 				vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)

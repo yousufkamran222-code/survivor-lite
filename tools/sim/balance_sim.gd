@@ -8,7 +8,7 @@ extends SceneTree
 ## --mode ID (data/modes.json, default: first mode), --classic (= --mode classic),
 ## --json PATH, --free (Nucleus: keep going into Free Mode after the win),
 ## --order guard|hunt|harvest (Swarm: the bot keeps that order),
-## --set key.path=value,... (override balance numbers for a tuning run)
+## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run)
 
 const DT := 1.0 / 30.0
 
@@ -26,9 +26,13 @@ func _initialize() -> void:
 	if args.has("set"):
 		for pair in str(args.set).split(","):
 			var kv := pair.split("=")
-			var node: Dictionary = d.balance
 			var keys := kv[0].split(".")
-			for k in keys.size() - 1:
+			var node: Dictionary = d.balance
+			var k0 := 0
+			if keys[0] == "waves":  # waves.* keys go to data/waves.json
+				node = d.waves
+				k0 = 1
+			for k in range(k0, keys.size() - 1):
 				node = node[keys[k]]
 			node[keys[keys.size() - 1]] = float(kv[1])
 	force_order = World.ORDER_IDS.find(str(args.get("order", "")))
