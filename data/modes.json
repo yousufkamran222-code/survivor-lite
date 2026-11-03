@@ -4,11 +4,11 @@
    "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
   {"id": "swarm", "name": "Swarm", "tag": "NEW", "icon": "mode_swarm", "color": "#7cff9b", "special": "best_conversions", "special_label": "Best %d converted",
    "desc": "Kills can convert germs into your allies. Grow an army that fights for you.",
-   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.16}}},
+   "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.16}, "difficulty": {"damage_taken_mult": 1.3}}},
   {"id": "nucleus", "name": "Nucleus", "tag": "NEW", "icon": "mode_nucleus", "color": "#ff9e5e", "special": "best_kills", "special_label": "Best %d kills",
    "desc": "Defend the nucleus for 12 waves. Stand on a pad to build or upgrade a tower with biomass.",
    "overrides": {"territory": {"enabled": false}, "defense": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}}},
   {"id": "classic", "name": "Classic", "tag": "", "icon": "mode_classic", "color": "#ffd166", "special": "best_kills", "special_label": "Best %d kills",
    "desc": "An endless field. Kite, build, survive 5:00.",
-   "overrides": {"territory": {"enabled": false}}}
+   "overrides": {"territory": {"enabled": false}, "difficulty": {"enemy_hp_mult": 1.2}}}
 ]

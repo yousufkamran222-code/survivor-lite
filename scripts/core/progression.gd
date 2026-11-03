@@ -9,9 +9,10 @@ static func xp_needed(balance: Dictionary, level: int) -> float:
 	return floor(float(x.base) + float(x.linear) * l + float(x.quad) * l * l)
 
 
-static func run_gold(balance: Dictionary, kills: int, time_s: float, boss_killed: bool, won: bool, gold_gain: float) -> int:
+## `bonus_kills`: extra kill-equivalents (Outbreak frenzy kills pay more).
+static func run_gold(balance: Dictionary, kills: int, time_s: float, boss_killed: bool, won: bool, gold_gain: float, bonus_kills: float = 0.0) -> int:
 	var e: Dictionary = balance.economy
-	var g := kills * float(e.gold_per_kill) + time_s / 60.0 * float(e.gold_per_minute)
+	var g := (kills + bonus_kills) * float(e.gold_per_kill) + time_s / 60.0 * float(e.gold_per_minute)
 	if boss_killed:
 		g += float(e.gold_boss_bonus)
 	if won:

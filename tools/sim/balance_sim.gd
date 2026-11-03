@@ -97,7 +97,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
-		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0),
+		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0, w.bonus_gold_kills()),
 	}
 
 

@@ -84,6 +84,7 @@ var _volatile := {}  # enemy uid -> chain generation, for germs killed by the da
 var outbreak := 0.0  # 0..1
 var outbreak_t := 0.0  # frenzy time left
 var outbreaks := 0
+var frenzy_kills := 0  # kills during an Outbreak frenzy (they pay extra gold)
 # Plague Trail (the Outbreak ability): a fading toxic trail behind the player.
 var pt_pos := PackedVector2Array()
 var pt_age := PackedFloat32Array()
@@ -1118,6 +1119,8 @@ func _process_dead() -> void:
 		if e_plague[i] > 0.0:
 			spreads.append(pos)
 		_fill_outbreak(elite, d.behavior == "boss")
+		if outbreak_t > 0.0:
+			frenzy_kills += 1
 		if _volatile.has(e_uid[i]):
 			bursts.append([pos, e_maxhp[i], int(_volatile[e_uid[i]])])
 			_volatile.erase(e_uid[i])
@@ -1165,6 +1168,9 @@ func _process_dead() -> void:
 func _hurt(amount: float, cause: String) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
+	if outbreak_t > 0.0:
+		amount *= float(bal.outbreak.get("damage_taken_mult", 1.0))  # frenzy: half damage
+	amount *= float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
 	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
 	_emit({"type": "hurt", "amount": amount})
@@ -1232,6 +1238,8 @@ func _update_gems(dt: float) -> void:
 	var pr := float(bal.player.pickup_radius) * (1.0 + float(stats.magnet))
 	var speed := float(bal.xp.gem_speed)
 	var gain := 1.0 + float(stats.xp_gain)
+	if outbreak_t > 0.0:
+		gain *= float(bal.outbreak.get("xp_mult", 1.0))  # frenzy: boosted XP
 	var i := 0
 	while i < g_pos.size():
 		var off := p_pos - g_pos[i]
@@ -1704,12 +1712,23 @@ func _vent_point() -> Vector2:
 ## Enemy HP and damage growth: over time normally, per wave in Nucleus mode
 ## (so stalling a wave doesn't make the next one tankier).
 func _hp_mult() -> float:
+	return _base_hp_mult() * float(bal.get("difficulty", {}).get("enemy_hp_mult", 1.0))
+
+
+func _dmg_mult() -> float:
+	return _base_dmg_mult()
+
+
+## Per-mode difficulty (balance.difficulty, set in modes.json): enemy HP
+## multiplies the growth below; damage_taken_mult only scales damage to the
+## player (in _hurt), so Swarm allies aren't affected.
+func _base_hp_mult() -> float:
 	if def_on:
 		return (1.0 + float(dcfg.hp_growth_per_wave) * maxi(wave - 1, 0)) * pow(float(dcfg.free_hp_compound), _free_waves())
 	return director.hp_mult(time)
 
 
-func _dmg_mult() -> float:
+func _base_dmg_mult() -> float:
 	if def_on:
 		return (1.0 + float(dcfg.damage_growth_per_wave) * maxi(wave - 1, 0)) * pow(float(dcfg.free_damage_compound), _free_waves())
 	return director.damage_mult(time)
@@ -2072,6 +2091,8 @@ func _update_plague(dt: float) -> void:
 	if not bal.has("outbreak"):
 		return
 	var o: Dictionary = bal.outbreak
+	if not bool(o.get("plague_trail", false)):
+		return  # Plague Trail is switched off (kept for a possible return)
 	# Age and drop old trail points.
 	var life := float(o.get("trail_life_s", 0.0))
 	var keep := 0
@@ -2115,3 +2136,14 @@ func _update_plague(dt: float) -> void:
 		any = true
 	if any:
 		_process_dead()
+
+
+## Extra kill-equivalents of gold earned in Outbreak frenzies (gold_mult - 1
+## per frenzy kill), added on top of the normal per-kill gold.
+func bonus_gold_kills() -> float:
+	return frenzy_kills * (float(bal.get("outbreak", {}).get("gold_mult", 1.0)) - 1.0)
+
+
+## Gold earned so far this run (the HUD counter; results use the same maths).
+func run_gold_now(won: bool = false) -> int:
+	return Progression.run_gold(bal, kills, time, boss_killed, won, float(stats.gold_gain), bonus_gold_kills())

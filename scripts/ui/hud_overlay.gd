@@ -117,7 +117,7 @@ func _ready() -> void:
 	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
 	_bars_layer = _layer(func() -> void: _draw_bars(_bars_layer))
 	_sig_strip.resize(5)
-	_sig_bars.resize(16)
+	_sig_bars.resize(17)
 
 
 func _layer(painter: Callable) -> Control:
@@ -213,7 +213,13 @@ func _draw_bars(ci: CanvasItem) -> void:
 		ci.draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
 	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
 	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.text)
-	ci.draw_string(font, Vector2(16, 96), "%d kills" % world.kills, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
+	var kills_txt := "%d kills" % world.kills
+	ci.draw_string(font, Vector2(16, 96), kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
+	# Live run gold: coin + amount after the kills (gold-tinted in a frenzy).
+	var gx := 16.0 + font.get_string_size(kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 18.0
+	IconArt.draw(ci, "gold", Vector2(gx + 10.0, 89.0), 20.0, pal.ui_accent)
+	var gcol: Color = pal.ui_accent if world.outbreak_t <= 0.0 else Color(1, 0.95, 0.6)
+	ci.draw_string(font, Vector2(gx + 24.0, 96), str(world.run_gold_now()), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, gcol)
 	if world.conv_on:
 		var txt := "SWARM %d/%d" % [world.ally_count, world._ally_cap()]
 		if world.swarm_power > 0.0:
@@ -268,6 +274,8 @@ func _update_layers(delta: float) -> void:
 	_sig_bars[2] = world.level
 	_sig_bars[3] = int(world.time)
 	_sig_bars[4] = world.kills
+	_sig_bars[13] = world.run_gold_now()
+	_sig_bars[14] = 1 if world.outbreak_t > 0.0 else 0
 	_sig_bars[5] = world.ally_count * 1000 + roundi(world.swarm_power * 100.0)
 	_sig_bars[6] = roundi(world.terr.infected_fraction() * 100.0) if world.terr != null else 0
 	var bi := world.boss_index

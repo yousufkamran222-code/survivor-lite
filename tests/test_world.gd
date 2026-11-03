@@ -261,6 +261,7 @@ func test_outbreak_can_fire_pickups() -> void:
 
 func test_plague_trail_infects_spreads_and_fades() -> void:
 	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.bal.outbreak.plague_trail = true
 	var o: Dictionary = w.bal.outbreak
 	w.p_pos = Vector2.ZERO
 	w.outbreak = 1.0
@@ -288,6 +289,7 @@ func test_plague_trail_infects_spreads_and_fades() -> void:
 
 func test_plague_is_weak_against_elites() -> void:
 	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.bal.outbreak.plague_trail = true
 	w._add_enemy("brute", Vector2(500, 0))
 	w._add_enemy("brute", Vector2(-500, 0), true)
 	w.e_plague[0] = 5.0
@@ -296,3 +298,41 @@ func test_plague_is_weak_against_elites() -> void:
 	var b := w.e_hp[1]
 	w._update_plague(0.5)
 	check((b - w.e_hp[1]) / w.e_maxhp[1] < (a - w.e_hp[0]) / w.e_maxhp[0] * 0.5, "elites lose a much smaller share of their HP")
+
+
+
+func test_frenzy_halves_damage_and_pays_triple_gold() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	var o: Dictionary = w.bal.outbreak
+	var hp := w.p_hp
+	w._hurt(20.0, "test")
+	var normal := hp - w.p_hp
+	w.p_hp = hp
+	w.p_iframes = 0.0
+	w.outbreak = 1.0
+	check(w.trigger_outbreak())
+	w._hurt(20.0, "test")
+	check_near(hp - w.p_hp, normal * float(o.damage_taken_mult), 0.01, "half damage during the frenzy")
+	var before := w.run_gold_now()
+	for k in 200:
+		w._add_enemy("grunt", Vector2(900, 0))
+		w._damage(0, 1.0e6, Vector2.ZERO)
+		w._process_dead()
+	check_eq(w.frenzy_kills, 200)
+	var per_kill := float(w.bal.economy.gold_per_kill)
+	check(w.run_gold_now() >= before + int(200 * per_kill * float(o.gold_mult)) - 1, "frenzy kills pay gold_mult times")
+
+
+func test_mode_difficulty_knobs() -> void:
+	var base := World.new(GameData.apply_mode(data(), "infection"), 4)
+	var d := data().duplicate(true)
+	d.balance.difficulty = {"enemy_hp_mult": 1.5, "damage_taken_mult": 2.0}
+	var hard := World.new(d, 4)
+	base._add_enemy("grunt", Vector2(900, 0))
+	hard._add_enemy("grunt", Vector2(900, 0))
+	check_near(hard.e_maxhp[0], base.e_maxhp[0] * 1.5, 0.01, "enemy HP multiplier")
+	var a := base.p_hp
+	base._hurt(10.0, "test")
+	var b := hard.p_hp
+	hard._hurt(10.0, "test")
+	check_near(b - hard.p_hp, (a - base.p_hp) * 2.0, 0.01, "damage taken multiplier (player only)")

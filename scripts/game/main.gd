@@ -344,9 +344,8 @@ func _handle_events(events: Array) -> void:
 				hud.toast("OUTBREAK READY", pal.outbreak, 1.6)
 			"outbreak_start":
 				Sfx.play("evolve", 0.0)
-				Sfx.play("convert", 0.0, 0.7)
 				Sfx.vibrate(120)
-				hud.toast("PLAGUE TRAIL!", pal.outbreak, 1.6)
+				hud.toast("OUTBREAK!  x3 GOLD", pal.outbreak, 1.6)
 				Analytics.event("outbreak", {"t": int(world.time), "mode": world.bal.get("mode_id", "")})
 			"volatile":
 				Sfx.play("nova", 0.1, 1.5)
@@ -1004,7 +1003,7 @@ func _show_results(won: bool) -> void:
 	_set_screen("results")
 	if won:
 		Sfx.play_music("ending")
-	_results_gold = Progression.run_gold(bal, world.kills, world.time, world.boss_killed, won, float(world.stats.gold_gain))
+	_results_gold = world.run_gold_now(won)
 	_results_doubled = false
 	# Progress tracking: lifetime stats, per-mode records, achievements and
 	# leaderboard submissions (local stub until Play Games is connected).
