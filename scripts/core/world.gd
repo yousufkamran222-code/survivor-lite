@@ -327,9 +327,10 @@ func dash() -> bool:
 	if decoy_lv > 0.0 and decoy_cd <= 0.0:
 		decoy_pos = p_pos
 		decoy_t = float(pl.decoy_s)
-		# Level 2+ (Afterimage card) shortens the cooldown; meta Ghost Trail
-		# alone (0.5 per level) keeps the base cooldown.
-		var cut := float(pl.decoy_cooldown_per_level) * clampf(floorf(decoy_lv) - 1.0, 0.0, 1.0)
+		# Only the Afterimage card's own level 2+ shortens the cooldown; the
+		# permanent Ghost Trail only grows the burst (it used to count too,
+		# so card Lv1 could already act like Lv2).
+		var cut := float(pl.decoy_cooldown_per_level) * (1.0 if int(owned.get("afterimage", 0)) >= 2 else 0.0)
 		decoy_cd = float(pl.decoy_cooldown_s) - cut
 		_emit({"type": "decoy", "pos": p_pos})
 	_emit({"type": "dash", "pos": p_pos, "dir": p_dash_dir})
@@ -344,8 +345,12 @@ func dash_max_charges() -> int:
 	return 1 + int(stats.get("dash_charges", 0.0))
 
 
+## Card and permanent cooldown cuts multiply (each always helps; adding them
+## used to hit the 0.4x floor, so Adrenaline Lv3 could do nothing).
 func dash_cooldown() -> float:
-	return float(bal.player.dash_cooldown_s) * maxf(0.4, 1.0 - float(stats.get("dash_cd", 0.0)))
+	var meta_cut := float(meta_bonus.get("dash_cd", 0.0))
+	var card_cut := float(stats.get("dash_cd", 0.0)) - meta_cut
+	return float(bal.player.dash_cooldown_s) * maxf(0.3, (1.0 - meta_cut) * (1.0 - card_cut))
 
 
 ## Called when the chest reveal has been shown. Rewards were already applied.

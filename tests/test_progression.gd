@@ -82,3 +82,36 @@ func test_meta_effect_text_reads_as_words() -> void:
 	check_eq(Progression.meta_effect_text(pct, 0), "None yet")
 	for m in data().meta:
 		check(str(m.get("label", "")) != "", "%s has a shop label" % m.id)
+
+
+func test_dash_cooldown_card_and_meta_multiply() -> void:
+	# Regression: card + permanent cuts were added and hit the floor, so
+	# Adrenaline Lv3 did nothing with Flagella Training maxed.
+	var full := Progression.meta_bonus(data().meta, {"meta_dash_cd": 6})
+	var prev := INF
+	for lv in [0, 1, 2, 3]:
+		var w := World.new(data(), 1, full)
+		if lv > 0:
+			w.owned["adrenaline"] = lv
+		w._recompute_stats()
+		check(w.dash_cooldown() < prev - 0.01, "Adrenaline Lv%d still shortens the dash cooldown" % lv)
+		prev = w.dash_cooldown()
+	var none := World.new(data(), 1, {})
+	none.owned["adrenaline"] = 2
+	none._recompute_stats()
+	check_near(none.dash_cooldown(), float(none.bal.player.dash_cooldown_s) * 0.7, 0.001, "without meta: same as before")
+
+
+func test_afterimage_cooldown_comes_from_the_card_level_only() -> void:
+	# Regression: Ghost Trail's half-levels made Afterimage Lv1 act like Lv2.
+	var pl: Dictionary = data().balance.player
+	var w := World.new(data(), 1, Progression.meta_bonus(data().meta, {"meta_dash_decoy": 3}))
+	w.owned["afterimage"] = 1
+	w._recompute_stats()
+	w.dash()
+	check_near(w.decoy_cd, float(pl.decoy_cooldown_s), 0.001, "card Lv1: base decoy cooldown")
+	var w2 := World.new(data(), 1, {})
+	w2.owned["afterimage"] = 2
+	w2._recompute_stats()
+	w2.dash()
+	check_near(w2.decoy_cd, float(pl.decoy_cooldown_s) - float(pl.decoy_cooldown_per_level), 0.001, "card Lv2: faster")

@@ -736,7 +736,12 @@ func _upgrade_card(id: String) -> Button:
 	name.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(name)
-	if nl == 1:
+	var boosts := false  # a permanent upgrade already gives this card's effect
+	for k in def.levels[0]:
+		boosts = boosts or float(world.meta_bonus.get(k, 0.0)) > 0.0
+	if nl == 1 and boosts and def.type != "weapon":
+		top.add_child(UiKit.chip("BOOST", Color(1, 1, 1, 0.85)))
+	elif nl == 1:
 		top.add_child(UiKit.chip("NEW " + ("WEAPON" if def.type == "weapon" else ""), accent))
 	else:
 		top.add_child(UiKit.chip("LV %d" % nl, Color(1, 1, 1, 0.85)))

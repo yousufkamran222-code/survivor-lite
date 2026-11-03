@@ -188,3 +188,10 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Enemy telegraphs, first-run hints, Profile scroll fix
 - Lancer dash lanes, Spitter charge glow, Mother Cell burst ring; one-time hints from `data/hints.json` (time or event triggered, Settings can reset). Profile panels now pass drags to the scroll list (Yousuf: it only scrolled from the gaps). 122 tests. Details in `docs/POLISH_PLAN.md` Phase 4.
+
+### 2026-11-03 Card + permanent upgrade audit and fixes (Yousuf: "a bit buggy/confused")
+- Audit: every stat fed by both a card and a permanent upgrade, measured in-game. Charges (up to 4), damage, haste, HP, pickup range and projectiles stacked correctly. Three dash problems fixed:
+  1. **Adrenaline Lv3 could do nothing:** card + permanent cooldown cuts were added and hit the 0.4x floor (full Flagella Training: Lv2 and Lv3 both 0.80 s). They now multiply (floor 0.3x): every level helps; full permanent + Lv3 ≈ 0.77 s. Same as before without permanent upgrades.
+  2. **Afterimage cooldown:** Ghost Trail's half-levels counted toward the card's Lv2 cooldown (card Lv1 gave 4.5 s while its text said 6 s). Only the card's own Lv2 shortens it now; Ghost Trail grows the burst.
+  3. **Wording:** Lunge/Afterimage Lv1 text now leads with the boost ("+20 dash damage: ...", "Decoy burst +100%: ..."), and level-up cards show **BOOST** instead of NEW when a permanent upgrade already gives that effect.
+- Sims: Classic, no permanent upgrades, seed 600 × 6: identical before/after (50% win, p50 5:00, level 18); all permanent upgrades maxed, seeds 600/700 × 6: 100% win, level 41 both before and after. Regression tests added. 124 tests.
