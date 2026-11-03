@@ -309,6 +309,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - Debug builds (no keystore secrets) can't update over each other. Tell Yousuf to uninstall first.
 - Analytics and the online stub print only in debug builds.
 - `balance.json` `debug.show_perf` is on for playtests. **Turn it off for release builds.** `debug.invincible` must stay false.
+- **No audio buses created at runtime** (`AudioServer.add_bus`): the web build plays audio through Web Audio "samples", which never connect runtime buses to the output, so every sound on them is silent (found 2026-11-03: output peak 0.45 → 0.0). `Sfx` sets volumes per player instead. Check web audio with Playwright by tapping the output with an `AnalyserNode` (see PIPELINE 2026-11-03).
 - **`tools/build_assets.py`: append new sounds at the end of `build_sfx()`.** The noise generator is shared, so inserting a sound earlier silently changes every sound after it.
 - Keep `docs/PIPELINE.md` dated entries appended at the end. Decisions go in `docs/DECISIONS.md` (newest last).
 

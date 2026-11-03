@@ -173,3 +173,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Polish Phase 4: music and settings
 - Generated music (menu loop; run loop in two synced layers, the drive layer fading in with intensity), Music/SFX buses with ducking, and a Settings screen (volumes, vibration, shake, frame rate, FPS readout) from the menu and pause. Details in `docs/POLISH_PLAN.md` Phase 4.
+
+### 2026-11-03 Web audio fix; music direction
+- Yousuf: no sound at all on web since the music build. Cause: the "Music"/"SFX" buses were created at runtime, and the web build's Web Audio sample path never connects runtime buses to the output. Verified in Chromium by routing the output through an `AnalyserNode`: peak 0.45 (before) → 0.0000 (broken) → 0.4548 (fixed). Fix: no extra buses; `Sfx` applies the Music/Effects volumes per player.
+- Feedback on the generated music: "trash". Agreed: hand-synthesised melodic music won't reach the quality of composed tracks. Next: CC0 tracks from OpenGameArt (FreePD has shut down), chosen by Yousuf.
