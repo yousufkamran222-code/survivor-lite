@@ -39,6 +39,9 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_best := false
 var _touch_index := -1
+var _streak := 0  # kills chained within juice.streak_window_s (cosmetic)
+var _streak_ms := 0
+var _slowmo := 0.0  # boss-kill slow motion left (real seconds)
 
 
 func _ready() -> void:
@@ -73,6 +76,8 @@ func _ready() -> void:
 		_evo_by_passive[ev.requires] = ev
 		_evo_by_weapon[ev.weapon] = ev
 	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
+	hud.streak_show = int(bal.juice.get("streak_show", 10))
+	hud.streak_window = float(bal.juice.get("streak_window_s", 1.2))
 	ui_root.add_child(hud)
 	# Bake every upgrade icon (and evolved weapon icon) once for the HUD strip.
 	var atlas := IconAtlas.new()
@@ -202,7 +207,11 @@ func _process(delta: float) -> void:
 		hitstop -= delta
 		return
 	var t0 := Time.get_ticks_usec()
-	world.step(minf(delta, MAX_STEP_DT), _move_input())
+	var dt := minf(delta, MAX_STEP_DT)
+	if _slowmo > 0.0:
+		_slowmo -= delta
+		dt *= float(bal.juice.get("slowmo_scale", 1.0))
+	world.step(dt, _move_input())
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	hud.cam_pos = view.cam.position
 	hud.fx_count = view.fx.size()
@@ -242,7 +251,7 @@ func _handle_events(events: Array) -> void:
 			"hit":
 				Sfx.play("hit")
 			"kill":
-				Sfx.play("kill")
+				_on_kill_streak()
 			"pickup":
 				Sfx.play("pickup", 0.15)
 			"nova":
@@ -266,6 +275,7 @@ func _handle_events(events: Array) -> void:
 			"boss_killed":
 				Sfx.play("boss", 0.0)
 				hitstop = maxf(hitstop, float(bal.juice.hitstop_boss_kill_s))
+				_slowmo = float(bal.juice.get("slowmo_boss_s", 0.0))
 				Analytics.event("boss_killed", {"t": int(world.time)})
 			"death":
 				Sfx.play("death", 0.0)
@@ -293,6 +303,7 @@ func _handle_events(events: Array) -> void:
 			"elite_killed":
 				Sfx.play("boss", 0.1)
 				Input.vibrate_handheld(60)
+				hitstop = maxf(hitstop, float(bal.juice.get("hitstop_elite_s", 0.0)))
 			"evolution_ready":
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
 				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
@@ -340,12 +351,30 @@ func _handle_events(events: Array) -> void:
 				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
 
 
+## Kill sound climbs in pitch while kills keep chaining (cosmetic streak;
+## no gameplay effect). Milestones get a chime and a HUD pop.
+func _on_kill_streak() -> void:
+	var now := Time.get_ticks_msec()
+	_streak = _streak + 1 if now - _streak_ms < int(float(bal.juice.get("streak_window_s", 1.0)) * 1000.0) else 1
+	_streak_ms = now
+	var j: Dictionary = bal.juice
+	var pitch := 1.0 + minf(_streak * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
+	Sfx.play("kill2" if _streak % 2 == 0 else "kill", 0.04, pitch)
+	hud.set_streak(_streak)
+	if _streak in [25, 50, 100, 200, 400]:
+		Sfx.play("chest", 0.0, 1.1)
+		Input.vibrate_handheld(30)
+
+
 func _start_run() -> void:
 	var meta := Progression.meta_bonus(data.meta, Save.meta_levels)
 	world = World.new(GameData.apply_mode(data, _current_mode().id), randi(), meta)
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
+	_slowmo = 0.0
+	_streak = 0
+	hud.set_streak(0)
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
 	if world.terr != null:
 		hud.toast("Loop out and back to claim land", pal.player_nucleus, 3.0)

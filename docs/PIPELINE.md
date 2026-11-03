@@ -158,3 +158,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-03 Polish Phase 1, chunk 2: separation and damage numbers
 - Phone after chunk 1: APK 87.7 → 117.4 fps (120 Hz), hitches 18.6% → 1.4%; web 48 → 56 fps. Chunk 2: time-based enemy separation (sims identical; sim step 1.14 → 0.63 ms in bench.gd), damage numbers from a baked digit atlas, benchmark v2 counts sprite batches in "view". A 2x2 separation search was rejected (Classic bot wins 33% → 54%). Details in `docs/POLISH_PLAN.md`.
+
+### 2026-11-03 Polish Phase 2: combat feel
+- Hit pulse + sparks, merging/popping/gold damage numbers, kill rings, floor goo splats, kill-sound pitch ladder with a second variant, elite hit-stop + gold shower, boss slow-mo, smooth shake, cosmetic "x25" streak. Presentation only (balance sims unchanged). Details in `docs/POLISH_PLAN.md` Phase 2.

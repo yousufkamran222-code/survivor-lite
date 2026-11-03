@@ -180,7 +180,22 @@
     "dash_button_radius": 72,
     "dash_button_margin": 40,
     "shake_bomb": 18,
-    "hitstop_chest_s": 0.0
+    "hitstop_chest_s": 0.0,
+    "hit_pulse": 0.22,
+    "hit_sparks_per_frame": 6,
+    "splat_max": 50,
+    "splat_s": 3.0,
+    "num_pop": 0.6,
+    "num_merge_s": 0.3,
+    "num_big_scale": 0.6,
+    "streak_window_s": 1.2,
+    "streak_show": 10,
+    "kill_pitch_step": 0.02,
+    "kill_pitch_max": 0.4,
+    "hitstop_elite_s": 0.08,
+    "slowmo_boss_s": 0.8,
+    "slowmo_scale": 0.3,
+    "shake_mult": 1.0
   },
   "palette": {
     "core": "#ffb27a",

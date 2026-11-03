@@ -7,6 +7,7 @@ const SOUNDS := {
 	"shoot": preload("res://assets/processed/sfx/shoot.wav"),
 	"hit": preload("res://assets/processed/sfx/hit.wav"),
 	"kill": preload("res://assets/processed/sfx/kill.wav"),
+	"kill2": preload("res://assets/processed/sfx/kill2.wav"),
 	"pickup": preload("res://assets/processed/sfx/pickup.wav"),
 	"level_up": preload("res://assets/processed/sfx/level_up.wav"),
 	"hurt": preload("res://assets/processed/sfx/hurt.wav"),
@@ -27,8 +28,8 @@ const SOUNDS := {
 	"upgrade": preload("res://assets/processed/sfx/upgrade.wav"),
 	"deny": preload("res://assets/processed/sfx/deny.wav"),
 }
-const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90}
-const VOLUME_DB := {"shoot": -14.0, "hit": -12.0, "kill": -9.0, "pickup": -13.0, "chain": -10.0}
+const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "kill2": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90}
+const VOLUME_DB := {"shoot": -14.0, "hit": -12.0, "kill": -9.0, "kill2": -9.0, "pickup": -13.0, "chain": -10.0}
 
 var _players: Array[AudioStreamPlayer] = []
 var _last := {}

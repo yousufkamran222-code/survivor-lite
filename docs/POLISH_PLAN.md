@@ -107,6 +107,18 @@ Targets: **a steady 90 fps on Yousuf's phone at peak load** (11.1 ms/frame), **a
 
 ## Phase 2: combat feel (medium)
 
+**Phone after Phase 1 chunk 2 (a6de2fe):** APK `114.1 fps avg 8.77 p95 10.61, slow 0.2% | sim 1.50 view 1.83 hud 0.62 | dc 61` (busier run: fx 28); web 58.2 fps, p95 19.05. Phase 1 declared good enough for now (Yousuf, 2026-11-03).
+
+**Built 2026-11-03 (all knobs in `balance.json` `juice`, presentation only):**
+- Hit pulse: enemies pop up to +22% size while their hit flash lasts (`hit_pulse`); 2 sparks per hit, at most 6 hits' worth per frame (`hit_sparks_per_frame`).
+- Damage numbers v2 (still the digit atlas): pop-in (`num_pop`), hits on the same enemy within `num_merge_s` merge into one growing total, bigger and gold by share of the enemy's max HP (`num_big_scale`). World's `hit` event now carries `uid` and `frac` (presentation data only).
+- Kills: batched kill ring (new `ShapeTextures.ring`), goo splats on the floor (new `ShapeTextures.splat`, ring buffer of `splat_max` 50, fade over `splat_s` 3 s, under everything), alternating `kill`/`kill2` sounds whose pitch climbs with the streak (`kill_pitch_step`, `kill_pitch_max`).
+- Big moments: elite kill 0.08 s hit-stop + gold shower; boss kill 0.8 s slow-motion at 30% (`slowmo_boss_s`, `slowmo_scale`).
+- Shake: smooth layered sines instead of a new random offset each frame (no buzz at 120 fps), `shake_mult` for the future setting.
+- Cosmetic streak: "x25" top-right from `streak_show` (10) kills chained within `streak_window_s` (1.2 s); gold from 50; chime at 25/50/100/200/400.
+- Cost (desktop, alternating runs): view +0.15 ms, HUD +0.08 ms, ~3% fps under software rendering. Balance sims unchanged (presentation only).
+- Asset tool: new sounds must be appended at the **end** of `build_sfx()` (the noise generator is shared; inserting earlier changes every later sound).
+
 Keep the current damage-number look; make every hit and kill read and feel better. All cheap: sprites through `SpriteBatch`, numbers from the atlas, knobs in `balance.json` `juice`.
 
 1. **Hits:** a short squash-and-recover on the hit enemy (scale from `e_flash`, no extra state), a tiny spark burst at the impact point in the weapon's colour, small directional knockback tuning.

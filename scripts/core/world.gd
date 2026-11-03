@@ -827,7 +827,7 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true) -> void:
 		resist = maxf(resist, float(data.waves.elites.knock_resist))
 	e_knock[i] += knock * (1.0 - resist)
 	if show:
-		_emit({"type": "hit", "pos": e_pos[i], "amount": amount})
+		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0)})
 	if e_hp[i] <= 0.0:
 		_dead[i] = true
 

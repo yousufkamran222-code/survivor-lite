@@ -39,6 +39,16 @@ var _land_color := Color(0.36, 0.88, 0.9, 0.3)
 var _blob_scale := 1.0
 var _core_flash := 0.0
 var digits: DigitAtlas  # set by Main; baked digits for damage numbers
+var _splats: SpriteBatch  # goo left on the floor by kills (under everything)
+var _rings: SpriteBatch  # kill rings (batched ring texture)
+var _sp_pos := PackedVector2Array()
+var _sp_size := PackedFloat32Array()
+var _sp_col := PackedColorArray()
+var _sp_t := PackedFloat32Array()
+var _sp_next := 0
+var _num_by_uid := {}  # enemy uid -> its live damage number (merging)
+var _sparks_left := 0  # hit sparks still allowed this frame
+var _shake_t := 0.0
 ## CPU ms spent in this view since Main last read it (fill + draw recording);
 ## Main resets it each frame (benchmark and perf readout).
 var cpu_ms := 0.0
@@ -61,12 +71,14 @@ func setup(game_data: Dictionary) -> void:
 	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	var perf: Dictionary = bal.perf
 	var disc := ShapeTextures.disc()
+	_splats = _batch(ShapeTextures.splat(), int(juice.get("splat_max", 50)))
 	_gems = _batch(ShapeTextures.diamond(), int(bal.xp.max_gems))
 	_shots = _batch(disc, int(perf.max_enemy_shots) * 2)
 	_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
 	_allies = _batch(ShapeTextures.ally_cell(), 64)
 	_bullets = _batch(disc, int(perf.max_projectiles) * 2)
-	_dots = _batch(disc, int(perf.max_effects))
+	_dots = _batch(disc, int(perf.max_effects) + 40)
+	_rings = _batch(ShapeTextures.ring(), 48)
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
 	_top = Node2D.new()
 	_top.draw.connect(_draw_top)
@@ -98,6 +110,13 @@ func set_world(w: World) -> void:
 		w.terr.dirty.clear()
 	fx.clear()
 	shake = 0.0
+	_num_by_uid.clear()
+	_damage_numbers = 0
+	_sp_pos.clear()
+	_sp_size.clear()
+	_sp_col.clear()
+	_sp_t.clear()
+	_sp_next = 0
 	_damage_numbers = 0
 
 
@@ -111,15 +130,15 @@ func consume(events: Array) -> void:
 	for ev in events:
 		match ev.type:
 			"hit":
-				if juice.damage_numbers and _damage_numbers < int(bal.perf.max_damage_numbers):
-					_damage_numbers += 1
-					_add_fx({"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -10), "text": str(roundi(ev.amount)), "value": roundi(ev.amount), "life": 0.55}, max_fx)
+				_on_hit(ev, max_fx)
 			"kill":
 				var c := GameData.color(ev.color)
 				for k in int(juice.kill_burst_particles):
 					var a := randf() * TAU
 					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(60, 170), "color": c, "r": randf_range(2.5, 5.0), "life": 0.35}, max_fx)
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.18}, max_fx)
+				_add_fx({"kind": "kring", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.22}, max_fx + 10)
+				_add_splat(ev.pos, ev.radius * (3.4 if ev.elite else 2.6), c)
 			"nova":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova)}, max_fx + 4)
 				if not ev.get("tower", false):
@@ -139,6 +158,10 @@ func consume(events: Array) -> void:
 			"elite_killed":
 				add_shake(10.0)
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 150.0, "life": 0.4, "color": elite_color}, max_fx + 4)
+				# Gold shower: sparks burst up and fall.
+				for n in 18:
+					var a := -PI / 2.0 + randf_range(-1.1, 1.1)
+					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(220, 420), "grav": 700.0, "color": elite_color, "r": randf_range(3.0, 6.0), "life": 0.7}, max_fx + 30)
 			"pickup_item":
 				match ev.kind:
 					"vacuum":
@@ -218,17 +241,27 @@ func _process_view(delta: float) -> void:
 		if f.t >= f.life:
 			if f.kind == "num":
 				_damage_numbers -= 1
+				if _num_by_uid.get(f.uid) == f:
+					_num_by_uid.erase(f.uid)
 			fx.remove_at(i)
 			continue
 		if f.has("vel"):
+			if f.has("grav"):
+				f.vel.y += f.grav * delta
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
 	if world.p_dash_t > 0.0:
 		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(pal.player, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
+	_sparks_left = int(juice.get("hit_sparks_per_frame", 6))
+	_age_splats(delta)
+	# Smooth shake: layered sines instead of a new random offset every frame
+	# (which buzzes at 90/120 fps), scaled by the shake setting.
 	shake = maxf(0.0, shake - float(juice.shake_decay) * delta)
-	var off := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
+	_shake_t += delta
+	var off := Vector2(sin(_shake_t * 47.0) * 0.6 + sin(_shake_t * 21.0 + 1.7) * 0.4,
+		cos(_shake_t * 43.0) * 0.6 + sin(_shake_t * 19.0 + 0.4) * 0.4) * shake * float(juice.get("shake_mult", 1.0))
 	cam.position = (world.core_pos if world.p_down > 0.0 else world.p_pos) + off
 	var vp := get_viewport_rect().size
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)
@@ -237,6 +270,7 @@ func _process_view(delta: float) -> void:
 	_fill_enemies(view)
 	_fill_bullets()
 	_fill_dots()
+	_fill_splats()
 	queue_redraw()
 	_top.queue_redraw()
 
@@ -362,6 +396,7 @@ func _fill_enemies(view: Rect2) -> void:
 	_allies.begin()
 	var white := Color.WHITE
 	var pp := world.p_pos
+	var pulse_k := float(juice.get("hit_pulse", 0.0)) / maxf(float(juice.flash_s), 0.001)
 	for i in world.e_pos.size():
 		var p := world.e_pos[i]
 		var r := world.enemy_radius(i)
@@ -384,7 +419,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
 		elif world.def_on and world.e_slow[i] > 0.0:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
-		_enemies.add(p, r * _blob_scale, c, (pp - p).angle())
+		var pulse := 1.0 + pulse_k * maxf(world.e_flash[i], 0.0)  # pops a little when hit
+		_enemies.add(p, r * _blob_scale * pulse, c, (pp - p).angle())
 	_enemies.commit()
 	_allies.commit()
 
@@ -410,6 +446,12 @@ func _fill_dots() -> void:
 		elif f.kind == "pop":
 			_dots.add(f.pos, f.r * 2.0 * (1.0 + k), Color(f.color, 0.45 * (1.0 - k)))
 	_dots.commit()
+	_rings.begin()
+	for f in fx:
+		if f.kind == "kring":
+			var k: float = f.t / f.life
+			_rings.add(f.pos, f.r * 2.0 * (1.0 + 1.6 * k), Color(f.color.lightened(0.3), 0.9 * (1.0 - k)))
+	_rings.commit()
 
 
 # ------------------------------------------------- immediate top layer (few)
@@ -477,10 +519,17 @@ func _draw_top_layer() -> void:
 	# Damage numbers last, from the baked digit texture: one batch, no text
 	# layout per frame (same look: rise 40 px and fade).
 	if digits != null and digits.baked:
+		var gold: Color = pal.ui_accent
+		var pop := float(juice.get("num_pop", 0.0))
+		var big_k := float(juice.get("num_big_scale", 0.0))
 		for f in fx:
 			if f.kind == "num":
 				var k: float = f.t / f.life
-				digits.draw_number(ci, int(f.value), f.pos + Vector2(0, -40.0 * k - 8.0), 26.0, Color(1, 1, 1, 1.0 - k * k))
+				var big := clampf(float(f.frac), 0.0, 1.0)
+				var h := 26.0 * (1.0 + big_k * big) * (1.0 + pop * maxf(0.0, 1.0 - f.t / 0.12))
+				var col := Color.WHITE.lerp(gold, clampf(big * 1.5, 0.0, 1.0))
+				col.a = 1.0 - k * k
+				digits.draw_number(ci, int(f.value), f.pos + Vector2(0, -40.0 * k - 8.0), h, col)
 	var bi := world.boss_index
 	if bi >= 0 and bi < world.e_pos.size():
 		var p := world.e_pos[bi]
@@ -550,3 +599,63 @@ func _draw_trail(ci: CanvasItem, now: float) -> void:
 	if left < 2.5 and fmod(now, 0.25) < 0.12:
 		c = pal.player_hurt
 	ci.draw_polyline(pts, Color(c, 0.85), 7.0)
+
+
+## Damage numbers merge per enemy while hits keep landing (one growing total
+## instead of a spray), and each hit throws a couple of sparks (budgeted per
+## frame).
+func _on_hit(ev: Dictionary, max_fx: int) -> void:
+	if juice.damage_numbers:
+		var uid := int(ev.get("uid", -1))
+		var old: Variant = _num_by_uid.get(uid)
+		if old != null and old.t < float(juice.get("num_merge_s", 0.0)):
+			old.value += roundi(ev.amount)
+			old.frac += float(ev.get("frac", 0.0))
+			old.t = 0.0
+		elif _damage_numbers < int(bal.perf.max_damage_numbers):
+			_damage_numbers += 1
+			var f := {"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -10), "text": str(roundi(ev.amount)),
+				"value": roundi(ev.amount), "frac": float(ev.get("frac", 0.0)), "uid": uid, "life": 0.55}
+			_add_fx(f, max_fx)
+			_num_by_uid[uid] = f
+	if _sparks_left > 0:
+		_sparks_left -= 1
+		for n in 2:
+			var a := randf() * TAU
+			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(180, 320), "color": Color(1, 0.95, 0.75), "r": 2.5, "life": 0.14}, max_fx + 20)
+
+
+## Floor goo: a fixed-size ring buffer, faded out over juice.splat_s.
+func _add_splat(pos: Vector2, size: float, c: Color) -> void:
+	var cap := int(juice.get("splat_max", 0))
+	if cap <= 0:
+		return
+	var col := Color(c.darkened(0.15), 0.6)
+	if _sp_pos.size() < cap:
+		_sp_pos.append(pos)
+		_sp_size.append(size)
+		_sp_col.append(col)
+		_sp_t.append(0.0)
+	else:
+		_sp_pos[_sp_next] = pos
+		_sp_size[_sp_next] = size
+		_sp_col[_sp_next] = col
+		_sp_t[_sp_next] = 0.0
+		_sp_next = (_sp_next + 1) % cap
+
+
+func _age_splats(delta: float) -> void:
+	for i in _sp_t.size():
+		_sp_t[i] += delta
+
+
+func _fill_splats() -> void:
+	_splats.begin()
+	var life := float(juice.get("splat_s", 3.0))
+	for i in _sp_pos.size():
+		var k := _sp_t[i] / life
+		if k < 1.0:
+			var c := _sp_col[i]
+			c.a *= 1.0 - k * k
+			_splats.add(_sp_pos[i], _sp_size[i] * (1.0 + 0.15 * minf(_sp_t[i] * 8.0, 1.0)), c)
+	_splats.commit()

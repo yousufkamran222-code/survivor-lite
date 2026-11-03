@@ -309,6 +309,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - Debug builds (no keystore secrets) can't update over each other. Tell Yousuf to uninstall first.
 - Analytics and the online stub print only in debug builds.
 - `balance.json` `debug.show_perf` is on for playtests. **Turn it off for release builds.** `debug.invincible` must stay false.
+- **`tools/build_assets.py`: append new sounds at the end of `build_sfx()`.** The noise generator is shared, so inserting a sound earlier silently changes every sound after it.
 - Keep `docs/PIPELINE.md` dated entries appended at the end. Decisions go in `docs/DECISIONS.md` (newest last).
 
 ---

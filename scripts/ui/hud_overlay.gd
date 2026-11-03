@@ -42,6 +42,10 @@ var _sig_bars_drawn := PackedInt32Array()
 var _bars_wait := 0.0
 var _sig_world: World = null
 var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
+var _streak := 0
+var _streak_t := 99.0  # time since the streak last grew
+var streak_show := 10
+var streak_window := 1.2
 
 
 func flash_xp() -> void:
@@ -107,6 +111,7 @@ func _layer(painter: Callable) -> Control:
 func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
+	_streak_t += delta
 	if show_perf and world != null:
 		_update_perf(delta)
 	var i := 0
@@ -147,6 +152,7 @@ func _draw_hud() -> void:
 		draw_string_outline(font, Vector2(0, ty), t.text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 8, Color(0, 0, 0, 0.6 * a))
 		draw_string(font, Vector2(0, ty), t.text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(t.color, a))
 		ty += 52.0
+	_draw_streak(w)
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
 		draw_string(font, Vector2(0, size.y - 14), _perf_text, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
@@ -447,3 +453,23 @@ func _update_perf(delta: float) -> void:
 		Engine.get_frames_per_second(), roundi(_perf_min_fps), ("%dHz" % roundi(hz)) if hz > 0.0 else "?Hz",
 		sim_ms, view_ms, cpu_ms, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
 		world.enemy_count(), fx_count]
+
+
+## Cosmetic kill streak ("x25"), shown from juice.streak_show kills.
+func set_streak(n: int) -> void:
+	if n > _streak or n == 0:
+		_streak_t = 0.0 if n > 0 else 99.0
+	_streak = n
+
+
+func _draw_streak(w: float) -> void:
+	if _streak < streak_show or _streak_t > streak_window + 0.4:
+		return
+	var a := clampf((streak_window + 0.4 - _streak_t) / 0.4, 0.0, 1.0)
+	var pop := 1.0 + 0.35 * maxf(0.0, 1.0 - _streak_t / 0.12)
+	var milestone := _streak >= 50
+	var fs := int((34.0 + minf(_streak, 100) * 0.12) * pop)
+	var col: Color = pal.ui_accent if milestone else Color(1, 1, 1)
+	var pos := Vector2(w - 24.0, 120.0)
+	draw_string_outline(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, 8, Color(0, 0, 0, 0.6 * a))
+	draw_string(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, Color(col, a))

@@ -80,3 +80,31 @@ static func diamond(size: int = 32) -> ImageTexture:
 			var d := absf(p.x) / 0.8 + absf(p.y)
 			img.set_pixel(x, y, Color(1, 1, 1, _aa(1.0, d, 1.5 / h)))
 	return ImageTexture.create_from_image(img)
+
+
+## Thin ring (kill pops), batched like the discs.
+static func ring(size: int = 64) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.0 / h
+	for y in size:
+		for x in size:
+			var d := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h).length()
+			img.set_pixel(x, y, Color(1, 1, 1, _aa(1.0, d, px) * (1.0 - _aa(0.78, d, px))))
+	return ImageTexture.create_from_image(img)
+
+
+## Goo splat for the floor: a soft blob with a few droplets (deterministic).
+static func splat(size: int = 64) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.0 / h
+	var drops := [[Vector2(0.62, -0.3), 0.16], [Vector2(-0.55, 0.45), 0.13], [Vector2(0.15, 0.7), 0.1], [Vector2(-0.4, -0.62), 0.11]]
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h)
+			var a := _aa(0.5 + 0.05 * sin(atan2(p.y, p.x) * 5.0), p.length(), px)
+			for dr in drops:
+				a = maxf(a, _aa(dr[1], p.distance_to(dr[0]), px))
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)
