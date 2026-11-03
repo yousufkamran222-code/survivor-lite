@@ -116,13 +116,13 @@
   },
   "outbreak": {
     "enabled": true,
-    "kills_to_fill": 250,
+    "kills_to_fill": 180,
     "vacuum_radius": 700,
     "bomb_radius": 380,
-    "pickups": ["bomb", "vacuum", "heal"],
+    "pickups": [],
     "elite_fill": 0.15,
     "boss_fill": 0.5,
-    "duration_s": 4.0,
+    "duration_s": 5.0,
     "weapon_speed": 1.6,
     "damage_mult": 1.25
   },

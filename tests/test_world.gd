@@ -237,8 +237,12 @@ func test_outbreak_fills_triggers_and_speeds_weapons() -> void:
 	check_eq(w.outbreak_t, 0.0, "the frenzy ends")
 
 
-func test_outbreak_fires_bomb_vacuum_and_heal() -> void:
+func test_outbreak_can_fire_pickups() -> void:
+	# The mechanism (balance.outbreak.pickups may be empty in the shipped data).
 	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.bal.outbreak.pickups = ["bomb", "vacuum", "heal"]
+	w.bal.outbreak.bomb_radius = 380.0
+	w.bal.outbreak.vacuum_radius = 700.0
 	w.p_pos = Vector2.ZERO
 	w._add_enemy("grunt", Vector2(120, 0))
 	w._drop_gem(Vector2(300, 0), 3.0)
