@@ -44,6 +44,8 @@ var _evo_moments: Array = []  # evolutions from the open chest, celebrated on cl
 var _evo_seq: Dictionary = {}  # the evolution sequence playing now (empty = none)
 var _results_wallet: Control  # results: wallet pill the gold flies into
 var _results_gold_icon: Control
+var _results_gold_label: Label
+var _results_gold_tween: Tween
 var _collecting := false
 var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
 var _pickup_ms := 0
@@ -1278,8 +1280,10 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	_results[0].add_child(wallet)
 	_results_wallet = wallet
 	col.add_child(gold_row)
+	_results_gold_label = gold
+	_results_gold_tween = null
 	if animate or gold_from > 0:
-		UiKit.count_up(gold, gold_from, _results_gold, 0.9, "+%d gold", t + (0.6 if animate else 0.0), 1.3)
+		_results_gold_tween = UiKit.count_up(gold, gold_from, _results_gold, 0.9, "+%d gold", t + (0.6 if animate else 0.0), 1.3)
 	else:
 		gold.text = "+%d gold" % _results_gold
 	if not _results_doubled and Ads.is_rewarded_available():
@@ -1326,41 +1330,67 @@ func _collect(again: bool) -> void:
 		next.call()
 
 
-## Collect: coins fly one by one from the run's gold into the wallet pill,
-## each landing ticks the wallet up with a climbing chime and a punch.
+## Collect: a stream of coins rises from the run's gold to the wallet pill.
+## The run total counts down as each coin leaves, the wallet counts up as it
+## lands (climbing chime, little punch), then the game moves on. Buttons are
+## locked meanwhile, and a still-running count-up is stopped first.
 func _gold_fly_in(amount: int) -> void:
+	if _results_gold_tween != null and _results_gold_tween.is_valid():
+		_results_gold_tween.kill()
+	for c in _results[1].get_children():
+		if c is Button:
+			c.disabled = true
 	var root: Control = _results[0]
-	var from := _results_gold_icon.get_global_rect().get_center() - root.get_global_rect().position
+	var origin := root.get_global_rect().position
+	var src := _results_gold_icon.get_global_rect().get_center() - origin
 	var wl: Label = _results_wallet.find_children("*", "Label", true, false)[0]
-	var to := _results_wallet.get_global_rect().get_center() - root.get_global_rect().position + Vector2(-50, 0)
-	var start := Save.gold
-	var n := clampi(amount / 4, 6, 18)
-	var gap := float(bal.juice.get("gold_fly_gap_s", 0.05))
-	var fly := float(bal.juice.get("gold_fly_s", 0.45))
+	var wicon: Control = _results_wallet
+	for c in _results_wallet.find_children("*", "", true, false):
+		if c is UpgradeIcon:
+			wicon = c
+			break
+	var dst := wicon.get_global_rect().get_center() - origin
+	var n := clampi(amount, 1, int(bal.juice.get("gold_fly_max_coins", 20)))
+	var fly := float(bal.juice.get("gold_fly_s", 0.6))
+	var gap := minf(float(bal.juice.get("gold_fly_gap_s", 0.06)), 1.0 / n)
+	var left := [amount]
+	var wallet := [Save.gold]
+	_results_gold_label.text = "+%d gold" % amount
 	_results_wallet.pivot_offset = _results_wallet.size / 2.0
+	var sent := 0
 	for k in n:
-		var coin := UpgradeIcon.make("gold", pal.ui_accent, 34)
-		coin.position = from - Vector2(17, 17) + Vector2(randf_range(-30, 30), randf_range(-12, 12))
+		var part := int(round(float(amount) * (k + 1) / n)) - sent
+		sent += part
+		var coin := UpgradeIcon.make("gold", pal.ui_accent, 36)
+		coin.pivot_offset = Vector2(18, 18)
+		var jx := randf_range(-26.0, 26.0)
+		var p0 := src - Vector2(18, 18) + Vector2(jx, 0)
+		var p2 := dst - Vector2(18, 18)
+		var c1 := Vector2(p0.x + jx * 2.0, lerpf(p0.y, p2.y, 0.55))  # rise first, then drift across
+		coin.position = p0
+		coin.modulate.a = 0.0
 		root.add_child(coin)
-		var mid := (coin.position + to) / 2.0 + Vector2(randf_range(-120, 120), -160.0)
-		var p0 := coin.position
-		var p2 := to - Vector2(17, 17)
 		var tw := coin.create_tween()
 		tw.tween_interval(gap * k)
-		tw.tween_method(func(q: float) -> void:  # curved flight (quadratic Bezier)
-			coin.position = p0.lerp(mid, q).lerp(mid.lerp(p2, q), q), 0.0, 1.0, fly).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-		var share := start + int(round(float(amount) * (k + 1) / n))
+		tw.tween_callback(func() -> void:
+			coin.modulate.a = 1.0
+			left[0] -= part
+			_results_gold_label.text = "+%d gold" % maxi(left[0], 0))
+		tw.tween_method(func(q: float) -> void:
+			coin.position = p0.lerp(c1, q).lerp(c1.lerp(p2, q), q)
+			coin.scale = Vector2.ONE * lerpf(1.0, 0.75, q), 0.0, 1.0, fly).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 		var last := k == n - 1
 		tw.tween_callback(func() -> void:
-			wl.text = str(share)
-			Sfx.play("pickup", 0.0, 1.0 + 0.05 * k)
-			_results_wallet.scale = Vector2(1.15, 1.15)
-			_results_wallet.create_tween().tween_property(_results_wallet, "scale", Vector2.ONE, 0.12)
+			wallet[0] += part
+			wl.text = str(wallet[0])
+			Sfx.play("pickup", 0.0, 1.0 + 0.6 * k / maxf(n - 1, 1))
+			_results_wallet.scale = Vector2(1.12, 1.12)
+			_results_wallet.create_tween().tween_property(_results_wallet, "scale", Vector2.ONE, 0.1)
 			if last:
 				Sfx.play("upgrade", 0.0, 1.1)
 				Sfx.vibrate(30)
 			coin.queue_free())
-	await get_tree().create_timer(gap * n + fly + 0.35).timeout
+	await get_tree().create_timer(gap * (n - 1) + fly + 0.45).timeout
 
 
 ## Results highlights: damage share per weapon/source as animated bars, plus

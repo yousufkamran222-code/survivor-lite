@@ -286,3 +286,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-04 Satisfaction round 3: results highlights, gold fly-in, claim fill
 - See `docs/POLISH_PLAN.md` "Satisfaction round 3". World gains damage-by-source accounting (stats only; sims byte-identical in all 4 modes; the sim's ally share now counts effective damage, Swarm 0.33 → 0.35). 164 tests.
+
+### 2026-11-04 Gold fly-in v2
+- Yousuf: the fly-in was "very buggy and looks bad". Now a smooth rising stream: run total counts down as coins leave, wallet counts up as they land, buttons locked; fixed the count-up overwriting the number when you tapped early. Presentation only. 164 tests.

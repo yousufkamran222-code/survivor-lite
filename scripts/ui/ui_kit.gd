@@ -140,11 +140,13 @@ static func chip(text: String, bg: Color, fg: Color = Color(0.1, 0.06, 0.15), si
 
 
 ## Counts a label up from `from` to `to` (format with one %d), ticking.
-static func count_up(l: Label, from: int, to: int, dur: float, fmt: String, delay: float = 0.0, tick_pitch: float = 1.0) -> void:
+## Counts a label from `from` to `to`. Returns the tween (null if there was
+## nothing to count) so a caller can stop it early.
+static func count_up(l: Label, from: int, to: int, dur: float, fmt: String, delay: float = 0.0, tick_pitch: float = 1.0) -> Tween:
 	l.text = fmt % from
 	if to <= from:
 		l.text = fmt % to
-		return
+		return null
 	var last := [from]
 	var tw := l.create_tween()
 	tw.tween_interval(delay)
@@ -154,6 +156,7 @@ static func count_up(l: Label, from: int, to: int, dur: float, fmt: String, dela
 			last[0] = v
 			l.text = fmt % v
 			Sfx.play("pickup", 0.0, tick_pitch + 0.5 * (f - from) / maxf(to - from, 1.0)), float(from), float(to), dur).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	return tw
 
 static func clear(node: Node) -> void:
 	for c in node.get_children():
