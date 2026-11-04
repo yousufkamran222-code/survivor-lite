@@ -135,6 +135,17 @@ Yousuf: towers "all kinda bad compared to the player"; the pick popup broke the 
 - Does the tower-pick popup pause the game like level-ups (proposed: yes)?
 - Pad count 6 vs more pads unlocking at later waves.
 
+## Prototype 4: Boss Rift: **Phase 1 built 2026-11-04** (awaiting playtest)
+Yousuf's design (2026-11-04), all numbers in `balance.rift`:
+- **Opening:** 5-10 s after you use Outbreak (test setting, may change), a rift opens 450-700 px away (inside the dish, clear of the nucleus) for 15 s, with an off-screen arrow. Ignore it and it closes. All modes, Nucleus included.
+- **Inside:** the arena is a far-off patch of the same World (`World.RIFT_CENTER`, radius 650): the run clock, spawns, germs, shots (set aside and restored), gems, land and waves all freeze. You keep HP, weapons, dash and level. 25 s timer.
+- **Outcomes:** kill the boss → your **Rift Power**; time out → back with the damage taken; HP hits 0 → thrown out at **1 HP with a 2.5 s grace** where everything else stays frozen and you can move ("RUN!"). Any exit has a 1 s freeze to get your bearings.
+- **Phage Carrier** (boss slot reused, own name/colour/AI, so the 8-enemy cap holds): drifts in a slow loop near the arena's middle (backs off if you get close), fires a weak 3-shot spread every 2.6 s, mild contact damage, and launches one **Seeker Phage** at a time: tracks you for up to 4.5 s (slower than you, turn-limited, harmless while tracking; proximity lock only after 3 s) → **locks** (0.45 s, direction frozen, bright lane + click) → **fires** at 760 px/s. It hits you for 40% max HP, or the Carrier for 30% of its HP and a 1.5 s stun. Antibodies can't eat it. The intended play (Yousuf's): let it chase you, run at the Carrier, dash aside on the lock.
+- **Carrier HP** = estimated single-target DPS of your weapons × `hp_seconds` 20 (min 400): weapons alone win about half the time right at the buzzer; baits make it comfortable. Arena harness (24 fights, bolt 4 + nova 2 + might 2 at 2:30): hp_seconds 24: bait 24/24 at 23.6 s, no bait 0/24; 18: bait 18.7 s, no bait 24/24 at 22.7 s; **20: bait 24/24 at 22.0 s, no bait 13/24 at 23.2 s**.
+- **Rift Power** (run-only ability button left of DASH, meter refills with kills, 150 kills, x0.8 per level, max level 3, +35% damage per level): from your strongest weapon (ties random). Nerve Spark → **Lightning Lance** (a 900 px bolt down your path), Pulse Bolt → **Barrage** (two rings of 24 piercing bolts), Antibodies → **Phalanx** (10 orbs spinning outward for 3 s, eat shots), Fever Pulse → **Heatwave** (four growing pulses). Winning again with the same power levels it up; a different strongest weapon swaps it. Damage scales like the dash (enemy HP growth) and with might.
+- Bot: enters open rifts above 45% HP; in the arena it runs out, turns back past the phage and runs at the Carrier, dashing aside on lock (`--nobait` turns that off); uses the power when crowded. Sim reports `rifts` {opened, entered, won, timeout, ejected, missile_hits, power_uses}.
+- **Phase 2:** more bosses (pattern lists in data), a proper power pool, the full feel pass (entry transition, arena backdrop, victory slow-mo polish). **Phase 3:** rift stats/achievements, maybe a "Rift Rush" mode.
+
 ## Step 3: combine
 - Converts on your land stop erosion and patrol its edge. Unguarded land slowly decays.
 - Elites and the boss corrupt chunks of land as they walk.

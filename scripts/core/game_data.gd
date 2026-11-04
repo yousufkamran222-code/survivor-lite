@@ -131,6 +131,22 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	# Boss Rift: every weapon maps to a known power with its numbers.
+	var rift: Dictionary = d.balance.get("rift", {})
+	if rift.get("enabled", false):
+		var weapon_ids := {}
+		for u in d.upgrades:
+			if u.type == "weapon":
+				weapon_ids[u.id] = true
+		for wid in rift.get("weapon_power", {}):
+			if not weapon_ids.has(wid):
+				errors.append("rift.weapon_power: unknown weapon '%s'" % wid)
+			var pw: String = rift.weapon_power[wid]
+			if not (pw in ["lance", "barrage", "phalanx", "heatwave"]) or not rift.get("powers", {}).has(pw):
+				errors.append("rift.weapon_power: unknown power '%s'" % pw)
+		for key in ["boss", "powers", "arena_radius", "duration_s", "eject_grace_s"]:
+			if not rift.has(key):
+				errors.append("rift missing '%s'" % key)
 	# Kill streak: ascending milestones and tiers; rewards use known kinds.
 	var stk: Dictionary = d.balance.get("streak", {})
 	for key in ["window_s", "milestones", "tiers"]:

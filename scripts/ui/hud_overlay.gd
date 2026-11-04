@@ -282,6 +282,8 @@ func _draw_hud() -> void:
 	_draw_dash_button()
 	_draw_upgrade_button()
 	_draw_outbreak_button()
+	_draw_rift_power_button()
+	_draw_rift_hud(w)
 	_draw_orders()
 	# Toasts.
 	var ty := 240.0
@@ -358,6 +360,69 @@ func _draw_evolution(w: float) -> void:
 	draw_string(font, Vector2(0, t1 + 76), name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(col.lightened(0.15), a))
 	draw_string_outline(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, 6, Color(0, 0, 0, 0.6 * a))
 	draw_string(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, Color(1, 1, 1, 0.9 * a))
+
+
+## Rift Power button (left of DASH, once you've won one): kill meter ring,
+## the power's weapon icon, level pips; glows when ready.
+const POWER_R := 46.0
+const POWER_ICON := {"lance": "chain", "barrage": "bolt", "phalanx": "orbit", "heatwave": "nova"}
+
+
+func power_center() -> Vector2:
+	return dash_center() + Vector2(-(dash_radius + POWER_R + 26.0), 0)
+
+
+func in_power_button(p: Vector2) -> bool:
+	return world != null and world.rift_power != "" and p.distance_to(power_center()) <= POWER_R * 1.25
+
+
+func _draw_rift_power_button() -> void:
+	if world.rift_power == "":
+		return
+	var c := power_center()
+	var col := GameData.color(world.bal.rift.boss.color)
+	var f := clampf(world.rp_kills / world.rift_power_cost(), 0.0, 1.0)
+	var ready := world.rift_power_ready()
+	var t := Time.get_ticks_msec() / 1000.0
+	if ready:
+		var pulse := 0.5 + 0.5 * sin(t * 7.0)
+		draw_circle(c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
+		draw_circle(c, POWER_R, Color(col, 0.5 + 0.2 * pulse))
+		draw_arc(c, POWER_R, 0, TAU, 40, Color.WHITE, 3.0)
+	else:
+		draw_circle(c, POWER_R, Color(1, 1, 1, 0.06))
+		draw_arc(c, POWER_R, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
+		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.85), 6.0)
+	var key: String = POWER_ICON.get(world.rift_power, "outbreak")
+	if icon_atlas != null and icon_atlas.has_icon(key, false):
+		icon_atlas.draw_icon(self, key, c, POWER_R * 1.1)
+	else:
+		IconArt.draw(self, key, c, POWER_R * 1.1, Color.WHITE)
+	for k in world.rift_power_lv:
+		draw_circle(c + Vector2((k - (world.rift_power_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
+
+
+## In the arena: the time left as a bar + seconds. After an ejection: "RUN!"
+## and the frozen seconds left.
+func _draw_rift_hud(w: float) -> void:
+	var col := GameData.color(world.bal.rift.boss.color) if world.rift_on else Color.WHITE
+	if world.rift_state == World.RIFT_ACTIVE:
+		var dur := float(world.bal.rift.duration_s)
+		var left := maxf(dur - world.rift_t, 0.0)
+		var r := Rect2(60, 146, w - 120, 6)
+		draw_rect(r, Color(0, 0, 0, 0.5))
+		draw_rect(Rect2(r.position, Vector2(r.size.x * left / dur, r.size.y)), col if left > 5.0 else pal.player_hurt)
+		var txt := "RIFT  %d" % ceili(left)
+		draw_string_outline(font, Vector2(0, 184), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, 7, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, 184), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, col if left > 5.0 else pal.player_hurt)
+	elif world.rift_grace > 0.0 and world.rift_ejected:
+		var pulse := 1.0 + 0.15 * sin(Time.get_ticks_msec() / 60.0)
+		var y := size.y * 0.32
+		draw_string_outline(font, Vector2(0, y), "RUN!", HORIZONTAL_ALIGNMENT_CENTER, w, int(84 * pulse), 12, Color(0, 0, 0, 0.7))
+		draw_string(font, Vector2(0, y), "RUN!", HORIZONTAL_ALIGNMENT_CENTER, w, int(84 * pulse), pal.player_hurt)
+		var sub := "%.1f" % world.rift_grace
+		draw_string_outline(font, Vector2(0, y + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 40, 8, Color(0, 0, 0, 0.6))
+		draw_string(font, Vector2(0, y + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 40, Color.WHITE)
 
 
 func beat() -> void:
@@ -483,7 +548,8 @@ func _draw_bars(ci: CanvasItem) -> void:
 		var r := Rect2(60, 120 + dy, w - 120, 18)
 		ci.draw_rect(r, Color(0, 0, 0, 0.55))
 		ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
-		ci.draw_string(font, Vector2(0, 112 + dy), str(world.enemy_defs[world.e_type[world.boss_index]].name).to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+		var bname := str(world.bal.rift.boss.name) if world.rift_state == World.RIFT_ACTIVE else str(world.enemy_defs[world.e_type[world.boss_index]].name)
+		ci.draw_string(font, Vector2(0, 112 + dy), bname.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
 
 
 ## Owned-upgrade strip and the DASH / UPGRADE labels (strip layer).
@@ -555,6 +621,8 @@ func _draw_arrows() -> void:
 		targets.append([world.e_pos[world.boss_index], pal.hp_bar, false])
 	if world.def_on:
 		targets.append([world.core_pos, pal.core, false])
+	if world.rift_state == World.RIFT_OPEN:
+		targets.append([world.rift_pos, GameData.color(world.bal.rift.boss.color), false])
 	for tg in targets:
 		var sp: Vector2 = (tg[0] - cam_pos) * cam_zoom + half
 		if Rect2(Vector2.ZERO, size).grow(-10).has_point(sp):

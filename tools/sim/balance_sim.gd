@@ -36,6 +36,7 @@ func _initialize() -> void:
 				node = node[keys[k]]
 			node[keys[keys.size() - 1]] = float(kv[1])
 	force_order = World.ORDER_IDS.find(str(args.get("order", "")))
+	nobait = args.has("nobait")
 	var meta := {}
 	if args.has("meta"):
 		var levels := {}
@@ -76,6 +77,7 @@ func _parse(argv: PackedStringArray) -> Dictionary:
 
 var free := false  # --free: Nucleus runs continue into Free Mode after the win
 var force_order := -1  # --order: Swarm bot keeps this order
+var nobait := false  # --nobait: the bot doesn't lure the Seeker Phage (rift tuning)
 
 
 func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
@@ -83,6 +85,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	w.emit_events = false
 	var bot := BalanceBot.new(seed_value)
 	bot.force_order = force_order
+	bot.bait = not nobait
 	if force_order >= 0:
 		w.set_ally_order(force_order)
 	var peak_enemies := 0
@@ -118,6 +121,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
+		"rift": [w.rifts_opened, w.rifts_entered, w.rifts_won, w.rifts_timeout, w.rifts_ejected, w.missile_hits_boss, w.rp_uses],
 		"best_streak": w.best_streak, "sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
 		"ally_share": w.ally_damage / maxf(w.damage_dealt, 1.0), "harvested": w.gems_harvested, "orders": w.order_changes,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
@@ -147,6 +151,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var allies := 0
 	var ally_share := 0.0
 	var spl := 0.0
+	var rift_tot := [0, 0, 0, 0, 0, 0, 0]
 	var streaks := []
 	var l2 := 0.0
 	var harvested := 0
@@ -170,6 +175,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		allies += r.peak_allies
 		ally_share += r.ally_share
 		spl += r.sec_per_level
+		for q in 7:
+			rift_tot[q] += int(r.rift[q])
 		streaks.append(r.best_streak)
 		l2 += maxi(r.levels_2min, 0)
 		harvested += r.harvested
@@ -211,6 +218,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_conversions": snappedf(float(convs) / maxf(results.size(), 1), 0.1),
 		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
 		"best_streak_p50": _pct(streaks, 0.5), "best_streak_p90": _pct(streaks, 0.9),
+		"rifts": {"opened": rift_tot[0], "entered": rift_tot[1], "won": rift_tot[2], "timeout": rift_tot[3], "ejected": rift_tot[4], "missile_hits": rift_tot[5], "power_uses": rift_tot[6]},
 		"mean_sec_per_level": snappedf(spl / maxf(results.size(), 1), 0.1),
 		"mean_levels_by_2min": snappedf(l2 / maxf(results.size(), 1), 0.1),
 		"mean_ally_damage_share": snappedf(ally_share / maxf(results.size(), 1), 0.001),

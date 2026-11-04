@@ -94,6 +94,51 @@ var streak := 0
 var streak_t := 0.0  # seconds since the last kill in the streak
 var best_streak := 0
 var _streak_hits: Array = []  # milestones reached this step (rewards run after the kill pass)
+
+# Boss Rift (balance.rift): opens a while after an Outbreak; stepping in
+# moves the player to a far-off arena in this same World (everything else
+# freezes: no clock, spawns, germs, shots, gems, land or waves) to fight the
+# Phage Carrier. See the "Boss Rift" section at the end of this file.
+const RIFT_NONE := 0
+const RIFT_PENDING := 1
+const RIFT_OPEN := 2
+const RIFT_ACTIVE := 3
+const RIFT_CENTER := Vector2(100000, 0)  # the arena, far from everything else
+var rift_on := false
+var rift_state := RIFT_NONE
+var rift_timer := 0.0  # pending: until it opens; open: until it closes
+var rift_pos := Vector2.ZERO
+var rift_t := 0.0  # time inside the arena
+var rift_uid := -1  # the Phage Carrier
+var rift_grace := 0.0  # after leaving: everything else stays frozen this long
+var rift_ejected := false  # the grace is the 1-HP ejection one
+var _rift_return := Vector2.ZERO
+var _rift_boss_dead := false
+var _rift_stash: Array = []  # enemy shots set aside while in the arena
+var rb_shot_t := 0.0  # Carrier: spread-shot timer
+var rb_stun := 0.0
+var m_state := 0  # Seeker Phage: 0 none, 1 tracking, 2 lock, 3 firing
+var m_pos := Vector2.ZERO
+var m_dir := Vector2.RIGHT
+var m_t := 0.0
+var m_wait := 0.0
+var rifts_opened := 0
+var rifts_entered := 0
+var rifts_won := 0
+var rifts_timeout := 0
+var rifts_ejected := 0
+var missile_hits_boss := 0
+# Rift Power: a run-only ability earned by beating a rift (by strongest weapon).
+var rift_power := ""  # lance | barrage | phalanx | heatwave
+var rift_power_lv := 0
+var rp_kills := 0.0  # meter: kills since the last use
+var rp_uses := 0
+var _rp_barrage_t := -1.0
+var _rp_heat_n := 0
+var _rp_heat_t := 0.0
+var _rp_phalanx_t := 0.0
+var _rp_phalanx_ang := 0.0
+var phalanx_points := PackedVector2Array()  # for the view
 # Plague Trail (the Outbreak ability): a fading toxic trail behind the player.
 var pt_pos := PackedVector2Array()
 var pt_age := PackedFloat32Array()
@@ -202,7 +247,7 @@ var _ally_tick := 0.0
 var damage_dealt := 0.0  # all damage to hostiles this run (sim / tuning stat)
 var ally_damage := 0.0  # the part of it dealt by Swarm allies
 var _src := "other"  # who is dealing damage right now (set per system; see damage_by)
-const BULLET_SRC := ["bolt", "allies", "towers"]  # b_ally value -> damage source
+const BULLET_SRC := ["bolt", "allies", "towers", "power"]  # b_ally value -> damage source
 var damage_by := {}  # source -> effective damage this run (bolt/orbit/nova/chain/allies/towers/dash/land/bomb/outbreak/other)
 var biggest_hit := 0.0
 var biggest_src := ""
@@ -258,6 +303,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 		if not u.has("modes") or u.modes.has(mode_id):
 			upgrade_list.append(u)
 	conv_on = bal.has("conversion") and bal.conversion.get("enabled", false)
+	rift_on = bal.has("rift") and bal.rift.get("enabled", false)
 	if conv_on:
 		_order = bal.conversion.orders[ORDER_IDS[ally_order]]
 	for ev in data.get("evolutions", []):
@@ -284,6 +330,9 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 func step(dt: float, move: Vector2) -> void:
 	if state != "playing":
 		return
+	if rift_state == RIFT_ACTIVE or rift_grace > 0.0:
+		_step_rift(dt, move)
+		return
 	time += dt
 	if time >= run_length and not def_on:
 		state = "won"
@@ -298,6 +347,13 @@ func step(dt: float, move: Vector2) -> void:
 	else:
 		_src = "dash"  # Lunge and the Afterimage decoy hit from here
 		_update_player(dt, move)
+		_src = "other"
+	if rift_on:
+		_update_rift_portal(dt)
+		if rift_state == RIFT_ACTIVE:
+			return  # just stepped in: the arena starts next step
+		_src = "power"
+		_update_rift_power(dt)
 		_src = "other"
 	if order_cd > 0.0:
 		order_cd = maxf(order_cd - dt, 0.0)
@@ -1196,6 +1252,15 @@ func _process_dead() -> void:
 			_emit({"type": "ally_lost", "pos": pos})
 			_remove_enemy(i)
 			continue
+		if e_uid[i] == rift_uid:
+			_rift_boss_dead = true
+			rift_uid = -1
+			_emit({"type": "kill", "pos": pos, "color": bal.rift.boss.color, "radius": e_rad[i], "elite": true, "gilded": false, "uid": e_uid[i]})
+			_emit({"type": "rift_boss_killed", "pos": pos})
+			_remove_enemy(i)
+			continue
+		if rift_power != "" and rift_state != RIFT_ACTIVE:
+			rp_kills = minf(rp_kills + 1.0, rift_power_cost())
 		kills += 1
 		_add_streak()
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
@@ -1259,6 +1324,10 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
 	_emit({"type": "hurt", "amount": amount, "from": from})  # from: where the hit came from (HUD direction glow)
+	if p_hp <= 0.0 and rift_state == RIFT_ACTIVE:
+		p_hp = 1.0  # a rift can't kill you: thrown out at 1 HP with a frozen head start
+		_rift_exit("eject")
+		return
 	if p_hp <= 0.0:
 		p_hp = 0.0
 		if def_on:
@@ -1278,6 +1347,9 @@ func _contact_damage() -> void:
 	for i: int in query(p_pos, p_radius):
 		if e_hp[i] > 0.0:
 			var d: Dictionary = enemy_defs[e_type[i]]
+			if e_uid[i] == rift_uid:
+				_hurt(float(bal.rift.boss.contact_damage), "rift_boss", e_pos[i])
+				return
 			if e_elite[i] == 1:
 				_hurt(float(d.damage) * float(data.waves.elites.damage_mult), "elite_" + d.id, e_pos[i])
 			else:
@@ -1972,6 +2044,10 @@ func _free_waves() -> int:
 
 
 func _in_dish(p: Vector2, r: float) -> Vector2:
+	if rift_state == RIFT_ACTIVE:
+		var ar := float(bal.rift.arena_radius)
+		var o := p - RIFT_CENTER
+		return RIFT_CENTER + o.normalized() * (ar - r) if o.length_squared() > (ar - r) * (ar - r) else p
 	if terr != null:
 		return terr.clamp_inside(p, r)
 	if dish_r > 0.0 and p.length_squared() > (dish_r - r) * (dish_r - r):
@@ -2367,6 +2443,9 @@ func trigger_outbreak() -> bool:
 				e_gild[i] = 1
 				gilded += 1
 	_emit({"type": "outbreak_start", "pos": p_pos, "radius": gr, "gilded": gilded})
+	if rift_on and rift_state == RIFT_NONE:
+		rift_state = RIFT_PENDING
+		rift_timer = rng.randf_range(float(bal.rift.delay_min_s), float(bal.rift.delay_max_s))
 	# All the rare pickups at once (bomb + vacuum + heal), announced as one
 	# Outbreak instead of three separate pickups.
 	for kind in bal.outbreak.get("pickups", []):
@@ -2448,3 +2527,430 @@ func bonus_gold_kills() -> float:
 ## Gold earned so far this run (the HUD counter; results use the same maths).
 func run_gold_now(won: bool = false) -> int:
 	return Progression.run_gold(bal, kills, time, boss_killed, won, float(stats.gold_gain), bonus_gold_kills())
+
+
+# =============================================================== Boss Rift
+
+## Pending -> open (a portal spawn_min..spawn_max px away) -> touched -> arena.
+func _update_rift_portal(dt: float) -> void:
+	var c: Dictionary = bal.rift
+	if rift_state == RIFT_PENDING:
+		rift_timer -= dt
+		if rift_timer <= 0.0:
+			rift_pos = _rift_spot()
+			rift_state = RIFT_OPEN
+			rift_timer = float(c.open_s)
+			rifts_opened += 1
+			_emit({"type": "rift_open", "pos": rift_pos})
+	elif rift_state == RIFT_OPEN:
+		rift_timer -= dt
+		if p_down <= 0.0 and p_pos.distance_squared_to(rift_pos) < float(c.touch_radius) ** 2:
+			_rift_enter()
+		elif rift_timer <= 0.0:
+			rift_state = RIFT_NONE
+			_emit({"type": "rift_closed", "pos": rift_pos})
+
+
+## A spot spawn_min..spawn_max px from the player, inside the dish if any
+## (and clear of the nucleus).
+func _rift_spot() -> Vector2:
+	var c: Dictionary = bal.rift
+	var lo := float(c.spawn_min)
+	var hi := float(c.spawn_max)
+	var best := _in_dish(p_pos + Vector2.RIGHT * lo, 80.0)
+	for k in 12:
+		var a := rng.randf() * TAU
+		var p := _in_dish(p_pos + Vector2(cos(a), sin(a)) * rng.randf_range(lo, hi), 80.0)
+		if def_on and p.distance_to(core_pos) < core_r + 90.0:
+			continue
+		if p.distance_to(p_pos) >= lo:
+			return p
+		best = p
+	return best
+
+
+func _rift_enter() -> void:
+	var c: Dictionary = bal.rift
+	rift_state = RIFT_ACTIVE
+	rifts_entered += 1
+	rift_t = 0.0
+	_rift_boss_dead = false
+	_rift_return = p_pos
+	outbreak_t = 0.0
+	decoy_t = 0.0
+	# Set the run's enemy shots aside and clear our bullets in flight.
+	_rift_stash = [s_pos.duplicate(), s_vel.duplicate(), s_life.duplicate(), s_dmg.duplicate()]
+	_clear_shots_and_bullets()
+	p_pos = RIFT_CENTER + Vector2(0, float(c.arena_radius) * 0.45)
+	p_vel = Vector2.ZERO
+	var bc: Dictionary = c.boss
+	_add_enemy("boss", RIFT_CENTER + Vector2(0, -float(c.arena_radius) * 0.35))
+	var i := e_pos.size() - 1
+	rift_uid = e_uid[i]
+	var hp := maxf(float(bc.hp_min), rift_boss_dps_estimate() * float(bc.hp_seconds))
+	e_hp[i] = hp
+	e_maxhp[i] = hp
+	e_spd[i] = 0.0
+	rb_shot_t = float(bc.spread_every_s)
+	rb_stun = 0.0
+	m_state = 0
+	m_wait = float(bc.missile.first_s)
+	_rebuild_grid()
+	_emit({"type": "rift_enter", "pos": p_pos, "boss_hp": hp})
+
+
+func _clear_shots_and_bullets() -> void:
+	s_pos.clear()
+	s_vel.clear()
+	s_life.clear()
+	s_dmg.clear()
+	b_pos.clear()
+	b_vel.clear()
+	b_dmg.clear()
+	b_pierce.clear()
+	b_life.clear()
+	b_rad.clear()
+	b_knock.clear()
+	b_hits.clear()
+	b_ally.clear()
+
+
+## Rough single-target damage per second of the current build (weapons only),
+## so the Carrier lasts about boss.hp_seconds against weapons alone.
+func rift_boss_dps_estimate() -> float:
+	var dps := 0.0
+	for id in wstats:
+		var w: Dictionary = wstats[id]
+		var cd := maxf(float(w.get("cooldown", 1.0)), 0.05)
+		match id:
+			"bolt":
+				dps += float(w.damage) * float(w.count) / cd
+			"orbit":
+				dps += float(w.damage) * float(w.count) / maxf(float(w.hit_interval), 0.05) * 0.25
+			"nova":
+				dps += float(w.damage) * float(w.get("pulses", 1)) / cd * 0.6
+			"chain":
+				dps += float(w.damage) * float(w.get("forks", 1)) / cd
+	return dps
+
+
+## Inside the arena (or the frozen grace after leaving it).
+func _step_rift(dt: float, move: Vector2) -> void:
+	if rift_grace > 0.0:
+		# Everyone else is frozen; only you move (and dash) to get clear.
+		rift_grace -= dt
+		_update_player(dt, move)
+		if rift_grace <= 0.0:
+			rift_grace = 0.0
+			_emit({"type": "rift_grace_end"})
+		return
+	var c: Dictionary = bal.rift
+	rift_t += dt
+	_src = "dash"
+	_update_player(dt, move)
+	_src = "power"
+	_update_rift_power(dt)
+	_src = "other"
+	_rebuild_grid()
+	_update_rift_boss(dt)
+	if rift_state != RIFT_ACTIVE:
+		return  # thrown out by the phage
+	_update_weapons(dt)
+	_src = "other"
+	_update_bullets(dt)
+	_update_enemy_shots(dt)
+	_process_dead()
+	if rift_state != RIFT_ACTIVE:
+		return
+	_contact_damage()
+	if rift_state != RIFT_ACTIVE:
+		return
+	if _rift_boss_dead:
+		_rift_win()
+	elif rift_t >= float(c.duration_s):
+		_rift_exit("timeout")
+
+
+func rift_boss_index() -> int:
+	if rift_uid < 0:
+		return -1
+	for i in e_pos.size():
+		if e_uid[i] == rift_uid:
+			return i
+	return -1
+
+
+## The Phage Carrier: drifts, keeping its distance; fires a weak spread now and
+## then; launches one Seeker Phage at a time (track -> lock -> fire). A phage
+## that hits the Carrier deals a big share of its HP and stuns it.
+func _update_rift_boss(dt: float) -> void:
+	var bi := rift_boss_index()
+	boss_index = bi
+	if bi < 0:
+		m_state = 0
+		return
+	var bc: Dictionary = bal.rift.boss
+	var mc: Dictionary = bc.missile
+	if e_flash[bi] > 0.0:
+		e_flash[bi] -= dt
+	if e_hitcd[bi] > 0.0:
+		e_hitcd[bi] -= dt
+	var bp := e_pos[bi]
+	bp += e_knock[bi] * dt
+	e_knock[bi] *= maxf(0.0, 1.0 - 9.0 * dt)
+	if rb_stun > 0.0:
+		rb_stun -= dt
+	else:
+		# Drift in a slow loop near the middle (a steady target to bait the
+		# phage into); back off if the player gets close.
+		var want := RIFT_CENTER + Vector2(cos(rift_t * 0.35), sin(rift_t * 0.5)) * float(bc.wander_radius)
+		var off := bp - p_pos
+		if off.length() < float(bc.keep_distance):
+			want = bp + off.normalized() * 60.0
+		bp += (want - bp).limit_length(float(bc.speed) * dt)
+		rb_shot_t -= dt
+		if rb_shot_t <= 0.0:
+			rb_shot_t = float(bc.spread_every_s)
+			var dir := (p_pos - bp).normalized()
+			var n := int(bc.spread_count)
+			for k in n:
+				var ang := deg_to_rad(float(bc.spread_angle)) * (k - (n - 1) / 2.0)
+				_enemy_shot(bp, dir.rotated(ang), float(bc.spread_speed), float(bc.spread_damage) * _dmg_mult())
+	e_pos[bi] = _in_dish(bp, e_rad[bi])
+	bp = e_pos[bi]
+	# Seeker Phage.
+	match m_state:
+		0:
+			m_wait -= dt
+			if m_wait <= 0.0 and rb_stun <= 0.0:
+				m_state = 1
+				m_t = 0.0
+				m_pos = bp
+				m_dir = (p_pos - bp).normalized()
+				_emit({"type": "missile_launch", "pos": m_pos})
+		1:
+			m_t += dt
+			var want := (p_pos - m_pos).normalized()
+			var turn := float(mc.turn_rate) * dt
+			m_dir = m_dir.rotated(clampf(m_dir.angle_to(want), -turn, turn))
+			m_pos += m_dir * float(mc.track_speed) * dt
+			if (m_t >= float(mc.min_track_s) and m_pos.distance_to(p_pos) < float(mc.lock_distance)) or m_t >= float(mc.track_s):
+				m_state = 2
+				m_t = 0.0
+				m_dir = (p_pos - m_pos).normalized()
+				_emit({"type": "missile_lock", "pos": m_pos})
+		2:
+			m_t += dt
+			if m_t >= float(mc.lock_s):
+				m_state = 3
+				m_t = 0.0
+				_emit({"type": "missile_fire", "pos": m_pos})
+		3:
+			m_t += dt
+			var stp := m_dir * float(mc.fire_speed) * dt
+			var steps := maxi(1, ceili(stp.length() / 20.0))  # no tunnelling at full speed
+			var mr := float(mc.radius)
+			for k in steps:
+				m_pos += stp / steps
+				if m_pos.distance_to(e_pos[bi]) < e_rad[bi] + mr:
+					var dmg := e_maxhp[bi] * float(mc.boss_damage_frac)
+					_src = "missile"
+					_damage(bi, dmg, m_dir * 300.0)
+					_src = "other"
+					rb_stun = float(mc.stun_s)
+					missile_hits_boss += 1
+					_emit({"type": "missile_hit_boss", "pos": m_pos, "amount": dmg})
+					_end_missile()
+					return
+				if p_iframes <= 0.0 and p_dash_t <= 0.0 and m_pos.distance_to(p_pos) < p_radius + mr:
+					var dmult := _dmg_mult() * float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
+					var raw := p_max_hp * float(mc.player_damage_frac) / maxf(dmult, 0.01)
+					var hit_at := m_pos
+					_emit({"type": "missile_hit_player", "pos": hit_at})
+					_end_missile()
+					_hurt(raw, "missile", hit_at - m_dir * 10.0)
+					return
+			if m_t >= float(mc.fire_s) or m_pos.distance_to(RIFT_CENTER) > float(bal.rift.arena_radius) + 120.0:
+				_emit({"type": "missile_miss", "pos": m_pos})
+				_end_missile()
+
+
+func _end_missile() -> void:
+	m_state = 0
+	m_wait = float(bal.rift.boss.missile.gap_s)
+
+
+func _rift_win() -> void:
+	rifts_won += 1
+	_grant_rift_power()
+	_rift_exit("won")
+
+
+## Back to the run where you left it. Everything else stays frozen for a moment
+## (longer after an ejection at 1 HP) so you can get your bearings.
+func _rift_exit(reason: String) -> void:
+	var c: Dictionary = bal.rift
+	var bi := rift_boss_index()
+	if bi >= 0:
+		_remove_enemy(bi)
+	rift_uid = -1
+	boss_index = -1
+	m_state = 0
+	_clear_shots_and_bullets()
+	if _rift_stash.size() == 4:
+		s_pos = _rift_stash[0]
+		s_vel = _rift_stash[1]
+		s_life = _rift_stash[2]
+		s_dmg = _rift_stash[3]
+	_rift_stash = []
+	p_pos = _rift_return
+	p_vel = Vector2.ZERO
+	rift_state = RIFT_NONE
+	rift_ejected = reason == "eject"
+	rift_grace = float(c.eject_grace_s) if rift_ejected else float(c.exit_freeze_s)
+	if rift_ejected:
+		rifts_ejected += 1
+		p_iframes = maxf(p_iframes, rift_grace + 0.5)
+	elif reason == "timeout":
+		rifts_timeout += 1
+	_rebuild_grid()
+	_emit({"type": "rift_exit", "reason": reason, "pos": p_pos, "grace": rift_grace, "power": rift_power, "level": rift_power_lv})
+
+
+## Rift Power from your strongest weapon (highest level; ties at random).
+## The same power again levels it up (max_level in data); a different one
+## replaces it. The meter starts full.
+func _grant_rift_power() -> void:
+	var c: Dictionary = bal.rift
+	var best := -1
+	var cands := []
+	for u in upgrade_list:
+		if u.type != "weapon" or not owned.has(u.id) or not c.weapon_power.has(u.id):
+			continue
+		var lv := int(owned[u.id])
+		if lv > best:
+			best = lv
+			cands = [u.id]
+		elif lv == best:
+			cands.append(u.id)
+	if cands.is_empty():
+		return
+	var weapon: String = cands[rng.randi() % cands.size()]
+	var pw: String = c.weapon_power[weapon]
+	if pw == rift_power:
+		rift_power_lv = mini(rift_power_lv + 1, int(c.powers[pw].max_level))
+	else:
+		rift_power = pw
+		rift_power_lv = 1
+	rp_kills = rift_power_cost()
+	_emit({"type": "rift_power", "power": rift_power, "level": rift_power_lv, "weapon": weapon})
+
+
+func rift_power_cost() -> float:
+	if rift_power == "":
+		return INF
+	var pc: Dictionary = bal.rift.powers[rift_power]
+	return maxf(1.0, round(float(pc.kills) * pow(float(pc.kills_per_level_mult), rift_power_lv - 1)))
+
+
+func rift_power_ready() -> bool:
+	return rift_power != "" and rp_kills >= rift_power_cost() and state == "playing" and p_down <= 0.0 and rift_grace <= 0.0
+
+
+## Damage of a power hit: scaled like the dash (keeps up with enemy HP), your
+## might, and +level_damage per level above 1.
+func _rp_damage(base: float) -> float:
+	var pc: Dictionary = bal.rift.powers[rift_power]
+	return base * _hp_mult() * (1.0 + float(stats.might)) * (1.0 + float(pc.level_damage) * (rift_power_lv - 1))
+
+
+## Tap: fire the Rift Power (the meter refills with kills).
+func use_rift_power() -> bool:
+	if not rift_power_ready():
+		return false
+	rp_kills = 0.0
+	rp_uses += 1
+	var pc: Dictionary = bal.rift.powers[rift_power]
+	_rebuild_grid()
+	_src = "power"
+	match rift_power:
+		"lance":
+			# A long straight bolt of lightning where you're heading.
+			var d := p_facing.normalized() if p_facing != Vector2.ZERO else Vector2.RIGHT
+			var length := float(pc.length) * (1.0 + 0.15 * (rift_power_lv - 1))
+			var width := float(pc.width)
+			var a := p_pos
+			var b := p_pos + d * length
+			var dmg := _rp_damage(float(pc.damage))
+			for i: int in query((a + b) / 2.0, length / 2.0 + width):
+				var cp := Geometry2D.get_closest_point_to_segment(e_pos[i], a, b)
+				if cp.distance_to(e_pos[i]) <= width + e_rad[i]:
+					var side := 140.0 if (e_pos[i] - cp).dot(d.orthogonal()) > 0.0 else -140.0
+					_damage(i, dmg, d.orthogonal() * side)
+			_emit({"type": "power_lance", "from": a, "to": b, "width": width})
+		"barrage":
+			_rp_barrage(pc)
+			_rp_barrage_t = float(pc.wave_gap_s)
+		"phalanx":
+			_rp_phalanx_t = float(pc.duration_s)
+			_emit({"type": "power_phalanx", "pos": p_pos})
+		"heatwave":
+			_rp_heat_n = int(pc.pulses)
+			_rp_heat_t = 0.0
+	_src = "other"
+	_process_dead()
+	_emit({"type": "rift_power_used", "power": rift_power, "pos": p_pos})
+	return true
+
+
+func _rp_barrage(pc: Dictionary) -> void:
+	var n := int(pc.bolts)
+	var w := {"damage": _rp_damage(float(pc.damage)), "pierce": int(pc.pierce), "range": float(pc.range), "speed": float(pc.speed), "size": float(pc.size), "knockback": 180.0}
+	var off := rng.randf() * TAU
+	for k in n:
+		var a := off + TAU * k / n
+		_spawn_bullet(Vector2(cos(a), sin(a)) * float(pc.speed), w)
+		if b_ally.size() > 0:
+			b_ally[b_ally.size() - 1] = 3  # damage counts as the Rift Power
+	_emit({"type": "power_barrage", "pos": p_pos})
+
+
+## Multi-step powers: barrage's second ring, heatwave pulses, phalanx orbs.
+func _update_rift_power(dt: float) -> void:
+	phalanx_points.clear()
+	if rift_power == "":
+		return
+	var pc: Dictionary = bal.rift.powers[rift_power]
+	if _rp_barrage_t > 0.0:
+		_rp_barrage_t -= dt
+		if _rp_barrage_t <= 0.0:
+			_rp_barrage_t = -1.0
+			_rp_barrage(pc)
+	if _rp_heat_n > 0:
+		_rp_heat_t -= dt
+		if _rp_heat_t <= 0.0:
+			var k := int(pc.pulses) - _rp_heat_n
+			_rp_heat_n -= 1
+			_rp_heat_t = float(pc.pulse_gap_s)
+			var w := {"damage": _rp_damage(float(pc.damage)), "area": float(pc.area) + float(pc.area_step) * k, "knockback": float(pc.knockback)}
+			_rebuild_grid()
+			_fire_nova(w)
+			_process_dead()
+	if _rp_phalanx_t > 0.0:
+		_rp_phalanx_t -= dt
+		_rp_phalanx_ang += float(pc.spin) * dt
+		var life := 1.0 - _rp_phalanx_t / float(pc.duration_s)
+		var r := lerpf(float(pc.radius_from), float(pc.radius_to), clampf(life * 1.6, 0.0, 1.0))
+		var n := int(pc.orbs)
+		var dmg := _rp_damage(float(pc.damage))
+		_rebuild_grid()
+		for j in n:
+			var a := _rp_phalanx_ang + TAU * j / n
+			var c: Vector2 = p_pos + Vector2(cos(a), sin(a)) * r
+			phalanx_points.append(c)
+			_block_shots(c, float(pc.size))
+			for i: int in query(c, float(pc.size)):
+				if e_hitcd[i] <= 0.0 and e_hp[i] > 0.0:
+					e_hitcd[i] = float(pc.hit_interval)
+					_damage(i, dmg, (e_pos[i] - p_pos).normalized() * 220.0)
+		_process_dead()

@@ -11,6 +11,7 @@ var gem_greed := 1.3
 var loop_time := 3.0  # territory: seconds out before heading home to close the loop
 var _order_t := 0.0  # Swarm: next time (run clock) the bot reconsiders its order
 var force_order := -1  # sim --order: always keep this order
+var bait := true  # Boss Rift: lure the Seeker Phage into the Carrier (sim --nobait turns it off)
 
 
 func _init(seed_value: int) -> void:
@@ -19,6 +20,8 @@ func _init(seed_value: int) -> void:
 
 
 func move(w: World) -> Vector2:
+	if w.rift_state == World.RIFT_ACTIVE:
+		return _rift_move(w)
 	var away := Vector2.ZERO
 	var dr2 := danger_radius * danger_radius
 	var near := 0
@@ -94,6 +97,12 @@ func move(w: World) -> Vector2:
 	if w.conv_on and force_order < 0 and w.ally_count > 0 and w.time >= _order_t:
 		_order_t = w.time + 2.0
 		w.set_ally_order(pick_order(w, near))
+	# Boss Rift: step in when it's open and we're healthy enough.
+	if w.rift_state == World.RIFT_OPEN and w.p_hp > w.p_max_hp * 0.45 and w.rift_grace <= 0.0:
+		var to_r := w.rift_pos - w.p_pos
+		dir = (dir * 0.4 + to_r.normalized() * 1.6).normalized()
+	if w.rift_power_ready() and near >= 6:
+		w.use_rift_power()
 	# Outbreak: trigger the frenzy when a crowd is close.
 	if w.outbreak_ready() and away.length() > 0.02:
 		w.trigger_outbreak()
@@ -112,6 +121,55 @@ func pick(w: World) -> String:
 	if not weapons.is_empty() and rng.randf() < 0.6:
 		return weapons[rng.randi() % weapons.size()]
 	return w.offers[rng.randi() % w.offers.size()]
+
+
+## In the arena: while the phage tracks us, stand between it and the Carrier
+## so its locked shot flies on into the Carrier; on lock, dash sideways.
+## Otherwise circle the Carrier at a safe distance.
+func _rift_move(w: World) -> Vector2:
+	var bi := w.rift_boss_index()
+	if bi < 0:
+		return Vector2.ZERO
+	var bp := w.e_pos[bi]
+	var to_b := bp - w.p_pos
+	if w.rift_power_ready():
+		w.use_rift_power()
+	var dir := Vector2.ZERO
+	if bait and w.m_state == 1:
+		# Get the phage trailing behind us, then run at the Carrier: when it
+		# locks, the line from the phage through us points into the Carrier.
+		# Run out away from the Carrier (the phage follows), then turn and run
+		# back past the (harmless, still tracking) phage at the Carrier: it
+		# ends up behind us, so its locked shot flies on into the Carrier.
+		var from_b := -to_b.normalized()
+		if w.m_t < 1.7:
+			dir = from_b
+			var to_c := World.RIFT_CENTER - w.p_pos
+			if to_c.length() > float(w.bal.rift.arena_radius) - 120.0:
+				dir = (from_b.orthogonal() * tangent + to_c.normalized() * 0.5).normalized()
+		else:
+			dir = to_b.normalized() if to_b.length() > 140.0 else to_b.orthogonal().normalized() * tangent
+	elif w.m_state == 2 or w.m_state == 3:
+		var side := w.m_dir.orthogonal()
+		if side.dot(w.p_pos - w.m_pos) < 0.0:
+			side = -side
+		dir = side
+		if w.m_state == 2 and w.can_dash() and w.m_t > float(w.bal.rift.boss.missile.lock_s) * 0.5:
+			w.p_move = side
+			w.dash()
+	else:
+		var r := to_b.length()
+		dir = to_b.orthogonal().normalized() * tangent
+		if r < 260.0:
+			dir = (dir - to_b.normalized()).normalized()
+		elif r > 380.0:
+			dir = (dir + to_b.normalized()).normalized()
+	# Dodge the Carrier's spread shots a little.
+	for i in w.s_pos.size():
+		var off := w.p_pos - w.s_pos[i]
+		if off.length_squared() < 90.0 * 90.0:
+			dir = (dir + off.normalized() * 1.5).normalized()
+	return dir
 
 
 ## Swarm orders: Guard when hurt, Hunt when crowded, Harvest when it's calm

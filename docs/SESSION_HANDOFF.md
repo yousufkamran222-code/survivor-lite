@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **164 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **176 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 164 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 176 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -152,10 +152,11 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (164 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (176 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
+tools/sim/rift_bench.gd   Boss Rift arena harness: 24 fights, bait vs --nobait (Carrier HP tuning)
 assets/processed/         Generated wavs + bg_tile.png (+ .import files, committed). MANIFEST.md lists licences.
 .github/                  actions/setup-godot (cached Godot + templates), workflows test/web/android
 docs/                     SPEC (game rules), PIPELINE (milestones + dated log), ROADMAP (plan), DECISIONS (log),
@@ -184,6 +185,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **Rare pickups:** `i_pos/i_kind` with kinds `PICKUP_KINDS = ["vacuum","heal","bomb"]`, rolled per normal kill (`balance.pickups.chances`).
 - **Dash:** `dash()` uses charges (`p_dash_charges`, `dash_max_charges()`, `dash_cooldown()`), iframes, Lunge hits (`_lunge_hits`), and the Afterimage decoy (`decoy_pos/decoy_t/decoy_cd`, `_decoy_blast`). Enemies (not elites or the boss) within `decoy_radius` chase the decoy.
 - **Territory hooks:** the dish clamp, `_spawn_point` avoids land and the outside, land slows enemies, `_update_territory` (trail and claims, DoT/erosion tick), `_on_claim` (40% max HP burst plus claim XP), `_pressure()` scales spawn budget and enemy HP with % infected.
+- **Boss Rift** (`balance.rift`, World section "Boss Rift"): `rift_state` NONE/PENDING/OPEN/ACTIVE; `trigger_outbreak()` schedules it. ACTIVE (and the exit `rift_grace`) hand `step()` to `_step_rift()`, which runs only the player, Rift Power, the Carrier (`_update_rift_boss`: drift, spread, Seeker Phage `m_state` 0-3), weapons, bullets, shots and contact damage; everything else in the World is untouched (frozen). The arena is `RIFT_CENTER` (100000, 0); `_in_dish` clamps to it. The Carrier is a "boss" enemy identified by `rift_uid` (own colour/name/AI; `_process_dead` and `_contact_damage` special-case it). `_hurt` at 0 HP in the arena calls `_rift_exit("eject")` (1 HP, 2.5 s grace). Rift Powers: `rift_power`, `rift_power_lv`, `rp_kills` meter (kills outside the arena), `use_rift_power()`, multi-step effects in `_update_rift_power` (Barrage bolts are `b_ally` 3 = source "power"). Anything new that drives a World must cope with the rift (the bot's `_rift_move`).
 - **Damage by source:** set `_src` (bolt/orbit/nova/chain/allies/towers/dash/land/bomb/outbreak/revive/other) around anything that calls `_damage`; it adds effective damage (capped at remaining HP) to `damage_by` and tracks `biggest_hit`/`biggest_src` (ignoring 1e6 instant kills). Bullets map `b_ally` 0/1/2 to bolt/allies/towers (`BULLET_SRC`). New damage code must set `_src`, or it shows as nothing on the results card.
 - **Kill streak** (`balance.streak`): `_add_streak()` on every hostile kill; `streak`, `streak_t` (game time, so pauses don't break it), `best_streak`. Milestones (`milestones`, then every `repeat_every`) emit `streak` {n, tier}; a break emits `streak_end`. **Hook for future streak upgrades/abilities:** `balance.streak.rewards` [{at, pickup | outbreak}] fire in `_streak_rewards()` after the kill pass (empty by default, validated); add new reward kinds there. Tiers (`tiers`: name + colour) drive the HUD. JSON numbers are floats: compare milestones with `int()`.
 - **Swarm orders:** `ally_order` (`ORDER_GUARD/HUNT/HARVEST`, ids in `ORDER_IDS`), `set_ally_order(o)` (1 s cooldown `order_cd`), `_order` = the current def from `balance.conversion.orders`. `_ally_velocity` picks the goal: the ring slot (Guard; Hunt widens it), the germ from `_hunt_target` (Hunt, retargets every 3rd frame per ally), or a gem from `_harvest_target` (Harvest; `_gem_claims` spreads allies over different gems; `_grab_gems` sets `g_pull` so the gem flies to the player). Allies reuse `e_dir` as their goal (`Vector2.INF` = none). `_ally_power()` scales with `_hp_mult()` and might (`scale_with_hp`, `might_applies`), the order's `damage_mult` and the Outbreak boost. Stats: `damage_dealt`, `ally_damage` (via the `_src_ally` flag and `b_ally` per bullet), `gems_harvested`, `order_changes`.
@@ -334,6 +336,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+00000000000. **Boss Rift Phase 1: awaiting playtest** (ROADMAP Prototype 4, D-025). Ask: does baiting the Seeker Phage click? Speeds/damage right? Is a rift per Outbreak too often? Which Rift Power feels best? Next: Phase 2 (more bosses, power pool, feel pass).
 0000000000. **Satisfaction rounds** (Yousuf: implement the idea list two sets at a time). Round 1 done (camera + XP loop, D-024); round 2 done (low-HP vignette + heartbeat, subtle hit direction, per-weapon cell animations, bigger evolutions, evolution moment). **He rejected:** set 3 (enemies feel alive) entirely, the HP ring around the cell, muzzle flashes/trails. Round 3 done (results highlights with damage per source, gold fly-in, animated Infection claim fill). He skipped the "living dish" atmosphere idea. The idea list is finished; ask what's next (backlog below).
 000000000. **Kill streak (D-023): awaiting playtest.** Satisfying enough at high numbers? Is a 1.0 s window right (bot best streaks p50: Classic ~70, Swarm ~150, Nucleus ~240, Infection ~430)? Next idea if wanted: streak-triggered upgrades via `balance.streak.rewards`.
 00000000. **Kill/number juice v3 + BUILD overlay: awaiting playtest.** Do kills feel satisfying now? Numbers too busy with the arc? Is the BUILD button easy to find (top left, under the bars)?

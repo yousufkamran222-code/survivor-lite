@@ -159,6 +159,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_E, KEY_TAB]:
 		_open_banked()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F:
+		_use_rift_power()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q:
 		_trigger_outbreak()
 		return
@@ -197,6 +200,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.pressed and hud.in_outbreak_button(event.position):
 			_trigger_outbreak()
+			return
+		if event.pressed and hud.in_power_button(event.position):
+			_use_rift_power()
 			return
 		if event.pressed and (hud.in_dash_button(event.position) or (_touch_index != -1 and event.index != _touch_index)):
 			world.dash()
@@ -410,6 +416,51 @@ func _handle_events(events: Array) -> void:
 				hud.toast("Survive the surge", Color(pal.text, 0.9), 2.2)
 			"streak":
 				_on_streak_milestone(ev)
+			"rift_open":
+				Sfx.play("evolve", 0.0, 0.6)
+				Sfx.vibrate(60)
+				hud.toast("A RIFT OPENED!", GameData.color(bal.rift.boss.color), 2.0)
+			"rift_closed":
+				hud.toast("The rift closed", Color(pal.text, 0.8), 1.2)
+			"rift_enter":
+				Sfx.play("boss", 0.0, 1.2)
+				Sfx.vibrate(80)
+				hud.toast(str(bal.rift.boss.name).to_upper(), GameData.color(bal.rift.boss.color), 2.0)
+				Analytics.event("rift_enter", {"t": int(world.time), "level": world.level})
+			"missile_launch":
+				Sfx.play("shoot", 0.0, 0.55)
+			"missile_lock":
+				Sfx.play("click", 0.0, 1.9)
+				Sfx.vibrate(25)
+			"missile_fire":
+				Sfx.play("dash", 0.0, 0.7)
+			"missile_hit_boss":
+				Sfx.play("bomb", 0.0, 1.1)
+				Sfx.vibrate(90)
+				hud.toast("DIRECT HIT!", Color.WHITE, 1.0)
+			"missile_hit_player":
+				Sfx.play("hurt", 0.0, 0.7)
+				Sfx.vibrate(140)
+			"rift_power":
+				var pd: Dictionary = bal.rift.powers[ev.power]
+				hud.toast("%s%s" % [str(pd.name).to_upper(), "" if int(ev.level) <= 1 else "  LV %d" % int(ev.level)], GameData.color(bal.rift.boss.color), 2.4)
+				hud.toast(str(pd.desc), Color(pal.text, 0.9), 2.4)
+			"rift_exit":
+				match str(ev.reason):
+					"won":
+						Sfx.play("evolve", 0.0, 1.0)
+						Sfx.vibrate(160)
+						_slowmo = float(bal.juice.get("slowmo_boss_s", 0.0))
+					"timeout":
+						Sfx.play("deny", 0.0, 0.8)
+						hud.toast("TIME'S UP", Color(pal.text, 0.9), 1.6)
+					"eject":
+						Sfx.play("death", 0.0, 1.3)
+						Sfx.vibrate(200)
+				Analytics.event("rift_exit", {"reason": ev.reason, "t": int(world.time), "power": ev.power})
+			"rift_power_used":
+				Sfx.play("nova", 0.0, 0.8)
+				Sfx.vibrate(50)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
@@ -1743,6 +1794,11 @@ func _set_order(o: int) -> void:
 		Sfx.play("deny", 0.0)
 		return
 	hud.set_orders_open(false)
+
+
+func _use_rift_power() -> void:
+	if not world.use_rift_power():
+		Sfx.play("deny", 0.0)
 
 
 func _trigger_outbreak() -> void:

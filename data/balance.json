@@ -128,6 +128,35 @@
     "enemy_hp_mult": 1.0,
     "damage_taken_mult": 1.0
   },
+  "rift": {
+    "enabled": true,
+    "delay_min_s": 5, "delay_max_s": 10, "open_s": 15,
+    "spawn_min": 450, "spawn_max": 700, "touch_radius": 70,
+    "arena_radius": 650, "duration_s": 25,
+    "exit_freeze_s": 1.0, "eject_grace_s": 2.5,
+    "boss": {
+      "name": "Phage Carrier", "color": "#ff5ec8",
+      "hp_min": 400, "hp_seconds": 20,
+      "speed": 60, "wander_radius": 140, "keep_distance": 200, "contact_damage": 12,
+      "spread_every_s": 2.6, "spread_count": 3, "spread_angle": 14, "spread_speed": 260, "spread_damage": 6,
+      "missile": {
+        "first_s": 1.2, "track_speed": 150, "turn_rate": 2.4, "track_s": 4.5, "min_track_s": 3.0, "lock_distance": 160,
+        "lock_s": 0.45, "fire_speed": 760, "fire_s": 1.4, "radius": 14,
+        "player_damage_frac": 0.4, "boss_damage_frac": 0.3, "stun_s": 1.5, "gap_s": 1.8
+      }
+    },
+    "weapon_power": {"bolt": "barrage", "orbit": "phalanx", "nova": "heatwave", "chain": "lance"},
+    "powers": {
+      "lance": {"name": "Lightning Lance", "desc": "Lightning down your path", "kills": 150, "kills_per_level_mult": 0.8, "max_level": 3, "level_damage": 0.35,
+        "damage": 60, "length": 900, "width": 34},
+      "barrage": {"name": "Barrage", "desc": "Two rings of piercing bolts", "kills": 150, "kills_per_level_mult": 0.8, "max_level": 3, "level_damage": 0.35,
+        "damage": 18, "bolts": 24, "pierce": 3, "range": 720, "speed": 700, "size": 9, "wave_gap_s": 0.25},
+      "phalanx": {"name": "Phalanx", "desc": "A spinning antibody ring", "kills": 150, "kills_per_level_mult": 0.8, "max_level": 3, "level_damage": 0.35,
+        "damage": 14, "orbs": 10, "size": 20, "radius_from": 90, "radius_to": 260, "spin": 4.0, "duration_s": 3.0, "hit_interval": 0.25},
+      "heatwave": {"name": "Heatwave", "desc": "Four rolling heat pulses", "kills": 150, "kills_per_level_mult": 0.8, "max_level": 3, "level_damage": 0.35,
+        "damage": 30, "pulses": 4, "pulse_gap_s": 0.22, "area": 170, "area_step": 90, "knockback": 380}
+    }
+  },
   "streak": {
     "window_s": 1.0,
     "milestones": [25, 50, 100, 150, 250, 350, 500],

@@ -4,6 +4,8 @@
     {"id": "dash", "at": 8.0, "text": "Tap DASH (or tap with a second finger) to zip through danger."},
     {"id": "upgrade", "event": "level_gained", "text": "Level up! Tap UPGRADE whenever you're ready to pick."},
     {"id": "build_menu", "event": "upgrade", "text": "Tap BUILD (top left) to pause and see every upgrade you own."},
+    {"id": "rift", "event": "rift_open", "text": "A rift! Step in to fight a boss and win a power for this run."},
+    {"id": "rift_bait", "event": "missile_launch", "text": "Lure the Seeker Phage: let it chase you, run at the Carrier, then dash aside when it locks!"},
     {"id": "elite", "event": "elite_spawn", "text": "An elite! Kill it for a chest. Follow the gold arrow."},
     {"id": "outbreak", "event": "outbreak_ready", "text": "OUTBREAK is ready! Tap it: faster weapons, half damage, and nearby germs turn to gold."}
   ],

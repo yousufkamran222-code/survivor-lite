@@ -289,3 +289,12 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-04 Gold fly-in v2
 - Yousuf: the fly-in was "very buggy and looks bad". Now a smooth rising stream: run total counts down as coins leave, wallet counts up as they land, buttons locked; fixed the count-up overwriting the number when you tapped early. Presentation only. 164 tests.
+
+### 2026-11-04 Boss Rift, Phase 1 (D-025)
+- Built per ROADMAP "Prototype 4": rift 5-10 s after Outbreak, arena inside the same World (run frozen), Phage Carrier + Seeker Phage (bait it into its owner), 1-HP ejection with a 2.5 s frozen grace, four Rift Powers (Lance / Barrage / Phalanx / Heatwave) on a button left of DASH. Arena tuning with `tools/sim/rift_bench.gd` (numbers in ROADMAP).
+- **Bot, seeds 600-1100 x 8 (48 runs per mode), before → after:**
+  - Classic: win 15% → 15%, p10 1:58-3:04 → 1:57-3:53, p50 2:19-4:11 → 2:52-4:31, p90 3:28-5:00 → 4:15-5:00, level p50 8-13 → 8-14; rifts entered 42, won 18, timed out 22, ejected 2; 34 phage hits on the Carrier
+  - Infection: win 19% → 25%, p10 1:28-2:16 → 1:37-2:23, p50 2:22-3:29 → 2:40-3:18, p90 2:41-5:00 → 3:41-5:00, level p50 15-20 → 17-21; rifts entered 191 (~4 per run: Outbreak fills fast in the dish), won 59
+  - Swarm: win 15% → 6%, p10 1:25-2:22 → 1:25-2:17, p50 2:17-4:40 → 1:59-3:21, p90 3:21-5:00 → 2:14-4:12, level p50 10-13 → 7-13; rifts entered 54, won 19 (Swarm's x2 damage taken also applies in the arena)
+  - Nucleus: win 40% → 30%, p50 2:55-6:06 → 2:51-6:01, level p50 9-14 → 10-15; rifts entered 47, won 22
+  - All within the ±10-15 alarm band. The bot beats the Carrier 31-47% of the time in real runs (it baits imperfectly with odd builds); humans should do better. 176 tests.

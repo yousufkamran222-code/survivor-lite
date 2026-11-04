@@ -254,6 +254,39 @@ func consume(events: Array) -> void:
 			"level_gained":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 70.0, "life": 0.35, "color": pal.ui_accent}, max_fx + 4)
 				add_zoom_punch(float(juice.get("cam_punch_level", 0.0)))
+			"missile_hit_boss":
+				var rc := GameData.color(world.bal.rift.boss.color)
+				add_shake(14.0)
+				add_zoom_punch(0.05)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 200.0, "life": 0.45, "color": Color.WHITE, "w": 9.0}, max_fx + 10)
+				for n in 20:
+					var a := TAU * n / 20.0
+					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(260, 480), "drag": 3.0, "color": rc if n % 2 else Color.WHITE, "r": 6.0, "life": 0.6}, max_fx + 30)
+			"missile_hit_player":
+				add_shake(16.0)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 120.0, "life": 0.35, "color": pal.player_hurt, "w": 8.0}, max_fx + 10)
+			"missile_lock":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.3, "color": Color.WHITE, "w": 4.0}, max_fx + 10)
+			"rift_open":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 160.0, "life": 0.6, "color": GameData.color(world.bal.rift.boss.color), "w": 8.0}, max_fx + 10)
+			"rift_enter", "rift_exit":
+				add_zoom_punch(0.12)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 260.0, "life": 0.55, "color": GameData.color(world.bal.rift.boss.color), "w": 10.0}, max_fx + 10)
+				_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2.ZERO, "color": Color(1, 1, 1, 0.9), "r": 70.0, "life": 0.25}, max_fx + 10)
+			"power_lance":
+				var pts := PackedVector2Array()
+				var a: Vector2 = ev.from
+				var b: Vector2 = ev.to
+				var n := 14
+				for k in n + 1:
+					var q := float(k) / n
+					var j := 0.0 if k == 0 or k == n else randf_range(-22.0, 22.0)
+					pts.append(a.lerp(b, q) + (b - a).orthogonal().normalized() * j)
+				_add_fx({"kind": "lance", "points": pts, "width": float(ev.width), "life": 0.35, "color": _wcolor("chain", pal.chain)}, max_fx + 10)
+				add_shake(10.0)
+			"power_barrage", "power_phalanx":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 140.0, "life": 0.35, "color": Color.WHITE, "w": 6.0}, max_fx + 10)
+				add_shake(5.0)
 			"levelup_wave":
 				# The shove ring: fast, bright, sized to the push radius.
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": float(ev.radius), "life": 0.32, "color": Color(pal.xp_bar.lightened(0.4), 0.95)}, max_fx + 4)
@@ -421,6 +454,43 @@ func evolution_moment(weapon: String) -> void:
 	add_shake(8.0)
 
 
+## Boss Rift: the portal while it's open (a swirl whose outer ring shows the
+## time left), the Seeker Phage and its telegraphs (faint tracking line ->
+## bright locked lane -> streak), and the Phalanx power's orbs.
+func _draw_rift(ci: CanvasItem, now: float) -> void:
+	var rc := GameData.color(world.bal.rift.boss.color) if world.rift_on else Color.WHITE
+	if world.rift_state == World.RIFT_OPEN:
+		var p := world.rift_pos
+		var left := world.rift_timer / float(world.bal.rift.open_s)
+		ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(90, 90), Vector2(180, 180)), false, Color(rc, 0.18 + 0.08 * sin(now * 4.0)))
+		for k in 3:
+			var s := now * (2.0 + k) + TAU * k / 3.0
+			ci.draw_arc(p, 34.0 + 14.0 * k, s, s + 2.2, 16, Color(rc.lightened(0.2 * k), 0.85), 5.0 - k)
+		ci.draw_circle(p, 16.0 + 3.0 * sin(now * 8.0), Color(1, 1, 1, 0.9))
+		ci.draw_arc(p, 82.0, -PI / 2.0, -PI / 2.0 + TAU * left, 48, Color(1, 1, 1, 0.6), 4.0)
+	if world.rift_state == World.RIFT_ACTIVE and world.m_state > 0:
+		var mc: Dictionary = world.bal.rift.boss.missile
+		var m := world.m_pos
+		match world.m_state:
+			1:
+				var k := clampf(world.m_t / float(mc.track_s), 0.0, 1.0)
+				ci.draw_line(m, world.p_pos, Color(pal.player_hurt, 0.12 + 0.35 * k), 2.0 + 2.0 * k)
+			2:
+				var flash := 0.6 + 0.4 * sin(now * 40.0)
+				ci.draw_line(m, m + world.m_dir * 1400.0, Color(1, 1, 1, 0.25 * flash), 30.0)
+				ci.draw_line(m, m + world.m_dir * 1400.0, Color(1, 1, 1, 0.9 * flash), 4.0)
+			3:
+				ci.draw_line(m - world.m_dir * 90.0, m, Color(rc, 0.7), 14.0)
+		ci.draw_texture_rect(_disc_tex, Rect2(m - Vector2(26, 26), Vector2(52, 52)), false, Color(rc, 0.4))
+		ci.draw_circle(m, float(mc.radius), Color(1, 1, 1) if world.m_state >= 2 else rc.lightened(0.3))
+	if not world.phalanx_points.is_empty():
+		var oc := _wcolor("orbit", pal.orbit)
+		var sz := float(world.bal.rift.powers.phalanx.size)
+		for p in world.phalanx_points:
+			ci.draw_circle(p, sz + 4.0, Color(oc, 0.35))
+			ci.draw_circle(p, sz, Color(1, 1, 1, 0.9))
+
+
 ## The claim wave's front: each tile flashes white for a moment as it appears.
 func _draw_claim_wave(ci: CanvasItem) -> void:
 	if _claim_wave.is_empty() or world.terr == null:
@@ -553,6 +623,13 @@ func _draw_world() -> void:
 		_draw_rim(world.dish_r)
 	if world.def_on:
 		_draw_defense()
+	if world.rift_state == World.RIFT_ACTIVE:
+		# The arena: dark outside, a glowing pink membrane.
+		var ar := float(world.bal.rift.arena_radius)
+		var rc := GameData.color(world.bal.rift.boss.color)
+		draw_arc(World.RIFT_CENTER, ar + 700.0, 0, TAU, 96, Color(0.04, 0.02, 0.08, 0.92), 1400.0)
+		draw_arc(World.RIFT_CENTER, ar, 0, TAU, 128, Color(rc, 0.5 + 0.2 * sin(_view_t * 3.0)), 12.0)
+		draw_arc(World.RIFT_CENTER, ar - 18.0, 0, TAU, 128, Color(rc, 0.15), 22.0)
 
 
 func _draw_territory() -> void:
@@ -692,6 +769,10 @@ func _fill_enemies(view: Rect2) -> void:
 			continue
 		var t := world.e_type[i]
 		var c: Color = enemy_colors[t]
+		if world.e_uid[i] == world.rift_uid:
+			c = GameData.color(world.bal.rift.boss.color)  # the Phage Carrier
+			if world.rb_stun > 0.0:
+				c = c.lerp(Color.WHITE, 0.4 + 0.3 * sin(_view_t * 30.0))
 		if world.e_team[i] == 1:
 			# Allies: our own cell shape in our colour (type faintly hinted).
 			c = ally_base.lerp(c, 0.2)
@@ -795,6 +876,7 @@ func _draw_top_layer() -> void:
 		ci.draw_circle(p, world.orbit_size, oc)
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
+	_draw_rift(ci, now)
 	_draw_player(ci)
 	_draw_claim_wave(ci)
 	for f in fx:
@@ -822,6 +904,12 @@ func _draw_top_layer() -> void:
 						ci.draw_polyline(seg, Color(1, 1, 1, 1.0 - k), 2.0)
 					else:
 						ci.draw_polyline(seg, Color(c, 1.0 - k), 4.0)
+			"lance":
+				var lp: PackedVector2Array = f.points
+				var lc: Color = f.color
+				ci.draw_polyline(lp, Color(lc, 0.3 * (1.0 - k)), float(f.width) * 2.2)
+				ci.draw_polyline(lp, Color(lc, 1.0 - k), float(f.width) * 0.6)
+				ci.draw_polyline(lp, Color(1, 1, 1, 1.0 - k), 4.0)
 			"num":
 				if digits == null or not digits.baked:
 					var pos: Vector2 = f.pos + Vector2(0, -40.0 * k)
