@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **160 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **162 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 160 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 162 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -152,7 +152,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (160 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (162 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -315,7 +315,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - **Scrolling lists:** use `DragScroll`. Buttons inside need `MOUSE_FILTER_PASS` and should ignore the press when `was_dragged()`; anything else that is `STOP` by default (ProgressBar, Panel) must be set to `IGNORE` or it blocks the drag.
 - Debug builds (no keystore secrets) can't update over each other. Tell Yousuf to uninstall first.
 - Analytics and the online stub print only in debug builds.
-- `balance.json` `debug.show_perf` is on for playtests. **Turn it off for release builds.** `debug.invincible` must stay false.
+- `balance.json` `debug.show_perf` and `debug.dev_tools` (Settings → Developer: +10,000 gold, refund all permanent upgrades; Profile.dev_grant_gold / refund_meta) are on for playtests. **Turn both off for release builds.** `debug.invincible` must stay false.
 - **No audio buses created at runtime** (`AudioServer.add_bus`): the web build plays audio through Web Audio "samples", which never connect runtime buses to the output, so every sound on them is silent (found 2026-11-03: output peak 0.45 → 0.0). `Sfx` sets volumes per player instead. Check web audio with Playwright by tapping the output with an `AnalyserNode` (see PIPELINE 2026-11-03).
 - **`tools/build_assets.py`: append new sounds at the end of `build_sfx()`.** The noise generator is shared, so inserting a sound earlier silently changes every sound after it.
 - Keep `docs/PIPELINE.md` dated entries appended at the end. Decisions go in `docs/DECISIONS.md` (newest last).

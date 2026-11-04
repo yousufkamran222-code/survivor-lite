@@ -23,6 +23,9 @@ var _look := Vector2.ZERO  # camera look-ahead offset (juice.cam_lead_s)
 var _zoom_crowd := 1.0  # eases out as the crowd grows (juice.cam_crowd_zoom)
 var _zoom_punch := 0.0  # short zoom-in on big moments
 var _nova_flash := 0.0  # weapon auras: brief flashes when the weapon fires
+var _seq_zoom := 0.0  # evolution sequence: extra camera push-in
+var _seq_glow := 0.0  # evolution sequence: glow on the cell (0..1)
+var _seq_color := Color.WHITE
 var _chain_flash := 0.0
 var _spark_ang := 0.0  # where the Nerve Spark crackle shows on the rim
 var _spark_t := 0.0
@@ -131,6 +134,8 @@ func _batch(tex: Texture2D, cap: int, dirs: int = 1) -> SpriteBatch:
 
 func set_world(w: World) -> void:
 	world = w
+	_seq_zoom = 0.0
+	_seq_glow = 0.0
 	_terr_tex = null
 	if w.terr != null:
 		# One pixel per tile; linear filtering softens edges into a "culture".
@@ -311,6 +316,11 @@ func _evo(id: String) -> bool:
 
 
 func _draw_weapon_auras_back(ci: CanvasItem, p: Vector2, r: float) -> void:
+	if _seq_glow > 0.0:  # evolution sequence: the cell lights up in its colour
+		var g := r * (1.6 + 1.6 * _seq_glow)
+		ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(g, g), Vector2(g, g) * 2.0), false, Color(_seq_color, 0.55 * _seq_glow))
+		var g2 := r * (1.2 + 0.5 * _seq_glow)
+		ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(g2, g2), Vector2(g2, g2) * 2.0), false, Color(1, 1, 1, 0.5 * _seq_glow))
 	var nova := _wcharge("nova")
 	if nova >= 0.0:
 		var c := _wcolor("nova", pal.nova)
@@ -345,8 +355,41 @@ func _draw_weapon_auras_front(ci: CanvasItem, p: Vector2, r: float, nc: Vector2,
 		ci.draw_polyline(pts, Color(c.lightened(0.3), 0.9), 2.5 if _evo("chain") else 2.0)
 
 
-## The evolution moment (Main calls it once the chest closes, during a short
-## freeze): white flash, two rings and a burst in the evolution's colour, and
+## Evolution sequence driven by Main every frame (t < 0 ends it): the camera
+## pushes in and the cell glows while sparks rush inward until the burst,
+## then everything eases back. Main calls evolution_moment() at the burst.
+func evolution_seq(t: float, s: Dictionary) -> void:
+	if t < 0.0:
+		_seq_zoom = 0.0
+		_seq_glow = 0.0
+		return
+	var burst := float(s.burst)
+	var dur := float(s.dur)
+	_seq_color = _wcolor(s.weapon, s.color)
+	var push := float(juice.get("evolution_zoom", 0.35))
+	if t < burst:
+		var k := t / burst
+		_seq_zoom = push * (1.0 - pow(1.0 - k, 3.0))
+		_seq_glow = k * k
+		# Sparks rushing into the cell (a couple per frame, cheap dots).
+		var p := world.p_pos
+		for n in 2:
+			var a := randf() * TAU
+			var d := randf_range(170.0, 260.0)
+			var from := p + Vector2(cos(a), sin(a)) * d
+			var life := 0.22
+			_add_fx({"kind": "dot", "pos": from, "vel": (p - from) / life, "color": _seq_color if n == 0 else Color.WHITE, "r": 4.0, "life": life}, int(bal.perf.max_effects) + 40)
+		add_shake(1.5 * k)
+	else:
+		var k := clampf((t - burst) / maxf(dur - burst, 0.01), 0.0, 1.0)
+		if k < 0.15:  # punch in at the burst...
+			_seq_zoom = push * (1.0 + 0.4 * (1.0 - k / 0.15))
+		else:  # ...then ease back out
+			_seq_zoom = push * pow(1.0 - (k - 0.15) / 0.85, 2.0)
+		_seq_glow = maxf(0.0, 1.0 - k * 2.5)
+
+
+## The evolution moment (Main calls it at the burst of the sequence): white flash, two rings and a burst in the evolution's colour, and
 ## a big zoom punch.
 func evolution_moment(weapon: String) -> void:
 	var c := _wcolor(weapon, pal.ui_accent)
@@ -434,7 +477,7 @@ func _process_view(delta: float) -> void:
 	var crowd_k := clampf((float(world.hostile_count()) - float(juice.get("cam_crowd_from", 60))) / maxf(float(juice.get("cam_crowd_span", 100)), 1.0), 0.0, 1.0)
 	_zoom_crowd = lerpf(_zoom_crowd, 1.0 - float(juice.get("cam_crowd_zoom", 0.0)) * crowd_k, 1.0 - exp(-0.8 * delta))
 	_zoom_punch = maxf(0.0, _zoom_punch - delta * float(juice.get("cam_punch_decay", 0.25)))
-	cam_zoom = _zoom_crowd * (1.0 + _zoom_punch)
+	cam_zoom = _zoom_crowd * (1.0 + _zoom_punch) * (1.0 + _seq_zoom)
 	cam.zoom = Vector2.ONE * cam_zoom
 	var focus := world.core_pos if world.p_down > 0.0 else world.p_pos + _look
 	cam.position = focus + off

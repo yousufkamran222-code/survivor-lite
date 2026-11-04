@@ -41,6 +41,7 @@ var _new_achievements: Array = []
 var _new_best := false
 var _touch_index := -1
 var _evo_moments: Array = []  # evolutions from the open chest, celebrated on close
+var _evo_seq: Dictionary = {}  # the evolution sequence playing now (empty = none)
 var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
 var _pickup_ms := 0
 var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
@@ -138,7 +139,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if screen == "menu" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
 		start_benchmark()
 		return
-	if screen != "playing":
+	if screen != "playing" or not _evo_seq.is_empty():
 		return
 	if hud.orders_open and event is InputEventKey and event.pressed and not event.echo and not (event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_3):
 		if event.physical_keycode == KEY_ESCAPE:
@@ -270,6 +271,11 @@ func _process(delta: float) -> void:
 		return
 	if not _evo_moments.is_empty():
 		_play_evolution_moments()  # back in play after the evolution chest
+	if not _evo_seq.is_empty():
+		_tick_evolution(delta)
+		view.cpu_ms = 0.0
+		hud.cpu_ms = 0.0
+		return  # the world is frozen for the whole sequence
 	_update_heartbeat(delta)
 	if hud.orders_open:
 		# The Swarm order fan pauses the run while it's open.
@@ -500,6 +506,8 @@ func _start_run() -> void:
 	_slowmo = 0.0
 	hud.set_orders_open(false)
 	_evo_moments.clear()
+	_evo_seq = {}
+	hud.evo_seq = {}
 	Sfx.play_music("run")
 	_life_best_streak = int(Save.profile.stats.get("best_streak", 0))
 	_streak_best_called = false
@@ -1032,23 +1040,43 @@ func _update_heartbeat(delta: float) -> void:
 		hud.beat()
 
 
-## Evolution moment: a short freeze, flash, burst and zoom on the cell, the
-## evolution's name in its colour, a big chime and a buzz.
+## Evolution moment: a frozen ~1.8 s sequence (juice.evolution_seq_s). Charge:
+## the screen dims, the camera pushes in, sparks rush into the glowing cell
+## and a chime builds. Burst (juice.evolution_burst_s): white flash, rings,
+## a spark explosion, heavy shake and impact. Then the evolution's icon, name
+## and effect as a banner while the camera eases back. Input is ignored and
+## the world doesn't step until it ends; several evolutions play in turn.
 func _play_evolution_moments() -> void:
-	if _evo_moments.is_empty():
+	if _evo_moments.is_empty() or not _evo_seq.is_empty():
 		return
-	for ev in _evo_moments:
-		var def: Dictionary = {}
-		for e in data.evolutions:
-			if e.id == ev.id:
-				def = e
-		view.evolution_moment(ev.weapon)
-		hud.toast(str(def.get("name", "EVOLVED")).to_upper() + "!", GameData.color(def.get("color", "#ffd166")), 2.2)
-	hud.toast("EVOLVED", Color(pal.text, 0.9), 2.2)
-	_evo_moments.clear()
-	hitstop = maxf(hitstop, float(bal.juice.get("evolution_freeze_s", 0.0)))
-	Sfx.play("evolve", 0.0, 0.9)
-	Sfx.vibrate(160)
+	var ev: Dictionary = _evo_moments.pop_front()
+	var def: Dictionary = {}
+	for e in data.evolutions:
+		if e.id == ev.id:
+			def = e
+	_release_stick()
+	_evo_seq = {"t": 0.0, "dur": float(bal.juice.get("evolution_seq_s", 1.8)), "burst": float(bal.juice.get("evolution_burst_s", 0.75)),
+		"weapon": ev.weapon, "name": str(def.get("name", "EVOLVED")), "desc": str(def.get("desc", "")),
+		"color": GameData.color(def.get("color", "#ffd166")), "fired": false}
+	hud.evo_seq = _evo_seq
+	Sfx.play("upgrade", 0.0, 0.75)
+	Sfx.vibrate(40)
+
+
+func _tick_evolution(delta: float) -> void:
+	var s := _evo_seq
+	s.t = float(s.t) + delta
+	view.evolution_seq(float(s.t), s)
+	if not s.fired and s.t >= s.burst:
+		s.fired = true
+		view.evolution_moment(s.weapon)
+		Sfx.play("evolve", 0.0, 0.9)
+		Sfx.play("bomb", 0.0, 0.8)
+		Sfx.vibrate(220)
+	if s.t >= s.dur:
+		_evo_seq = {}
+		hud.evo_seq = {}
+		view.evolution_seq(-1.0, {})
 
 
 ## Opens the picker for a banked level-up (UPGRADE button, E or Tab).
@@ -1299,7 +1327,7 @@ func _build_pause() -> void:
 
 func _settings_screen(back: Callable) -> SettingsScreen:
 	var st := SettingsScreen.new()
-	st.setup(pal, _apply_settings, back, bool(bal.get("debug", {}).get("show_perf", false)))
+	st.setup(pal, _apply_settings, back, bool(bal.get("debug", {}).get("show_perf", false)), data.meta if bool(bal.get("debug", {}).get("dev_tools", false)) else [])
 	return st
 
 

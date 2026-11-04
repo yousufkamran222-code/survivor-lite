@@ -9,9 +9,11 @@ var pal: Dictionary
 var on_change: Callable  # Main re-applies settings (fps cap, shake, fps readout)
 var on_back: Callable
 var debug_fps_default := false
+var dev_meta: Array = []  # permanent-upgrade defs when the developer tools are on (balance.debug.dev_tools)
 
 
-func setup(palette: Dictionary, changed: Callable, back: Callable, fps_default: bool) -> void:
+func setup(palette: Dictionary, changed: Callable, back: Callable, fps_default: bool, dev_meta_defs: Array = []) -> void:
+	dev_meta = dev_meta_defs
 	pal = palette
 	on_change = changed
 	on_back = back
@@ -52,9 +54,37 @@ func _build() -> void:
 		tips.disabled = true)
 	tips.disabled = Save.hints_seen.is_empty()
 	add_child(tips)
+	if not dev_meta.is_empty():
+		_dev_rows()
 	add_child(UiKit.button("BACK", func() -> void:
 		Save.write()
 		on_back.call(), 90))
+
+
+## Playtest-only tools: free gold to test permanent upgrades, and a refund.
+func _dev_rows() -> void:
+	add_child(UiKit.label("DEVELOPER (playtest builds only)", 22, Color("#ff7a6b")))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var gold := UiKit.button("+10,000 gold", func() -> void: pass, 70)
+	gold.add_theme_font_size_override("font_size", 22)
+	gold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gold.pressed.connect(func() -> void:
+		Save.profile.dev_grant_gold(10000, Save.now())
+		Save.write()
+		Sfx.play("upgrade", 0.0)
+		gold.text = "Gold: %d" % Save.profile.gold)
+	row.add_child(gold)
+	var refund := UiKit.button("Refund upgrades", func() -> void: pass, 70)
+	refund.add_theme_font_size_override("font_size", 22)
+	refund.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	refund.pressed.connect(func() -> void:
+		var back := Save.profile.refund_meta(dev_meta, Save.now())
+		Save.write()
+		Sfx.play("click", 0.0)
+		refund.text = "Refunded %d" % back)
+	row.add_child(refund)
+	add_child(row)
 
 
 func _row_label(text: String) -> Label:

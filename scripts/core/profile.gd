@@ -97,6 +97,25 @@ func meta_level(id: String) -> int:
 	return int(meta_levels.get(id, 0))
 
 
+## Developer tools (playtest builds only, balance.debug.dev_tools): free gold
+## that doesn't count as earned, and a full refund of permanent upgrades.
+func dev_grant_gold(amount: int, now: int) -> void:
+	gold += amount
+	updated_at = now
+
+
+func refund_meta(defs: Array, now: int) -> int:
+	var back := 0
+	for d in defs:
+		var lv := meta_level(d.id)
+		for k in mini(lv, d.costs.size()):
+			back += int(d.costs[k])
+		meta_levels.erase(d.id)
+	gold += back
+	updated_at = now
+	return back
+
+
 ## Buys the next level of a permanent upgrade if it isn't maxed and the gold
 ## covers it. Returns the gold spent (0 = nothing bought).
 func buy_meta(def: Dictionary, now: int) -> int:

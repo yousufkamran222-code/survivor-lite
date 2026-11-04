@@ -213,3 +213,23 @@ func test_buy_meta_spends_gold_and_respects_max() -> void:
 	check_eq(p.buy_meta(def, 13), 0, "maxed: nothing bought")
 	check_eq(p.gold, 20, "maxed: gold untouched")
 	check_eq(p.meta_level("meta_x"), 2)
+
+
+func test_dev_gold_and_refund() -> void:
+	var p := Profile.new()
+	p.dev_grant_gold(10000, 5)
+	check_eq(p.gold, 10000)
+	check_eq(int(p.stats.gold_earned), 0, "dev gold isn't counted as earned")
+	var defs: Array = data().meta
+	var spent := 0
+	for k in 3:
+		spent += p.buy_meta(defs[0], 6)
+	check_eq(p.meta_level(defs[0].id), 3)
+	var back := p.refund_meta(defs, 7)
+	check_eq(back, spent, "refund returns exactly what was spent")
+	check_eq(p.gold, 10000)
+	check_eq(p.meta_level(defs[0].id), 0)
+
+
+func test_dev_tools_flag_exists() -> void:
+	check(data().balance.debug.has("dev_tools"), "balance.debug.dev_tools controls the Settings developer tools")

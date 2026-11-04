@@ -26,6 +26,7 @@ var _hits: Array = []  # [dir: Vector2, t: float]
 var _edge_tex: Array = []  # 4 alpha ramps, opaque at the screen edge: left, right, top, bottom
 var _blob_tex: Texture2D  # 64x64 soft radial blob
 var juice: Dictionary = {}  # set by Main (balance.juice)
+var evo_seq: Dictionary = {}  # Main's evolution sequence while it plays (t, dur, burst, name, desc, color, weapon)
 var dash_radius := 72.0
 var dash_margin := 40.0
 var elite_color := Color("#ffd166")
@@ -300,6 +301,9 @@ func _draw_hud() -> void:
 	if bench_text != "":
 		draw_string_outline(font, Vector2(0, 200), bench_text, HORIZONTAL_ALIGNMENT_CENTER, w, 34, 8, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, 200), bench_text, HORIZONTAL_ALIGNMENT_CENTER, w, 34, Color(1, 1, 0.6))
+	if not evo_seq.is_empty():
+		_draw_evolution(w)
+		return
 	# Floating joystick.
 	if stick_active:
 		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
@@ -313,6 +317,47 @@ func _draw_hud() -> void:
 			var tip := stick_origin + d * (stick_radius + 14.0)
 			var side := d.orthogonal() * 9.0
 			draw_colored_polygon(PackedVector2Array([tip, tip - d * 14.0 + side, tip - d * 14.0 - side]), Color(1, 1, 1, 0.5))
+
+
+## Evolution sequence overlay: the field dims while the cell charges
+## ("EVOLVING..."), a white flash at the burst, then a banner with the evolved
+## icon, "EVOLUTION!", the name (popping in) and what it does.
+func _draw_evolution(w: float) -> void:
+	var t := float(evo_seq.t)
+	var burst := float(evo_seq.burst)
+	var dur := float(evo_seq.dur)
+	var col: Color = evo_seq.color
+	var fade_out := clampf((dur - t) / 0.25, 0.0, 1.0)
+	var dim := clampf(t / 0.25, 0.0, 1.0) * fade_out
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.0, 0.06, 0.55 * dim))
+	var cy := size.y * 0.30
+	if t < burst:
+		var pulse := 0.6 + 0.4 * sin(t * 18.0)
+		var es := int(36.0 + 10.0 * t / burst)
+		draw_string_outline(font, Vector2(0, cy + 40), "EVOLVING...", HORIZONTAL_ALIGNMENT_CENTER, w, es, 9, Color(0, 0, 0, 0.7 * dim))
+		draw_string(font, Vector2(0, cy + 40), "EVOLVING...", HORIZONTAL_ALIGNMENT_CENTER, w, es, Color(col.lightened(0.35), (0.7 + 0.3 * pulse) * dim))
+		return
+	var k := t - burst
+	if k < 0.3:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.85 * (1.0 - k / 0.3)))
+	var pop := 1.0 + 0.6 * exp(-9.0 * k) * cos(14.0 * k)
+	var a := clampf(k / 0.08, 0.0, 1.0) * fade_out
+	var ip := 120.0 * minf(pop, 1.3)
+	var key: String = evo_seq.weapon
+	var ic := Vector2(w / 2.0, cy - 40.0)
+	if icon_atlas != null and icon_atlas.has_icon(key, true):
+		icon_atlas.draw_icon(self, key, ic, ip, true)
+	else:
+		IconArt.draw(self, key, ic, ip, col, true)
+	var t1 := cy + 60.0
+	draw_string_outline(font, Vector2(0, t1), "EVOLUTION!", HORIZONTAL_ALIGNMENT_CENTER, w, 32, 8, Color(0, 0, 0, 0.7 * a))
+	draw_string(font, Vector2(0, t1), "EVOLUTION!", HORIZONTAL_ALIGNMENT_CENTER, w, 32, Color(pal.ui_accent, a))
+	var fs := int(64.0 * pop)
+	var name := str(evo_seq.name).to_upper()
+	draw_string_outline(font, Vector2(0, t1 + 76), name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 12, Color(0, 0, 0, 0.75 * a))
+	draw_string(font, Vector2(0, t1 + 76), name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(col.lightened(0.15), a))
+	draw_string_outline(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, 6, Color(0, 0, 0, 0.6 * a))
+	draw_string(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, Color(1, 1, 1, 0.9 * a))
 
 
 func beat() -> void:

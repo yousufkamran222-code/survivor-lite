@@ -275,3 +275,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-04 Satisfaction round 2: danger readability + weapons
 - Low-HP edge vignette + heartbeat, subtle hit-direction bloom, a cheap animation on the cell per owned weapon (stacking by zone), bigger evolved weapon visuals, and an evolution moment after the chest. Presentation only (World's `hurt` event gains `from`; no rule changes, so no sim change). New generated sound `heartbeat`. Details in `docs/POLISH_PLAN.md` "Satisfaction round 2". 160 tests.
+
+### 2026-11-04 Evolution moment v2; developer gold tools
+- Evolution moment is now a ~1.9 s frozen sequence (charge, burst, banner): see `docs/POLISH_PLAN.md` "Evolution moment v2".
+- Developer tools in Settings (`balance.debug.dev_tools`, on for playtests, off for release): **+10,000 gold** (not counted as earned) and **Refund upgrades** (all permanent-upgrade gold back). For testing permanent upgrades on any build, e.g. a fresh web host with an empty save. 162 tests.

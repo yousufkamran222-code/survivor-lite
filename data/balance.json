@@ -224,6 +224,7 @@
   },
   "debug": {
     "show_perf": true,
+    "dev_tools": true,
     "invincible": false
   },
   "juice": {
@@ -285,7 +286,9 @@
     "heartbeat_fast_s": 0.55,
     "hurt_dir_s": 0.45,
     "hurt_dir_alpha": 0.22,
-    "evolution_freeze_s": 0.35,
+    "evolution_seq_s": 1.9,
+    "evolution_burst_s": 0.75,
+    "evolution_zoom": 0.35,
     "multikill_min": 6,
     "multikill_shake": 0.6,
     "multikill_shake_max": 7,
