@@ -95,6 +95,7 @@
     "base": 5,
     "linear": 3,
     "quad": 0.1,
+    "gain_mult": 0.7,
     "gem_speed": 650,
     "max_gems": 120
   },

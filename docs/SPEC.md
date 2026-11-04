@@ -20,7 +20,7 @@
 - Enemy HP grows +120% per minute (not the boss), and enemy damage +40% per minute.
 - **Final minute** (timed modes, from 4:00): a FINAL MINUTE warning, the timer turns red, germs move 15% faster, elites come every 20 s instead of 40 s, and the spawn budget surges. Nucleus keeps its own finale (the boss wave). The on-screen cap is 170, plus short overshoot from rings and splits.
 - New enemy types unlock over time (table below). Scripted beats: Spore ring at 1:00, Zipper ring at 2:15, Lump ring at 3:20, **boss at 3:50**, final Spore flood at 4:40.
-- **Targets** (checked with `tools/sim/balance_sim.gd`, then real playtests): **a good player's first win after about 3-5 runs** with no permanent upgrades (Yousuf, 2026-11-03; he won Swarm and Infection on his first try, with one revive, before the final-minute change), median first-time death 3:00-4:30, bot win rate under ~30% without meta upgrades (a sanity check, ±10-15 points is fine) and over 60% with most meta bought, a level-up roughly every 15 s, and the boss killed in about half of the runs that reach it.
+- **Targets** (checked with `tools/sim/balance_sim.gd`, then real playtests): **a good player's first win after about 3-5 runs** with no permanent upgrades (Yousuf, 2026-11-03; he won Swarm and Infection on his first try, with one revive, before the final-minute change), median first-time death 3:00-4:30, bot win rate under ~30% without meta upgrades (a sanity check, ±10-15 points is fine) and over 60% with most meta bought, a level-up roughly every 15-25 s (all XP x0.7 via `xp.gain_mult`, 2026-11-04), and the boss killed in about half of the runs that reach it.
 
 ## Enemies (`data/enemies.json`), 8 types
 | id | Name | Unlock | Behaviour | Role |

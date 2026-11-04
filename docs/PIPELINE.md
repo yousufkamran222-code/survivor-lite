@@ -244,3 +244,12 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - Swarm: win 40% → 27%, p10 1:19-2:30 → 1:08-2:18, p50 2:37-5:00 → 2:26-5:00, p90 2:47-5:00 → 3:26-5:00, level 14-30 → 13-32
   - Nucleus: byte-identical (wave mode; no final minute). Peak enemies unchanged (~210).
 - Sim `--set` now also takes `waves.*` keys. 150 tests.
+
+### 2026-11-04 Slower level-ups: XP x0.7 in every mode (D-022)
+- Yousuf: still won Swarm and Infection on the first try; damage feels fine, but "a new level-up every few seconds". Fix: `balance.xp.gain_mult` 0.7 (all gems and Infection claim XP, every mode; stacks with Growth/xp_gain and the Outbreak x1.5). New sim stats: `mean_sec_per_level`, `mean_levels_by_2min`.
+- **Bot, seeds 600-1100 x 8 (48 runs per mode), before → after:**
+  - Classic: win 27% → 19%, p10 2:18-3:08 → 2:19-2:50, p50 2:56-5:00 → 4:11-4:42, p90 4:44-5:00 → 4:42-5:00, level p50 12-18 → 8-14; levels by 2:00 7.0 → 5.2
+  - Infection: win 27% → 21%, p10 1:56-2:41 → 1:50-2:19, p50 2:31-3:42 → 2:14-5:00, p90 2:59-5:00 → 2:46-5:00, level p50 20-26 → 15-33; levels by 2:00 14.3 → 10.8
+  - Swarm: win 27% → 15%, p10 1:08-2:18 → 1:29-2:17, p50 2:26-5:00 → 2:17-3:44, p90 3:26-5:00 → 3:23-5:00, level p50 13-32 → 9-12; levels by 2:00 9.6 → 6.7
+  - Nucleus: win 32% → 31%, p50 2:22-5:59 → 2:24-6:09, level p50 9-17 → 8-14; levels by 2:00 7.0 → 5.4
+- Swarm drops the most because its own steeper curve (quad 0.27, from the final-minute pass) stacks with the cut; if it feels slow, revert that to 0.22 first. 151 tests.

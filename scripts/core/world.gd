@@ -1282,7 +1282,7 @@ func _drop_gem(pos: Vector2, value: float) -> void:
 func _update_gems(dt: float) -> void:
 	var pr := float(bal.player.pickup_radius) * (1.0 + float(stats.magnet))
 	var speed := float(bal.xp.gem_speed)
-	var gain := 1.0 + float(stats.xp_gain)
+	var gain := (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0))
 	if outbreak_t > 0.0:
 		gain *= float(bal.outbreak.get("xp_mult", 1.0))  # frenzy: boosted XP
 	var i := 0
@@ -1513,7 +1513,7 @@ func _on_claim(claimed: PackedInt32Array) -> void:
 			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
 	_process_dead()
 	# Bigger loops pay out: XP per claimed tile.
-	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain))
+	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0))
 	_emit({"type": "claim", "tiles": claimed.size(), "cells": claimed, "infected": terr.infected_fraction()})
 
 

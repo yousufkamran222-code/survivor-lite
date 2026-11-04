@@ -88,6 +88,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var peak_enemies := 0
 	var peak_allies := 0
 	var hp_at_boss := -1.0
+	var levels_2min := -1
 	while w.state in ["playing", "levelup", "chest", "defense_won"] and w.time < 1800.0:
 		if w.state == "defense_won":
 			if free:
@@ -106,6 +107,8 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		w.step(DT, bot.move(w))
 		peak_enemies = maxi(peak_enemies, w.enemy_count())
 		peak_allies = maxi(peak_allies, w.ally_count)
+		if levels_2min < 0 and w.time >= 120.0:
+			levels_2min = w.level - 1
 		if hp_at_boss < 0.0 and w.boss_index >= 0:
 			hp_at_boss = w.p_hp / w.p_max_hp
 	return {
@@ -115,6 +118,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
+		"sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
 		"ally_share": w.ally_damage / maxf(w.damage_dealt, 1.0), "harvested": w.gems_harvested, "orders": w.order_changes,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0, w.bonus_gold_kills()),
@@ -142,6 +146,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var convs := 0
 	var allies := 0
 	var ally_share := 0.0
+	var spl := 0.0
+	var l2 := 0.0
 	var harvested := 0
 	var order_n := 0
 	var waves := []
@@ -162,6 +168,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		convs += r.conversions
 		allies += r.peak_allies
 		ally_share += r.ally_share
+		spl += r.sec_per_level
+		l2 += maxi(r.levels_2min, 0)
 		harvested += r.harvested
 		order_n += r.orders
 		if r.won:
@@ -199,6 +207,8 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_infected": snappedf(infected / maxf(results.size(), 1), 0.001),
 		"mean_conversions": snappedf(float(convs) / maxf(results.size(), 1), 0.1),
 		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
+		"mean_sec_per_level": snappedf(spl / maxf(results.size(), 1), 0.1),
+		"mean_levels_by_2min": snappedf(l2 / maxf(results.size(), 1), 0.1),
 		"mean_ally_damage_share": snappedf(ally_share / maxf(results.size(), 1), 0.001),
 		"mean_gems_harvested": snappedf(float(harvested) / maxf(results.size(), 1), 0.1),
 		"mean_order_changes": snappedf(float(order_n) / maxf(results.size(), 1), 0.1),

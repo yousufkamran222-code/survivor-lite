@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **146 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **151 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -74,12 +74,13 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 146 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 151 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
 ```
 - **Balance sims:** each run takes ~2-10 s, so 8 runs take about 1-2 min. Run 3 seeds in parallel (`600 700 800`), each `--runs 8`, in the background, then wait with an `until [ -f ... ]; do sleep 5; done` loop. Modes: `--mode infection|swarm|classic`; `--meta` = every permanent upgrade maxed. The output JSON has p10/p50/p90 time, win_rate, level_p50, mean kills/chests/evolutions/infected/conversions/peak_allies, death_causes, and `upgrade_mean_time` (mean survival of runs that owned each upgrade).
+- Sim also reports `mean_sec_per_level` and `mean_levels_by_2min` (level-up pace).
 - Tuning without editing data: `--set conversion.ally_damage_mult=2.5,difficulty.damage_taken_mult=1.8` (dotted balance keys, after the mode is applied). Swarm: `--order hunt` makes the bot keep one order. Yousuf's win-rate cap needs **48 runs** (seeds 600-1100 × 8); 24-run numbers swing ±10 points.
 - The standard comparison set is seeds 600/700/800 × 8 runs. Quote "before → after" win rate, p50 range and level range.
 
@@ -151,7 +152,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (146 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (151 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -257,9 +258,9 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 
 | Mode | Win | p50 | Level p50 | Notes |
 |---|---|---|---|---|
-| Classic | 27% (48 runs) | 2:56-5:00 | 12-18 | After the final-minute pass (was 40%) |
-| Infection | 27% (48 runs) | 2:31-3:42 | 20-26 | Was 31% |
-| Swarm | 27% (48 runs) | 2:26-5:00 | 13-32 | Orders build: allies deal ~17-22% of damage; damage taken x2.0, XP quad 0.27 (was 40%) |
+| Classic | 19% (48 runs) | 4:11-4:42 | 8-14 | After final minute + XP x0.7; ~26 s per level-up (bot) |
+| Infection | 21% (48 runs) | 2:14-5:00 | 15-33 | Fastest levelling: ~10 s per level-up (bot) |
+| Swarm | 15% (48 runs) | 2:17-3:44 | 9-12 | Allies ~25% of damage; damage taken x2.0, XP quad 0.27 stacks with the cut (revert to 0.22 first if slow) |
 | All meta maxed | 100% | 5:00 | ~41 | Expected for a fully maxed account |
 
 **Bot biases:**
@@ -329,6 +330,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+0000000. **XP x0.7 (D-022): awaiting playtest.** Did level-ups stop coming every few seconds? Is Swarm now too slow? (Its own quad 0.27 stacks with the cut.)
 000000. **Final minute + harder late game: awaiting playtest** (D-021). He beat Swarm and Infection first try (with a revive). Ask: does the final minute feel like a climax or a wall? Did a first win take 3-5 runs? **Difficulty levels** (unlock Lv 2+ per mode after a win) are agreed for later: spec in SPEC "Later".
 00000. **Swarm orders: awaiting playtest** (D-020). The fan now pauses the run (his request). Questions: is damage taken x2 fair, is Harvest too strong (bot reaches level ~30), does Hunt read on screen? Offered but not chosen: type roles per order, one Swarm card per order. Sacrifice order: SPEC "Later".
 3. **Strains (classes) with an ability button:** proposed but deferred by Yousuf ("hold off for now"). Five candidates:

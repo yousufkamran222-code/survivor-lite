@@ -155,7 +155,7 @@ func test_claim_grants_xp() -> void:
 	var w := _world()
 	var xp0 := w.xp
 	_walk(w, [Vector2(150, 0), Vector2(500, 0), Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
-	check(w.xp > xp0 + 10.0, "a big loop pays XP (%.1f)" % (w.xp - xp0))
+	check(w.xp > xp0 + 10.0 * float(data().balance.xp.get("gain_mult", 1.0)), "a big loop pays XP (%.1f)" % (w.xp - xp0))
 
 
 func test_more_land_means_more_pressure() -> void:

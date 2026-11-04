@@ -162,6 +162,15 @@ func test_gem_magnet_collects() -> void:
 	check(w.xp > 0.0)
 
 
+func test_xp_gain_mult_scales_gems() -> void:
+	var w := _world()
+	w.xp_next = 1.0e6  # no level-ups in the way
+	w._drop_gem(w.p_pos + Vector2(10, 0), 10.0)
+	for i in 30:
+		w._update_gems(DT)
+	check_near(w.xp, 10.0 * float(data().balance.xp.gain_mult), 0.001, "balance.xp.gain_mult applies to gems")
+
+
 func test_gem_cap_keeps_new_drops_where_the_kill_was() -> void:
 	# Regression: at the cap, XP used to merge into a random (often far,
 	# off-screen) gem, so nearby kills looked like they dropped nothing.
