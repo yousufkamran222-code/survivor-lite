@@ -201,7 +201,11 @@ var _gem_claims := PackedVector2Array()  # this frame's harvest targets (so alli
 var _ally_tick := 0.0
 var damage_dealt := 0.0  # all damage to hostiles this run (sim / tuning stat)
 var ally_damage := 0.0  # the part of it dealt by Swarm allies
-var _src_ally := false  # set while an ally is the one dealing damage
+var _src := "other"  # who is dealing damage right now (set per system; see damage_by)
+const BULLET_SRC := ["bolt", "allies", "towers"]  # b_ally value -> damage source
+var damage_by := {}  # source -> effective damage this run (bolt/orbit/nova/chain/allies/towers/dash/land/bomb/outbreak/other)
+var biggest_hit := 0.0
+var biggest_src := ""
 var _max_er := 72.0
 
 # --- Nucleus mode (tower defence; off unless balance.defense.enabled) ---
@@ -292,7 +296,9 @@ func step(dt: float, move: Vector2) -> void:
 	if p_down > 0.0:
 		_update_down(dt)
 	else:
+		_src = "dash"  # Lunge and the Afterimage decoy hit from here
 		_update_player(dt, move)
+		_src = "other"
 	if order_cd > 0.0:
 		order_cd = maxf(order_cd - dt, 0.0)
 	if streak > 0:
@@ -306,7 +312,9 @@ func step(dt: float, move: Vector2) -> void:
 			outbreak_t = 0.0
 			_emit({"type": "outbreak_end"})
 	if terr != null:
+		_src = "land"
 		_update_territory(dt)
+		_src = "other"
 	if def_on:
 		_update_pads(dt)
 		_update_waves(dt)
@@ -318,13 +326,18 @@ func step(dt: float, move: Vector2) -> void:
 	_update_enemies(dt)
 	if ally_count > 0:
 		_update_ally_combat(dt)
+	_src = "outbreak"
 	_update_plague(dt)
+	_src = "other"
 	if p_down <= 0.0:
 		_update_weapons(dt)
+		_src = "other"
 	else:
 		orbit_points.clear()
 	if def_on:
+		_src = "towers"
 		_update_towers(dt)
+		_src = "other"
 	_update_bullets(dt)
 	_update_enemy_shots(dt)
 	_process_dead()
@@ -335,7 +348,9 @@ func step(dt: float, move: Vector2) -> void:
 		_update_core(dt)
 	if p_down <= 0.0:
 		_update_gems(dt)
+		_src = "bomb"
 		_update_pickups()
+		_src = "other"
 	if pending_levelups > 0 and state == "playing" and not _banking():
 		_open_levelup()
 
@@ -460,7 +475,9 @@ func revive() -> void:
 		if enemy_defs[e_type[i]].behavior == "boss":
 			e_knock[i] += (e_pos[i] - p_pos).normalized() * 400.0
 		else:
+			_src = "revive"  # not shown in the results' damage breakdown
 			_damage(i, 1.0e6, Vector2.ZERO, false)
+			_src = "other"
 	s_pos.clear(); s_vel.clear(); s_life.clear(); s_dmg.clear()
 	_process_dead()
 	_emit({"type": "nova", "pos": p_pos, "radius": r})
@@ -909,10 +926,15 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
+	var eff := minf(amount, e_hp[i])  # effective damage (no overkill)
 	e_hp[i] -= amount
-	damage_dealt += amount
-	if _src_ally:
-		ally_damage += amount
+	damage_dealt += eff
+	damage_by[_src] = float(damage_by.get(_src, 0.0)) + eff
+	if amount > biggest_hit and amount < 1.0e5:  # 1e6 = instant kills (bomb, revive)
+		biggest_hit = amount
+		biggest_src = _src
+	if _src == "allies":
+		ally_damage += eff
 	if flash:
 		e_flash[i] = float(bal.juice.flash_s)
 	var resist := float(d.get("knock_resist", 0.0))
@@ -958,6 +980,7 @@ func _update_weapons(dt: float) -> void:
 	dt *= _frenzy_speed()  # Outbreak: weapons recharge (and orbit) faster
 	for id in wstats:
 		var w: Dictionary = wstats[id]
+		_src = id
 		match id:
 			"bolt":
 				cooldowns[id] -= dt
@@ -1114,9 +1137,9 @@ func _update_bullets(dt: float) -> void:
 				if e_hp[j] <= 0.0 or hits.has(e_uid[j]):
 					continue
 				hits[e_uid[j]] = true
-				_src_ally = b_ally[i] == 1
+				_src = BULLET_SRC[b_ally[i]]
 				_damage(j, b_dmg[i], b_vel[i].normalized() * b_knock[i])
-				_src_ally = false
+				_src = "other"
 				if b_pierce[i] <= 0:
 					gone = true
 					break
@@ -1811,9 +1834,9 @@ func _update_ally_combat(dt: float) -> void:
 		var j: int = hits[0]
 		var mine: Dictionary = enemy_defs[e_type[i]]
 		var theirs: Dictionary = enemy_defs[e_type[j]]
-		_src_ally = true
+		_src = "allies"
 		_damage(j, float(mine.damage) * power * tick, (e_pos[j] - e_pos[i]).normalized() * knock, false)
-		_src_ally = false
+		_src = "other"
 		var taken := float(theirs.damage) * hostile_mult * tick
 		if e_elite[j] == 1:
 			taken *= float(data.waves.elites.damage_mult)
@@ -2236,6 +2259,8 @@ func _volatile_bursts(bursts: Array) -> void:
 	var frac := float(pl.volatile_frac) + float(pl.volatile_frac_per_level) * lv
 	var radius := float(pl.volatile_radius) + float(pl.volatile_radius_per_level) * lv
 	var max_gen := int(pl.volatile_chain)
+	var prev := _src
+	_src = "dash"
 	for b in bursts:
 		var pos: Vector2 = b[0]
 		var dmg := float(b[1]) * frac
@@ -2247,6 +2272,7 @@ func _volatile_bursts(bursts: Array) -> void:
 			_damage(i, dmg, (e_pos[i] - pos).normalized() * 160.0, false)
 			if e_hp[i] <= 0.0 and gen < max_gen:
 				_volatile[e_uid[i]] = gen + 1
+	_src = prev
 	_process_dead()
 
 

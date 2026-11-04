@@ -42,6 +42,9 @@ var _new_best := false
 var _touch_index := -1
 var _evo_moments: Array = []  # evolutions from the open chest, celebrated on close
 var _evo_seq: Dictionary = {}  # the evolution sequence playing now (empty = none)
+var _results_wallet: Control  # results: wallet pill the gold flies into
+var _results_gold_icon: Control
+var _collecting := false
 var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
 var _pickup_ms := 0
 var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
@@ -1190,7 +1193,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 20)
 	grid.add_theme_constant_override("v_separation", 6)
-	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)], ["Best streak", "x%d" % world.best_streak]]
+	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)]]
 	if world.terr != null:
 		rows.append(["Dish infected", "%d%%" % roundi(world.terr.infected_fraction() * 100.0)])
 	if world.conv_on:
@@ -1213,6 +1216,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 		grid.add_child(v)
 	card.add_child(grid)
 	col.add_child(card)
+	col.add_child(_highlights_card(animate))
 	# Score (counts up), NEW BEST stamp.
 	var score_row := HBoxContainer.new()
 	score_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1256,10 +1260,23 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	var gold_row := HBoxContainer.new()
 	gold_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	gold_row.add_theme_constant_override("separation", 10)
-	gold_row.add_child(UpgradeIcon.make("gold", pal.gem_large, 52))
+	var gold_icon := UpgradeIcon.make("gold", pal.gem_large, 52)
+	gold_row.add_child(gold_icon)
 	var gold := UiKit.label("", 52, pal.gem_large)
 	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
 	gold_row.add_child(gold)
+	_results_gold_icon = gold_icon
+	# Wallet (top-right): the run's gold flies into it on collect.
+	if is_instance_valid(_results_wallet):
+		_results_wallet.queue_free()
+	var wallet := _gold_pill()
+	wallet.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	wallet.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	wallet.offset_left = -28.0
+	wallet.offset_right = -28.0
+	wallet.offset_top = 30.0
+	_results[0].add_child(wallet)
+	_results_wallet = wallet
 	col.add_child(gold_row)
 	if animate or gold_from > 0:
 		UiKit.count_up(gold, gold_from, _results_gold, 0.9, "+%d gold", t + (0.6 if animate else 0.0), 1.3)
@@ -1289,6 +1306,14 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 
 
 func _collect(again: bool) -> void:
+	if _collecting:
+		return
+	if _results_gold > 0 and is_instance_valid(_results_wallet) and is_instance_valid(_results_gold_icon):
+		_collecting = true
+		await _gold_fly_in(_results_gold)
+		_collecting = false
+	if is_instance_valid(_results_wallet):
+		_results_wallet.queue_free()
 	Save.profile.add_gold(_results_gold, Save.now())
 	_results_gold = 0
 	Save.write()
@@ -1299,6 +1324,148 @@ func _collect(again: bool) -> void:
 		Ads.show_interstitial("between_runs", next)
 	else:
 		next.call()
+
+
+## Collect: coins fly one by one from the run's gold into the wallet pill,
+## each landing ticks the wallet up with a climbing chime and a punch.
+func _gold_fly_in(amount: int) -> void:
+	var root: Control = _results[0]
+	var from := _results_gold_icon.get_global_rect().get_center() - root.get_global_rect().position
+	var wl: Label = _results_wallet.find_children("*", "Label", true, false)[0]
+	var to := _results_wallet.get_global_rect().get_center() - root.get_global_rect().position + Vector2(-50, 0)
+	var start := Save.gold
+	var n := clampi(amount / 4, 6, 18)
+	var gap := float(bal.juice.get("gold_fly_gap_s", 0.05))
+	var fly := float(bal.juice.get("gold_fly_s", 0.45))
+	_results_wallet.pivot_offset = _results_wallet.size / 2.0
+	for k in n:
+		var coin := UpgradeIcon.make("gold", pal.ui_accent, 34)
+		coin.position = from - Vector2(17, 17) + Vector2(randf_range(-30, 30), randf_range(-12, 12))
+		root.add_child(coin)
+		var mid := (coin.position + to) / 2.0 + Vector2(randf_range(-120, 120), -160.0)
+		var p0 := coin.position
+		var p2 := to - Vector2(17, 17)
+		var tw := coin.create_tween()
+		tw.tween_interval(gap * k)
+		tw.tween_method(func(q: float) -> void:  # curved flight (quadratic Bezier)
+			coin.position = p0.lerp(mid, q).lerp(mid.lerp(p2, q), q), 0.0, 1.0, fly).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		var share := start + int(round(float(amount) * (k + 1) / n))
+		var last := k == n - 1
+		tw.tween_callback(func() -> void:
+			wl.text = str(share)
+			Sfx.play("pickup", 0.0, 1.0 + 0.05 * k)
+			_results_wallet.scale = Vector2(1.15, 1.15)
+			_results_wallet.create_tween().tween_property(_results_wallet, "scale", Vector2.ONE, 0.12)
+			if last:
+				Sfx.play("upgrade", 0.0, 1.1)
+				Sfx.vibrate(30)
+			coin.queue_free())
+	await get_tree().create_timer(gap * n + fly + 0.35).timeout
+
+
+## Results highlights: damage share per weapon/source as animated bars, plus
+## chips for the biggest hit, the best streak and the most-killed germ.
+const DMG_LABELS := {"allies": ["Swarm allies", "mode_swarm"], "towers": ["Towers", "mode_nucleus"], "dash": ["Dash", "lunge"],
+	"land": ["Infected land", "mode_infection"], "bomb": ["Bombs", "volatile"], "outbreak": ["Plague", "outbreak"]}
+
+
+func _dmg_label(src: String) -> Array:
+	if world.upgrade_defs.has(src):
+		var nm: String = world.upgrade_defs[src].name
+		if world.evolved.has(src) and _evo_by_weapon.has(src):
+			nm = _evo_by_weapon[src].name
+		return [nm, src, world.evolved.has(src)]
+	var l: Array = DMG_LABELS.get(src, [src.capitalize(), "outbreak"])
+	return [l[0], l[1], false]
+
+
+func _highlights_card(animate: bool) -> Control:
+	var card := UiKit.panel(Color("#2a1f4a"), Color(pal.ui_accent, 0.25), 22, 16)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	card.add_child(v)
+	var head := UiKit.label("HIGHLIGHTS", 22, pal.ui_accent)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(head)
+	var rows := []
+	var total := 0.0
+	for src in world.damage_by:
+		if src in ["revive", "other"]:
+			continue
+		total += float(world.damage_by[src])
+		rows.append([src, float(world.damage_by[src])])
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return a[1] > b[1])
+	var k := 0
+	for r in rows:
+		var share: float = r[1] / maxf(total, 1.0)
+		if share < 0.01 or k >= 5:
+			continue
+		var lab := _dmg_label(r[0])
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.add_child(UpgradeIcon.make(lab[1], IconArt.color_for(world.upgrade_defs.get(r[0], {"id": r[0]})), 34, lab[2]))
+		var nm := UiKit.label(lab[0], 20, pal.text)
+		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nm.custom_minimum_size = Vector2(190, 0)
+		nm.clip_text = true
+		row.add_child(nm)
+		var bar := Control.new()
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.custom_minimum_size = Vector2(0, 16)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var bg := ColorRect.new()
+		bg.color = Color(0, 0, 0, 0.35)
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bar.add_child(bg)
+		var fill := ColorRect.new()
+		fill.color = _wcolor_ui(r[0])
+		fill.anchor_bottom = 1.0
+		fill.anchor_right = 0.0 if animate else share
+		bar.add_child(fill)
+		row.add_child(bar)
+		var pct := UiKit.label("%d%%" % roundi(share * 100.0), 20, pal.text)
+		pct.autowrap_mode = TextServer.AUTOWRAP_OFF
+		pct.custom_minimum_size = Vector2(56, 0)
+		pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(pct)
+		v.add_child(row)
+		if animate:
+			var tw := fill.create_tween()
+			tw.tween_interval(0.3 + 0.12 * k)
+			tw.tween_property(fill, "anchor_right", share, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		k += 1
+	var chips := HFlowContainer.new()
+	chips.add_theme_constant_override("h_separation", 8)
+	chips.add_theme_constant_override("v_separation", 8)
+	if world.biggest_hit > 0.0:
+		chips.add_child(UiKit.chip("Biggest hit %d  (%s)" % [roundi(world.biggest_hit), _dmg_label(world.biggest_src)[0]], Color("#ff5a7a"), Color(0.1, 0.05, 0.1), 18))
+	if world.best_streak > 0:
+		chips.add_child(UiKit.chip("Best streak x%d" % world.best_streak, Color("#5ce1e6"), Color(0.05, 0.08, 0.12), 18))
+	var top := ""
+	var top_n := 0
+	for e in world.kills_by_type:
+		if int(world.kills_by_type[e]) > top_n:
+			top_n = int(world.kills_by_type[e])
+			top = e
+	if top != "":
+		var ename := top
+		for e in data.enemies:
+			if e.id == top:
+				ename = e.name
+		chips.add_child(UiKit.chip("Most killed: %s x%d" % [ename, top_n], Color("#7bd389"), Color(0.05, 0.1, 0.06), 18))
+	v.add_child(chips)
+	if animate:
+		UiKit.fade_in(chips, 0.9)
+	return card
+
+
+func _wcolor_ui(src: String) -> Color:
+	if world.upgrade_defs.has(src):
+		if world.evolved.has(src) and _evo_by_weapon.has(src):
+			return GameData.color(_evo_by_weapon[src].get("color", "#ffd166"))
+		return IconArt.color_for(world.upgrade_defs[src])
+	return {"allies": pal.player_nucleus, "towers": pal.core, "dash": IconArt.COLORS.dash, "land": pal.player_nucleus, "bomb": pal.enemy_shot, "outbreak": pal.outbreak}.get(src, Color.WHITE)
 
 
 # ------------------------------------------------------------------ pause

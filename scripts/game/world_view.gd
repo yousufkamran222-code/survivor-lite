@@ -47,6 +47,12 @@ var _hurt_t := 0.0  # blink only after real hits, not during dash iframes
 var _terr_img: Image
 var _terr_tex: ImageTexture
 var _land_color := Color(0.36, 0.88, 0.9, 0.3)
+# Animated claim fill (Infection): newly claimed tiles appear in a wave that
+# spreads from where the loop closed (juice.claim_fill_speed px/s, capped at
+# claim_fill_max_s), each flashing white as the wave reaches it.
+var _claim_pending := {}  # tile -> view time it appears
+var _claim_wave: Array = []  # [tile, age] of tiles that just appeared (flash)
+var _view_t := 0.0
 var _blob_scale := 1.0
 var _core_flash := 0.0
 var digits: DigitAtlas  # set by Main; baked digits for damage numbers
@@ -136,6 +142,8 @@ func set_world(w: World) -> void:
 	world = w
 	_seq_zoom = 0.0
 	_seq_glow = 0.0
+	_claim_pending.clear()
+	_claim_wave.clear()
 	_terr_tex = null
 	if w.terr != null:
 		# One pixel per tile; linear filtering softens edges into a "culture".
@@ -233,7 +241,15 @@ func consume(events: Array) -> void:
 						add_shake(float(juice.shake_bomb))
 						_add_fx({"kind": "ring", "pos": world.p_pos, "r": float(bal.pickups.bomb_radius), "life": 0.5, "color": pal.enemy_shot}, max_fx + 4)
 			"claim":
-				_add_fx({"kind": "claim", "cells": ev.cells, "life": 0.5}, max_fx + 4)
+				var t := world.terr
+				var speed := maxf(float(juice.get("claim_fill_speed", 1600.0)), 1.0)
+				var cap := float(juice.get("claim_fill_max_s", 0.7))
+				var far := 1.0
+				for i: int in ev.cells:
+					far = maxf(far, t.center_of(i).distance_to(world.p_pos))
+				var k_scale := minf(1.0, cap * speed / far)  # big loops: same wave, a bit faster
+				for i: int in ev.cells:
+					_claim_pending[i] = _view_t + t.center_of(i).distance_to(world.p_pos) * k_scale / speed
 				add_shake(minf(3.0 + ev.tiles * 0.05, 12.0))
 			"level_gained":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 70.0, "life": 0.35, "color": pal.ui_accent}, max_fx + 4)
@@ -405,6 +421,17 @@ func evolution_moment(weapon: String) -> void:
 	add_shake(8.0)
 
 
+## The claim wave's front: each tile flashes white for a moment as it appears.
+func _draw_claim_wave(ci: CanvasItem) -> void:
+	if _claim_wave.is_empty() or world.terr == null:
+		return
+	var t := world.terr
+	var half := Vector2.ONE * t.cell * 0.5
+	for w in _claim_wave:
+		var k: float = w[1] / 0.3
+		ci.draw_rect(Rect2(t.center_of(w[0]) - half, half * 2.0), Color(1, 1, 1, 0.55 * (1.0 - k)))
+
+
 ## Short zoom-in for a big moment (decays at juice.cam_punch_decay per s).
 func add_zoom_punch(amount: float) -> void:
 	_zoom_punch = maxf(_zoom_punch, amount * float(juice.get("cam_punch_mult", 1.0)))
@@ -452,6 +479,14 @@ func _process_view(delta: float) -> void:
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
+	_view_t += delta
+	var wi := 0
+	while wi < _claim_wave.size():
+		_claim_wave[wi][1] += delta
+		if _claim_wave[wi][1] >= 0.3:
+			_claim_wave.remove_at(wi)
+		else:
+			wi += 1
 	_nova_flash = maxf(0.0, _nova_flash - delta * 4.0)
 	_chain_flash = maxf(0.0, _chain_flash - delta * 8.0)
 	_spark_t -= delta
@@ -522,10 +557,27 @@ func _draw_world() -> void:
 
 func _draw_territory() -> void:
 	var t := world.terr
+	var changed := false
 	if not t.dirty.is_empty():
 		for i in t.dirty:
-			_terr_img.set_pixel(i % t.n, i / t.n, _land_color if t.tiles[i] == Territory.OWNED else Color(0, 0, 0, 0))
+			var owned := t.tiles[i] == Territory.OWNED
+			if owned and _claim_pending.has(i):
+				continue  # shown when the claim wave reaches it
+			_claim_pending.erase(i)
+			_terr_img.set_pixel(i % t.n, i / t.n, _land_color if owned else Color(0, 0, 0, 0))
 		t.dirty.clear()
+		changed = true
+	if not _claim_pending.is_empty():
+		for i: int in _claim_pending.keys():
+			if _claim_pending[i] > _view_t:
+				continue
+			_claim_pending.erase(i)
+			if t.tiles[i] == Territory.OWNED:
+				_terr_img.set_pixel(i % t.n, i / t.n, _land_color)
+				if _claim_wave.size() < 400:
+					_claim_wave.append([i, 0.0])
+				changed = true
+	if changed:
 		_terr_tex.update(_terr_img)
 	draw_texture_rect(_terr_tex, Rect2(t.origin, Vector2.ONE * t.cell * t.n), false)
 	_draw_rim(t.radius)
@@ -744,6 +796,7 @@ func _draw_top_layer() -> void:
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	_draw_player(ci)
+	_draw_claim_wave(ci)
 	for f in fx:
 		var k: float = f.t / f.life
 		match f.kind:
@@ -769,12 +822,6 @@ func _draw_top_layer() -> void:
 						ci.draw_polyline(seg, Color(1, 1, 1, 1.0 - k), 2.0)
 					else:
 						ci.draw_polyline(seg, Color(c, 1.0 - k), 4.0)
-			"claim":
-				if world.terr != null:
-					var t := world.terr
-					var c := Color(1, 1, 1, 0.45 * (1.0 - k))
-					for i: int in f.cells:
-						ci.draw_rect(Rect2(t.center_of(i) - Vector2.ONE * t.cell * 0.5, Vector2.ONE * t.cell), c)
 			"num":
 				if digits == null or not digits.baked:
 					var pos: Vector2 = f.pos + Vector2(0, -40.0 * k)

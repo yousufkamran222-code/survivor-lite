@@ -283,3 +283,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-04 Web playtests move to itch.io
 - GitHub Pages' deploy step timed out twice ("updating_pages" for 10 min) although the build itself passed. Yousuf chose itch.io (free, made for browser games, restricted page, no file-size problem: index.wasm is 39.5 MB, over Cloudflare Pages' 25 MB cap).
 - `tools/web_push.sh`: stamps the build SHA, exports, `butler push build/web light213/petri:html5`. Run from the cloud session after each change (no dependency on Actions). `web.yml` now does the same as a manual backup (Pages removed).
+
+### 2026-11-04 Satisfaction round 3: results highlights, gold fly-in, claim fill
+- See `docs/POLISH_PLAN.md` "Satisfaction round 3". World gains damage-by-source accounting (stats only; sims byte-identical in all 4 modes; the sim's ally share now counts effective damage, Swarm 0.33 → 0.35). 164 tests.

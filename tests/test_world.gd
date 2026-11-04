@@ -375,3 +375,36 @@ func test_hurt_event_says_where_the_hit_came_from() -> void:
 			from = ev.from
 	check(from != Vector2.INF, "hurt carries a source")
 	check(from.x > w.p_pos.x, "from the germ's side")
+
+
+func test_damage_is_tracked_by_source_without_overkill() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 2)
+	w.emit_events = false
+	w._add_enemy("grunt", w.p_pos + Vector2(300, 0))
+	var hp := w.e_hp[0]
+	w._src = "bolt"
+	w._damage(0, hp * 0.5, Vector2.ZERO, false)
+	w._src = "nova"
+	w._damage(0, 1.0e6, Vector2.ZERO, false)
+	w._src = "other"
+	check_near(float(w.damage_by.bolt), hp * 0.5, 0.01)
+	check_near(float(w.damage_by.nova), hp * 0.5, 0.01, "only the HP that was left counts")
+	check_near(w.biggest_hit, hp * 0.5, 0.01, "instant kills don't count as the biggest hit")
+	check_eq(w.biggest_src, "bolt")
+
+
+func test_weapons_tag_their_damage() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 4)
+	w.emit_events = false
+	w.bal.debug.invincible = true
+	w.owned["nova"] = 1
+	w._recompute_stats()
+	for f in int(20.0 * 60):
+		if w.state == "levelup":
+			w.close_levelup()
+		elif w.state == "chest":
+			w.close_chest()
+		w.step(1.0 / 60.0, Vector2(1, 0))
+	check(float(w.damage_by.get("bolt", 0.0)) > 0.0, "Pulse Bolt damage tracked")
+	check(float(w.damage_by.get("nova", 0.0)) > 0.0, "Fever Pulse damage tracked")
+	check(not w.damage_by.has("other") or float(w.damage_by.other) < 1.0, "nothing unlabelled")
