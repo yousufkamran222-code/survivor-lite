@@ -45,10 +45,7 @@ var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
 var _hint_text := ""
 var _hint_t := 0.0  # time the current hint has been up
 const HINT_S := 4.5
-var _streak := 0
-var _streak_t := 99.0  # time since the streak last grew
 var streak_show := 10
-var streak_window := 1.2
 
 
 func flash_xp() -> void:
@@ -224,7 +221,7 @@ func _layer(painter: Callable) -> Control:
 func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
-	_streak_t += delta
+	_update_streak(delta)
 	if orders_open:
 		_orders_t += delta
 	if _hint_text != "":
@@ -638,23 +635,99 @@ func _update_perf(delta: float) -> void:
 
 
 ## Cosmetic kill streak ("x25"), shown from juice.streak_show kills.
-func set_streak(n: int) -> void:
-	if n > _streak or n == 0:
-		_streak_t = 0.0 if n > 0 else 99.0
-	_streak = n
+## Kill streak (World.streak): a big "x123" under the pause button that
+## punches on every kill, grows and changes colour with the tier
+## (balance.streak.tiers), shakes harder the higher it goes, shows the tier
+## name and a bar draining until the streak breaks, bursts with a ring on
+## milestones, and floats away when the streak ends.
+var _shown_streak := 0
+var _streak_pop := 0.0
+var _streak_burst := 0.0  # milestone ring, 1 -> 0
+var _streak_end_n := 0  # last streak, fading out after it broke
+var _streak_end_t := 9.0
+
+
+func streak_burst() -> void:
+	_streak_burst = 1.0
+
+
+func _update_streak(delta: float) -> void:
+	_streak_pop = maxf(0.0, _streak_pop - delta * 7.0)
+	_streak_burst = maxf(0.0, _streak_burst - delta * 2.2)
+	_streak_end_t += delta
+	if world == null:
+		return
+	var n := world.streak
+	if n > _shown_streak:
+		_streak_pop = 1.0
+	elif n < _shown_streak and _shown_streak >= streak_show:
+		_streak_end_n = _shown_streak
+		_streak_end_t = 0.0
+	_shown_streak = n
+
+
+func _streak_style(n: int) -> Array:
+	var tiers: Array = world.bal.streak.tiers
+	var t := world.streak_tier(n)
+	if t < 0:
+		return [Color.WHITE, "", 0]
+	var col := GameData.color(tiers[t].color)
+	if t == tiers.size() - 1:  # top tier shimmers through the colours
+		col = Color.from_hsv(fmod(Time.get_ticks_msec() / 1400.0, 1.0), 0.55, 1.0)
+	return [col, str(tiers[t].name), t]
 
 
 func _draw_streak(w: float) -> void:
-	if _streak < streak_show or _streak_t > streak_window + 0.4:
+	var right := w - 24.0
+	var base_y := 380.0  # right edge, below the toasts and the boss bar
+	# The last streak floats up and fades after it breaks.
+	if _streak_end_t < 0.6 and world.streak < streak_show:
+		var k := _streak_end_t / 0.6
+		var st0 := _streak_style(_streak_end_n)
+		_rtext("x%d" % _streak_end_n, Vector2(right, base_y - 50.0 * k), _streak_font(_streak_end_n), 10, Color(st0[0], 1.0 - k))
+	var n := world.streak
+	if n < streak_show:
 		return
-	var a := clampf((streak_window + 0.4 - _streak_t) / 0.4, 0.0, 1.0)
-	var pop := 1.0 + 0.35 * maxf(0.0, 1.0 - _streak_t / 0.12)
-	var milestone := _streak >= 50
-	var fs := int((34.0 + minf(_streak, 100) * 0.12) * pop)
-	var col: Color = pal.ui_accent if milestone else Color(1, 1, 1)
-	var pos := Vector2(w - 24.0, 205.0)
-	draw_string_outline(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, 8, Color(0, 0, 0, 0.6 * a))
-	draw_string(font, pos, "x%d" % _streak, HORIZONTAL_ALIGNMENT_RIGHT, -1, fs, Color(col, a))
+	var st := _streak_style(n)
+	var col: Color = st[0]
+	var tier: int = st[2]
+	var fs := int(_streak_font(n) * (1.0 + 0.32 * _streak_pop * _streak_pop))
+	var jit := Vector2.ZERO
+	if _streak_pop > 0.0:
+		jit = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * (1.0 + tier * 1.3) * _streak_pop
+	var pos := Vector2(right, base_y) + jit
+	var txt := "x%d" % n
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	if _streak_burst > 0.0:
+		var c := pos + Vector2(-tw / 2.0, -fs * 0.35)
+		var rk := 1.0 - _streak_burst
+		draw_arc(c, tw * 0.6 + 120.0 * rk, 0, TAU, 40, Color(col, 0.9 * _streak_burst), 6.0 * _streak_burst + 1.0)
+		draw_circle(c, tw * 0.5 + 30.0 * rk, Color(col, 0.18 * _streak_burst))
+	_rtext(txt, pos, fs, 10, col)
+	var name: String = st[1]
+	if name != "":
+		# The tier name swells on a milestone (that's the milestone call-out).
+		_rtext(name, pos + Vector2(0, 30.0 + 18.0 * _streak_burst), int(20.0 + 22.0 * _streak_burst), 6, col)
+	# Time left before the streak breaks.
+	var left := clampf(1.0 - world.streak_t / float(world.bal.streak.window_s), 0.0, 1.0)
+	var bw := 150.0
+	var br := Rect2(right - bw, base_y + 44.0 + 18.0 * _streak_burst, bw, 6)
+	draw_rect(br, Color(0, 0, 0, 0.45))
+	draw_rect(Rect2(br.position + Vector2(bw * (1.0 - left), 0), Vector2(bw * left, 6)), Color(col, 0.9))
+
+
+## Right-aligned outlined text ending at pos.x (draw_string's RIGHT alignment
+## needs a width, so measure instead).
+func _rtext(txt: String, pos: Vector2, fs: int, outline: int, col: Color) -> void:
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var p := Vector2(pos.x - tw, pos.y)
+	draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline, Color(0, 0, 0, 0.7 * col.a))
+	draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+
+
+## Bigger as the streak grows (roughly logarithmic), capped.
+func _streak_font(n: int) -> int:
+	return int(clampf(40.0 + 16.0 * log(maxf(float(n), 1.0) / 10.0) / log(2.0), 40.0, 104.0))
 
 
 ## First-run hint banner (Main queues them, one at a time).

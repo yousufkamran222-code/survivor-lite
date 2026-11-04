@@ -86,6 +86,14 @@ var outbreak_t := 0.0  # frenzy time left
 var outbreaks := 0
 var frenzy_kills := 0  # kills during an Outbreak frenzy (they pay extra gold)
 var gilded_kills := 0  # gold-coated germs killed (each pays outbreak.gild_gold)
+
+# Kill streak (balance.streak): kills chained within window_s of each other.
+# Milestones emit "streak" events, and balance.streak.rewards can hook effects
+# onto any streak count (the place for future streak upgrades/abilities).
+var streak := 0
+var streak_t := 0.0  # seconds since the last kill in the streak
+var best_streak := 0
+var _streak_hits: Array = []  # milestones reached this step (rewards run after the kill pass)
 # Plague Trail (the Outbreak ability): a fading toxic trail behind the player.
 var pt_pos := PackedVector2Array()
 var pt_age := PackedFloat32Array()
@@ -286,6 +294,11 @@ func step(dt: float, move: Vector2) -> void:
 		_update_player(dt, move)
 	if order_cd > 0.0:
 		order_cd = maxf(order_cd - dt, 0.0)
+	if streak > 0:
+		streak_t += dt
+		if streak_t > float(bal.streak.window_s):
+			_emit({"type": "streak_end", "n": streak, "best": streak >= best_streak})
+			streak = 0
 	if outbreak_t > 0.0:
 		outbreak_t -= dt
 		if outbreak_t <= 0.0:
@@ -314,6 +327,8 @@ func step(dt: float, move: Vector2) -> void:
 	_update_bullets(dt)
 	_update_enemy_shots(dt)
 	_process_dead()
+	if not _streak_hits.is_empty():
+		_streak_rewards()
 	_contact_damage()
 	if def_on:
 		_update_core(dt)
@@ -1158,6 +1173,7 @@ func _process_dead() -> void:
 			_remove_enemy(i)
 			continue
 		kills += 1
+		_add_streak()
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
 		if e_plague[i] > 0.0:
 			spreads.append(pos)
@@ -2221,6 +2237,58 @@ func _fill_outbreak(elite: bool, boss: bool) -> void:
 	if outbreak >= 0.9999:  # 120 x (1/120) adds up to 0.99999... in floats
 		outbreak = 1.0
 		_emit({"type": "outbreak_ready"})
+
+
+## One more kill in the streak. Milestones (balance.streak.milestones, then
+## every repeat_every after the last) emit a "streak" event and queue rewards.
+func _add_streak() -> void:
+	var c: Dictionary = bal.streak
+	streak = streak + 1 if streak > 0 and streak_t <= float(c.window_s) else 1
+	streak_t = 0.0
+	best_streak = maxi(best_streak, streak)
+	if is_streak_milestone(streak):
+		_streak_hits.append(streak)
+		_emit({"type": "streak", "n": streak, "tier": streak_tier(streak)})
+
+
+func is_streak_milestone(n: int) -> bool:
+	var c: Dictionary = bal.streak
+	var ms: Array = c.milestones
+	for m in ms:  # JSON numbers are floats: compare as ints
+		if int(m) == n:
+			return true
+	var rep := int(c.get("repeat_every", 0))
+	return rep > 0 and not ms.is_empty() and n > int(ms[-1]) and (n - int(ms[-1])) % rep == 0
+
+
+## Index into balance.streak.tiers for a streak (-1 below the first tier).
+func streak_tier(n: int) -> int:
+	var tiers: Array = bal.streak.tiers
+	var t := -1
+	for k in tiers.size():
+		if n >= int(tiers[k].at):
+			t = k
+	return t
+
+
+## balance.streak.rewards: [{"at": 100, "pickup": "heal"}, {"at": 50,
+## "outbreak": 0.25}, ...] fire when the streak reaches "at". Empty by
+## default; add kinds here for future streak upgrades or abilities.
+func _streak_rewards() -> void:
+	var hits := _streak_hits.duplicate()
+	_streak_hits.clear()
+	for n: int in hits:
+		for r in bal.streak.get("rewards", []):
+			if int(r.at) != n:
+				continue
+			if r.has("pickup"):
+				_apply_pickup(str(r.pickup), p_pos)
+			if r.has("outbreak") and bal.outbreak.get("enabled", false) and outbreak_t <= 0.0:
+				outbreak = minf(1.0, outbreak + float(r.outbreak))
+				if outbreak >= 0.9999:
+					outbreak = 1.0
+					_emit({"type": "outbreak_ready"})
+			_emit({"type": "streak_reward", "n": n, "reward": r})
 
 
 func outbreak_ready() -> bool:

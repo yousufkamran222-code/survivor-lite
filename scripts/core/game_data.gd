@@ -131,6 +131,28 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	# Kill streak: ascending milestones and tiers; rewards use known kinds.
+	var stk: Dictionary = d.balance.get("streak", {})
+	for key in ["window_s", "milestones", "tiers"]:
+		if not stk.has(key):
+			errors.append("balance.streak missing '%s'" % key)
+	var prev := 0
+	for m in stk.get("milestones", []):
+		if int(m) <= prev:
+			errors.append("balance.streak.milestones must increase")
+		prev = int(m)
+	prev = 0
+	for t in stk.get("tiers", []):
+		if int(t.at) <= prev or not t.has("name") or not t.has("color"):
+			errors.append("balance.streak.tiers: each needs an increasing 'at', a name and a color")
+		prev = int(t.at)
+	for r in stk.get("rewards", []):
+		if not r.has("at"):
+			errors.append("balance.streak.rewards entry needs 'at'")
+		if r.has("pickup") and not (str(r.pickup) in World.PICKUP_KINDS):
+			errors.append("balance.streak.rewards: unknown pickup '%s'" % r.pickup)
+		if not (r.has("pickup") or r.has("outbreak")):
+			errors.append("balance.streak.rewards entry needs 'pickup' or 'outbreak'")
 	# Swarm orders: World needs every order id, and Hunt/Harvest a radius.
 	var orders: Dictionary = d.balance.get("conversion", {}).get("orders", {})
 	for oid in World.ORDER_IDS:

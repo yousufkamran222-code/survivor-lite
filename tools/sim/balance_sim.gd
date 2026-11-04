@@ -118,7 +118,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"evolutions": w.evolved.size(), "chests": w.chests_opened, "elites": w.elites_killed,
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
-		"sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
+		"best_streak": w.best_streak, "sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
 		"ally_share": w.ally_damage / maxf(w.damage_dealt, 1.0), "harvested": w.gems_harvested, "orders": w.order_changes,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0, w.bonus_gold_kills()),
@@ -147,6 +147,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	var allies := 0
 	var ally_share := 0.0
 	var spl := 0.0
+	var streaks := []
 	var l2 := 0.0
 	var harvested := 0
 	var order_n := 0
@@ -169,6 +170,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		allies += r.peak_allies
 		ally_share += r.ally_share
 		spl += r.sec_per_level
+		streaks.append(r.best_streak)
 		l2 += maxi(r.levels_2min, 0)
 		harvested += r.harvested
 		order_n += r.orders
@@ -181,6 +183,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 	times.sort()
 	levels.sort()
 	waves.sort()
+	streaks.sort()
 	# Upgrade impact: mean survival time of runs that owned each upgrade.
 	var impact := {}
 	for u in d.upgrades:
@@ -207,6 +210,7 @@ func _report(results: Array, d: Dictionary) -> Dictionary:
 		"mean_infected": snappedf(infected / maxf(results.size(), 1), 0.001),
 		"mean_conversions": snappedf(float(convs) / maxf(results.size(), 1), 0.1),
 		"mean_peak_allies": snappedf(float(allies) / maxf(results.size(), 1), 0.1),
+		"best_streak_p50": _pct(streaks, 0.5), "best_streak_p90": _pct(streaks, 0.9),
 		"mean_sec_per_level": snappedf(spl / maxf(results.size(), 1), 0.1),
 		"mean_levels_by_2min": snappedf(l2 / maxf(results.size(), 1), 0.1),
 		"mean_ally_damage_share": snappedf(ally_share / maxf(results.size(), 1), 0.001),

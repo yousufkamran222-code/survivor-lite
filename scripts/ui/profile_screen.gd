@@ -56,7 +56,7 @@ func _lifetime(list: VBoxContainer) -> void:
 		["Runs", str(st.runs)], ["Wins", str(st.wins)], ["Germs killed", str(st.kills)],
 		["Time played", UiKit.fmt_time(float(st.time_played))], ["Elites", str(st.elites)], ["Mother Cells", str(st.bosses)],
 		["Evolutions", "%d / %d" % [st.evolved_ids.size(), data.evolutions.size()]], ["Converted", str(st.conversions)], ["Dashes", str(st.dashes)],
-		["Gold earned", str(st.gold_earned)], ["Best level", str(st.best_level)],
+		["Gold earned", str(st.gold_earned)], ["Best level", str(st.best_level)], ["Best streak", "x%d" % int(st.get("best_streak", 0))],
 	]
 	for t in tiles:
 		var p := UiKit.panel(TILE_BG, Color(1, 1, 1, 0.06), 16, 10)

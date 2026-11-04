@@ -115,7 +115,7 @@ Targets: **a steady 90 fps on Yousuf's phone at peak load** (11.1 ms/frame), **a
 - Kills: batched kill ring (new `ShapeTextures.ring`), goo splats on the floor (new `ShapeTextures.splat`, ring buffer of `splat_max` 50, fade over `splat_s` 3 s, under everything), alternating `kill`/`kill2` sounds whose pitch climbs with the streak (`kill_pitch_step`, `kill_pitch_max`).
 - Big moments: elite kill 0.08 s hit-stop + gold shower; boss kill 0.8 s slow-motion at 30% (`slowmo_boss_s`, `slowmo_scale`).
 - Shake: smooth layered sines instead of a new random offset each frame (no buzz at 120 fps), `shake_mult` for the future setting.
-- Cosmetic streak: "x25" top-right from `streak_show` (10) kills chained within `streak_window_s` (1.2 s); gold from 50; chime at 25/50/100/200/400.
+- Cosmetic streak: "x25" top-right from `streak_show` (10) kills chained within `streak_window_s` (1.2 s); gold from 50; chime at 25/50/100/200/400. **Replaced 2026-11-04** by the World-side kill streak (`balance.streak`, SPEC core loop step 8).
 - Cost (desktop, alternating runs): view +0.15 ms, HUD +0.08 ms, ~3% fps under software rendering. Balance sims unchanged (presentation only).
 - Asset tool: new sounds must be appended at the **end** of `build_sfx()` (the noise generator is shared; inserting earlier changes every later sound).
 

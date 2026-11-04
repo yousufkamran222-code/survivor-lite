@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **152 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **159 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -42,7 +42,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
 | Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak; the run pauses while the fan is open), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
 | Meta | 15 permanent upgrades, 96 tiers (~17k gold), scrolling shop with icons and current totals |
-| Progress | `Profile`: lifetime stats, per-mode records, 18 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
+| Progress | `Profile` (v3): lifetime stats incl. best kill streak, per-mode records, 21 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
 | Polish | Vector icons for everything (IconArt), card UI with level pips, pick bursts, chest slot-machine with icons, BUILD button + paused build overlay (`BuildScreen`, replaced the old dot strip), redesigned animated main menu |
 | Ads/analytics | `Ads` facade with stub (fake ad overlay); `Analytics.event` prints only. AdMob/Firebase not wired yet (M3) |
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 152 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 159 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -152,7 +152,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (152 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (159 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -184,6 +184,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **Rare pickups:** `i_pos/i_kind` with kinds `PICKUP_KINDS = ["vacuum","heal","bomb"]`, rolled per normal kill (`balance.pickups.chances`).
 - **Dash:** `dash()` uses charges (`p_dash_charges`, `dash_max_charges()`, `dash_cooldown()`), iframes, Lunge hits (`_lunge_hits`), and the Afterimage decoy (`decoy_pos/decoy_t/decoy_cd`, `_decoy_blast`). Enemies (not elites or the boss) within `decoy_radius` chase the decoy.
 - **Territory hooks:** the dish clamp, `_spawn_point` avoids land and the outside, land slows enemies, `_update_territory` (trail and claims, DoT/erosion tick), `_on_claim` (40% max HP burst plus claim XP), `_pressure()` scales spawn budget and enemy HP with % infected.
+- **Kill streak** (`balance.streak`): `_add_streak()` on every hostile kill; `streak`, `streak_t` (game time, so pauses don't break it), `best_streak`. Milestones (`milestones`, then every `repeat_every`) emit `streak` {n, tier}; a break emits `streak_end`. **Hook for future streak upgrades/abilities:** `balance.streak.rewards` [{at, pickup | outbreak}] fire in `_streak_rewards()` after the kill pass (empty by default, validated); add new reward kinds there. Tiers (`tiers`: name + colour) drive the HUD. JSON numbers are floats: compare milestones with `int()`.
 - **Swarm orders:** `ally_order` (`ORDER_GUARD/HUNT/HARVEST`, ids in `ORDER_IDS`), `set_ally_order(o)` (1 s cooldown `order_cd`), `_order` = the current def from `balance.conversion.orders`. `_ally_velocity` picks the goal: the ring slot (Guard; Hunt widens it), the germ from `_hunt_target` (Hunt, retargets every 3rd frame per ally), or a gem from `_harvest_target` (Harvest; `_gem_claims` spreads allies over different gems; `_grab_gems` sets `g_pull` so the gem flies to the player). Allies reuse `e_dir` as their goal (`Vector2.INF` = none). `_ally_power()` scales with `_hp_mult()` and might (`scale_with_hp`, `might_applies`), the order's `damage_mult` and the Outbreak boost. Stats: `damage_dealt`, `ally_damage` (via the `_src_ally` flag and `b_ally` per bullet), `gems_harvested`, `order_changes`.
 - **Conversion (Swarm):** `_try_convert` on a normal kill (chance = base + `convert`). Allies get the hp/speed multipliers and a lifetime; on a full swarm the conversion **feeds** instead (`swarm_power` up to `feed_power_max`, plus a heal). `_ally_velocity` holds the bodyguard ring slot (teleports if too far), ranged allies shoot (`_ally_shot`), `_ally_block_shots` soaks enemy shots, and `_update_ally_combat` is the melee tick.
 - **Events** (`events` array, consumed by Main then WorldView, then cleared): `ally_lost boss_killed boss_spawn chain chest claim convert dash death decoy elite_killed elite_spawn evolution evolution_ready hit hurt kill land_lost level_gained level_up nova pickup pickup_item revive shoot shot_blocked swarm_feed trail_lost upgrade victory`. Set `emit_events = false` in sims and tests for speed.
@@ -250,7 +251,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **meta.json:** 15 entries `{id, name, stat, per_level, desc, fmt pct|flat, costs[]}`; costs must strictly increase (validated).
 - **modes.json:** infection/swarm/nucleus/classic with overrides plus menu card fields.
 - **balance.json `defense`** (Nucleus mode): nucleus hp/radius/damage taken, aggro_radius, pads, build_s, biomass rates, vents, breathers, max wave wait, respawn, per-wave enemy growth. **towers.json:** towers with per-level stats (`weapon` must be one World knows how to fire: `bolt` for now). **waves.json `defense.waves`:** duration, budget, enemies, vents, elites, boss.
-- **online.json:** `score` weights; 5 `leaderboards` {id, name, mode, metric score|infected_pct|conversions|kills|time}; 18 `achievements` {id, name, desc, stat (a key of `Profile.flat()`), goal}.
+- **online.json:** `score` weights; 5 `leaderboards` {id, name, mode, metric score|infected_pct|conversions|kills|time}; 21 `achievements` {id, name, desc, stat (a key of `Profile.flat()`), goal}; 3 are kill-streak ones (`best_streak` 100/250/500).
 
 ---
 
@@ -286,6 +287,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 10. Afterimage felt overpowered; the upgrade UI felt like plain text → decoy gets its own cooldown and smaller lure; IconArt icons, cards, VFX, chest icons, HUD strip.
 11. Accounts/progress/leaderboards → Play Games later; built local progress tracking, the `Online` stub, achievements and score. The main menu "looked bad" → redesigned.
 13. Nucleus step 2: towers weak vs the player, pick popup interrupted building, Free Mode too easy → non-pausing tower bar (his pick), stronger towers that grow per wave, harder waves, compounding Free Mode.
+16. Asked for a kill-streak feature that's extremely satisfying at high numbers, a best-streak stat + achievement, and room for future streak-triggered upgrades → World-side streak with tiers (COMBO → CONTAGIOUS → EPIDEMIC → PANDEMIC → PLAGUE → EXTINCTION), milestone bursts, a draining timer bar, NEW BEST STREAK call-out, `best_streak` saved (Profile v3) + 3 achievements, and the `streak.rewards` hook.
 15. Kills "not very satisfying", numbers could be better; the owned-upgrade dots were unreadable → damage numbers v3 (arc + gravity, springy pop, white→yellow→orange→pink by hit size, hot killing blow), kill flash + faster dragged burst, multi-kill shake/ring; a BUILD button that opens a paused overlay listing every weapon/upgrade with level, tier bar, effect and evolution path.
 14. Swarm "kinda useless" (allies measured at 2.5% of damage) → his order menu (fan-out: Guard / Hunt / Harvest gems only), ally damage scaling with enemy HP + might, Outbreak boosts allies; difficulty via damage taken x2.0 and a steeper XP curve. Sacrifice order parked in SPEC "Later".
 12. Upgrades shop didn't scroll (only via the thin scroll bar) and was hard to read ("0/2") → `DragScroll` (drag anywhere, momentum, drags never count as taps) + `MetaShop`: tile grid with tier bars, prices and "can buy" badges, a detail popup per upgrade with NOW → NEXT in words and a big green UPGRADE button with sound, haptics and VFX.
@@ -331,6 +333,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+000000000. **Kill streak (D-023): awaiting playtest.** Satisfying enough at high numbers? Is a 1.0 s window right (bot best streaks p50: Classic ~70, Swarm ~150, Nucleus ~240, Infection ~430)? Next idea if wanted: streak-triggered upgrades via `balance.streak.rewards`.
 00000000. **Kill/number juice v3 + BUILD overlay: awaiting playtest.** Do kills feel satisfying now? Numbers too busy with the arc? Is the BUILD button easy to find (top left, under the bars)?
 0000000. **XP x0.7 (D-022): awaiting playtest.** Did level-ups stop coming every few seconds? Is Swarm now too slow? (Its own quad 0.27 stacks with the cut.)
 000000. **Final minute + harder late game: awaiting playtest** (D-021). He beat Swarm and Infection first try (with a revive). Ask: does the final minute feel like a climax or a wall? Did a first win take 3-5 runs? **Difficulty levels** (unlock Lv 2+ per mode after a win) are agreed for later: spec in SPEC "Later".

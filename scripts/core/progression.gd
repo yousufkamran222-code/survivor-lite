@@ -56,7 +56,7 @@ static func run_summary(w: World, won: bool, mode_id: String, scoring: Dictionar
 	var s := {
 		"mode": mode_id, "won": won, "time": w.time, "kills": w.kills, "level": w.level,
 		"elites": w.elites_killed, "chests": w.chests_opened, "evolved_ids": evolved_ids,
-		"conversions": w.conversions, "dashes": w.dashes, "boss_killed": w.boss_killed,
+		"conversions": w.conversions, "dashes": w.dashes, "boss_killed": w.boss_killed, "best_streak": w.best_streak,
 		"kills_by_type": w.kills_by_type.duplicate(),
 		"infected_pct": roundi(w.terr.infected_fraction() * 100.0) if w.terr != null else 0,
 	}

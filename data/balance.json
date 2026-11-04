@@ -127,6 +127,20 @@
     "enemy_hp_mult": 1.0,
     "damage_taken_mult": 1.0
   },
+  "streak": {
+    "window_s": 1.0,
+    "milestones": [25, 50, 100, 150, 250, 350, 500],
+    "repeat_every": 250,
+    "tiers": [
+      {"at": 10, "name": "COMBO", "color": "#ffffff"},
+      {"at": 25, "name": "CONTAGIOUS", "color": "#5ce1e6"},
+      {"at": 50, "name": "EPIDEMIC", "color": "#ffd166"},
+      {"at": 100, "name": "PANDEMIC", "color": "#ff9f43"},
+      {"at": 250, "name": "PLAGUE", "color": "#ff5a7a"},
+      {"at": 500, "name": "EXTINCTION", "color": "#c38bff"}
+    ],
+    "rewards": []
+  },
   "outbreak": {
     "enabled": true,
     "kills_to_fill": 300,
@@ -249,7 +263,6 @@
     "multikill_min": 6,
     "multikill_shake": 0.6,
     "multikill_shake_max": 7,
-    "streak_window_s": 1.2,
     "streak_show": 10,
     "kill_pitch_step": 0.02,
     "kill_pitch_max": 0.4,

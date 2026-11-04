@@ -26,6 +26,9 @@
     {"id": "converts_500",  "name": "Hive",             "desc": "Convert 500 germs (lifetime)",   "stat": "conversions",        "goal": 500},
     {"id": "lancer_bane",   "name": "Lancer Bane",      "desc": "Kill 200 Lancers",               "stat": "kills_charger",      "goal": 200},
     {"id": "dasher",        "name": "Flagellum Pro",    "desc": "Dash 1,000 times",               "stat": "dashes",             "goal": 1000},
-    {"id": "rich",          "name": "Nest Egg",         "desc": "Earn 2,000 gold (lifetime)",     "stat": "gold_earned",        "goal": 2000}
+    {"id": "rich",          "name": "Nest Egg",         "desc": "Earn 2,000 gold (lifetime)",     "stat": "gold_earned",        "goal": 2000},
+    {"id": "streak_100",    "name": "Chain Reaction",   "desc": "Reach a 100-kill streak",        "stat": "best_streak",        "goal": 100},
+    {"id": "streak_250",    "name": "Plague Bearer",    "desc": "Reach a 250-kill streak",        "stat": "best_streak",        "goal": 250},
+    {"id": "streak_500",    "name": "Extinction Event", "desc": "Reach a 500-kill streak",        "stat": "best_streak",        "goal": 500}
   ]
 }

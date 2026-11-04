@@ -8,17 +8,17 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 2
+const VERSION := 3  # 3: best_streak (lifetime stat + per-mode record); older saves load it as 0
 ## Lifetime counters that only ever grow (summed per run).
 const COUNTERS := ["runs", "wins", "deaths", "kills", "time_played", "elites", "chests", "evolutions", "conversions", "dashes", "bosses", "gold_earned"]
 ## Per-mode record fields (kept as maximums).
-const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills", "best_level", "best_infected_pct", "best_conversions"]
+const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills", "best_level", "best_infected_pct", "best_conversions", "best_streak"]
 
 var version := VERSION
 var gold := 0
 var meta_levels := {}  # meta id -> level
 var settings := {"muted": false, "mode": "infection"}
-var stats := {}  # COUNTERS + "kills_by_type" {enemy: n} + "evolved_ids" {evo: true} + "best_level"
+var stats := {}  # COUNTERS + "kills_by_type" {enemy: n} + "evolved_ids" {evo: true} + "best_level" + "best_streak"
 var records := {}  # mode id -> {RECORD_FIELDS}
 var achievements := {}  # achievement id -> unix time
 var updated_at := 0  # unix time of the last change (cloud conflict resolution)
@@ -30,6 +30,7 @@ func _init() -> void:
 	stats["kills_by_type"] = {}
 	stats["evolved_ids"] = {}
 	stats["best_level"] = 0
+	stats["best_streak"] = 0
 
 
 # ------------------------------------------------------------ serialisation
@@ -55,6 +56,7 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.stats["kills_by_type"] = _int_values(s.get("kills_by_type", {}))
 	p.stats["evolved_ids"] = s.get("evolved_ids", {}).duplicate()
 	p.stats["best_level"] = int(s.get("best_level", 0))
+	p.stats["best_streak"] = int(s.get("best_streak", 0))  # v2 saves: 0
 	for mode in d.get("records", {}):
 		var r := p._record(str(mode))
 		var src: Dictionary = d.records[mode]
@@ -121,12 +123,13 @@ func record(mode: String) -> Dictionary:
 
 ## One flat dictionary of every trackable number, for achievements and the
 ## profile screen: lifetime counters, "kills_<enemy>", "best_<field>_<mode>",
-## "evolutions_distinct", "modes_won", "best_level".
+## "evolutions_distinct", "modes_won", "best_level", "best_streak".
 func flat() -> Dictionary:
 	var out := {}
 	for k in COUNTERS:
 		out[k] = stats[k]
 	out["best_level"] = stats.best_level
+	out["best_streak"] = stats.best_streak
 	for e in stats.kills_by_type:
 		out["kills_" + str(e)] = stats.kills_by_type[e]
 	out["evolutions_distinct"] = stats.evolved_ids.size()
@@ -175,6 +178,7 @@ func record_run(s: Dictionary, achievement_defs: Array, now: int) -> Array:
 	if s.boss_killed:
 		stats.bosses += 1
 	stats.best_level = maxi(int(stats.best_level), int(s.level))
+	stats.best_streak = maxi(int(stats.best_streak), int(s.get("best_streak", 0)))
 	for e in s.kills_by_type:
 		stats.kills_by_type[e] = int(stats.kills_by_type.get(e, 0)) + int(s.kills_by_type[e])
 	for evo in s.evolved_ids:
@@ -189,6 +193,7 @@ func record_run(s: Dictionary, achievement_defs: Array, now: int) -> Array:
 	r.best_level = maxi(int(r.best_level), int(s.level))
 	r.best_infected_pct = maxi(int(r.best_infected_pct), int(s.infected_pct))
 	r.best_conversions = maxi(int(r.best_conversions), int(s.conversions))
+	r.best_streak = maxi(int(r.get("best_streak", 0)), int(s.get("best_streak", 0)))
 	updated_at = now
 	return check_achievements(achievement_defs, now)
 
@@ -223,6 +228,7 @@ static func merge(a: Profile, b: Profile) -> Profile:
 	for k in COUNTERS:
 		m.stats[k] = maxf(float(newer.stats[k]), float(older.stats[k])) if k == "time_played" else maxi(int(newer.stats[k]), int(older.stats[k]))
 	m.stats.best_level = maxi(int(newer.stats.best_level), int(older.stats.best_level))
+	m.stats.best_streak = maxi(int(newer.stats.best_streak), int(older.stats.best_streak))
 	for e in older.stats.kills_by_type:
 		m.stats.kills_by_type[e] = maxi(int(m.stats.kills_by_type.get(e, 0)), int(older.stats.kills_by_type[e]))
 	for evo in older.stats.evolved_ids:

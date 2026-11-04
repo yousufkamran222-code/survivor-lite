@@ -40,8 +40,8 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_best := false
 var _touch_index := -1
-var _streak := 0  # kills chained within juice.streak_window_s (cosmetic)
-var _streak_ms := 0
+var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
+var _streak_best_called := false
 var _slowmo := 0.0  # boss-kill slow motion left (real seconds)
 var _hints: Array = []  # this run's not-yet-seen hints (data/hints.json)
 var _hint_queue: Array = []
@@ -80,7 +80,6 @@ func _ready() -> void:
 		_evo_by_weapon[ev.weapon] = ev
 	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
 	hud.streak_show = int(bal.juice.get("streak_show", 10))
-	hud.streak_window = float(bal.juice.get("streak_window_s", 1.2))
 	ui_root.add_child(hud)
 	# Bake every upgrade icon (and evolved weapon icon) once for the HUD strip.
 	var atlas := IconAtlas.new()
@@ -382,6 +381,8 @@ func _handle_events(events: Array) -> void:
 				view.add_shake(8.0)
 				hud.toast("FINAL MINUTE!", pal.player_hurt, 2.2)
 				hud.toast("Survive the surge", Color(pal.text, 0.9), 2.2)
+			"streak":
+				_on_streak_milestone(ev)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
@@ -447,19 +448,29 @@ func _handle_events(events: Array) -> void:
 				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
 
 
-## Kill sound climbs in pitch while kills keep chaining (cosmetic streak;
-## no gameplay effect). Milestones get a chime and a HUD pop.
+## Kill sound climbs in pitch while the streak (World.streak) keeps going;
+## beating your lifetime best streak gets a call-out once per run.
 func _on_kill_streak() -> void:
-	var now := Time.get_ticks_msec()
-	_streak = _streak + 1 if now - _streak_ms < int(float(bal.juice.get("streak_window_s", 1.0)) * 1000.0) else 1
-	_streak_ms = now
+	var n := world.streak
 	var j: Dictionary = bal.juice
-	var pitch := 1.0 + minf(_streak * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
-	Sfx.play("kill2" if _streak % 2 == 0 else "kill", 0.04, pitch)
-	hud.set_streak(_streak)
-	if _streak in [25, 50, 100, 200, 400]:
-		Sfx.play("chest", 0.0, 1.1)
-		Sfx.vibrate(30)
+	var pitch := 1.0 + minf(n * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
+	Sfx.play("kill2" if n % 2 == 0 else "kill", 0.04, pitch)
+	if not _streak_best_called and _life_best_streak >= 25 and n > _life_best_streak:
+		_streak_best_called = true
+		Sfx.play("level_up", 0.0, 1.2)
+		hud.toast("NEW BEST STREAK!", pal.ui_accent, 1.6)
+
+
+## Streak milestone (balance.streak.milestones): a chime that climbs with
+## the tier, a buzz, a shake, and the HUD burst (ring + swelling tier name).
+func _on_streak_milestone(ev: Dictionary) -> void:
+	var t := int(ev.tier)
+	Sfx.play("chest", 0.0, 1.0 + 0.08 * maxi(t, 0))
+	if t >= 3:
+		Sfx.play("evolve", 0.0, 1.0 + 0.05 * t)
+	Sfx.vibrate(30 + 15 * maxi(t, 0))
+	view.add_shake(3.0 + 1.5 * maxi(t, 0))
+	hud.streak_burst()
 
 
 func _start_run() -> void:
@@ -471,8 +482,8 @@ func _start_run() -> void:
 	_slowmo = 0.0
 	hud.set_orders_open(false)
 	Sfx.play_music("run")
-	_streak = 0
-	hud.set_streak(0)
+	_life_best_streak = int(Save.profile.stats.get("best_streak", 0))
+	_streak_best_called = false
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
 	_load_hints(_current_mode().id)
 	_hide_all()
@@ -1093,7 +1104,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 20)
 	grid.add_theme_constant_override("v_separation", 6)
-	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)]]
+	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)], ["Best streak", "x%d" % world.best_streak]]
 	if world.terr != null:
 		rows.append(["Dish infected", "%d%%" % roundi(world.terr.infected_fraction() * 100.0)])
 	if world.conv_on:
