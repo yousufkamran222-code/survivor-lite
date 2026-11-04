@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **151 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **152 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -44,7 +44,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 | Meta | 15 permanent upgrades, 96 tiers (~17k gold), scrolling shop with icons and current totals |
 | Progress | `Profile`: lifetime stats, per-mode records, 18 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
-| Polish | Vector icons for everything (IconArt), card UI with level pips, pick bursts, chest slot-machine with icons, owned-upgrades HUD strip, redesigned animated main menu |
+| Polish | Vector icons for everything (IconArt), card UI with level pips, pick bursts, chest slot-machine with icons, BUILD button + paused build overlay (`BuildScreen`, replaced the old dot strip), redesigned animated main menu |
 | Ads/analytics | `Ads` facade with stub (fake ad overlay); `Analytics.event` prints only. AdMob/Firebase not wired yet (M3) |
 | CI | Tests + 4-run balance smoke on every push; web build → GitHub Pages; Android debug/release APK on manual dispatch or `v*` tag |
 | Perf | 60 fps at 170+ enemies on Yousuf's phone (APK). Sim ~0.6-1.0 ms per step on desktop at peak. `debug.show_perf` is ON (yellow readout); turn it off before release |
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 151 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 152 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -138,7 +138,7 @@ scripts/game/
   shape_textures.gd       Generated textures: enemy blob atlas (16 eye directions), ally cell, disc, diamond
 scripts/ui/
   ui_kit.gd               Theme, label/button/overlay helpers, icon_card() + Pips
-  hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, owned-upgrade strip, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout
+  hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, BUILD button (`build_rect`), Swarm order fan, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout
   icon_art.gd    (170)    All vector icons (upgrades, meta, modes, trophy, sound, gold)
   upgrade_icon.gd         Control wrapper for one icon
   meta_shop.gd            Permanent-upgrade shop: tile grid + per-upgrade popup, buy VFX/sfx (MetaShop)
@@ -152,7 +152,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (151 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (152 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -286,6 +286,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 10. Afterimage felt overpowered; the upgrade UI felt like plain text → decoy gets its own cooldown and smaller lure; IconArt icons, cards, VFX, chest icons, HUD strip.
 11. Accounts/progress/leaderboards → Play Games later; built local progress tracking, the `Online` stub, achievements and score. The main menu "looked bad" → redesigned.
 13. Nucleus step 2: towers weak vs the player, pick popup interrupted building, Free Mode too easy → non-pausing tower bar (his pick), stronger towers that grow per wave, harder waves, compounding Free Mode.
+15. Kills "not very satisfying", numbers could be better; the owned-upgrade dots were unreadable → damage numbers v3 (arc + gravity, springy pop, white→yellow→orange→pink by hit size, hot killing blow), kill flash + faster dragged burst, multi-kill shake/ring; a BUILD button that opens a paused overlay listing every weapon/upgrade with level, tier bar, effect and evolution path.
 14. Swarm "kinda useless" (allies measured at 2.5% of damage) → his order menu (fan-out: Guard / Hunt / Harvest gems only), ally damage scaling with enemy HP + might, Outbreak boosts allies; difficulty via damage taken x2.0 and a steeper XP curve. Sacrifice order parked in SPEC "Later".
 12. Upgrades shop didn't scroll (only via the thin scroll bar) and was hard to read ("0/2") → `DragScroll` (drag anywhere, momentum, drags never count as taps) + `MetaShop`: tile grid with tier bars, prices and "can buy" badges, a detail popup per upgrade with NOW → NEXT in words and a big green UPGRADE button with sound, haptics and VFX.
 
@@ -330,6 +331,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+00000000. **Kill/number juice v3 + BUILD overlay: awaiting playtest.** Do kills feel satisfying now? Numbers too busy with the arc? Is the BUILD button easy to find (top left, under the bars)?
 0000000. **XP x0.7 (D-022): awaiting playtest.** Did level-ups stop coming every few seconds? Is Swarm now too slow? (Its own quad 0.27 stacks with the cut.)
 000000. **Final minute + harder late game: awaiting playtest** (D-021). He beat Swarm and Infection first try (with a revive). Ask: does the final minute feel like a climax or a wall? Did a first win take 3-5 runs? **Difficulty levels** (unlock Lv 2+ per mode after a win) are agreed for later: spec in SPEC "Later".
 00000. **Swarm orders: awaiting playtest** (D-020). The fan now pauses the run (his request). Questions: is damage taken x2 fair, is Harvest too strong (bot reaches level ~30), does Hunt read on screen? Offered but not chosen: type roles per order, one Swarm card per order. Sacrifice order: SPEC "Later".

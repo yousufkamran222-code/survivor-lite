@@ -12,8 +12,9 @@
 5. **Elites** (big, gold-ringed, tougher versions of current enemies) arrive at 0:35 and then every 40 s, with an off-screen arrow pointing to them. Weapons focus elites and the boss when in range. Each drops a **chest**: a slot-machine reveal of 1 item (3 from the boss). It's an **evolution** if one is ready, otherwise a level of something you own.
 6. **Rare pickups** drop from normal kills: **Vacuum** (pulls every gem on the map), **Heal** (+30% HP), **Bomb** (kills normal enemies on screen and damages elites and the boss).
 7. Survive to **5:00** for a win. The **Mother Cell** boss arrives at 3:50.
-8. **Swarm mode only: orders.** A button left of Outbreak shows the swarm's order; tap it to fan out three orders (**the run pauses** while the fan is open; tap anywhere else, Esc or Back to resume) and tap one to switch (1 s cooldown; keys 1-3): **Guard** (hold the bodyguard ring, allies take 40% less damage and knock germs back), **Hunt** (spread out and attack germs within 350 px of you, +50% ally damage), **Harvest** (fetch stray XP gems up to 1100 px away; a touched gem flies to you at full value; allies fight at 60%). Ally damage grows with enemy HP and your Enzymes/Potency, and Outbreak's frenzy boosts allies too (x1.5 damage and speed).
-9. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
+8. **BUILD** (top-left HUD button, or B): pauses and lists every weapon and upgrade you own with its level, what it does and how it evolves.
+9. **Swarm mode only: orders.** A button left of Outbreak shows the swarm's order; tap it to fan out three orders (**the run pauses** while the fan is open; tap anywhere else, Esc or Back to resume) and tap one to switch (1 s cooldown; keys 1-3): **Guard** (hold the bodyguard ring, allies take 40% less damage and knock germs back), **Hunt** (spread out and attack germs within 350 px of you, +50% ally damage), **Harvest** (fetch stray XP gems up to 1100 px away; a touched gem flies to you at full value; allies fight at 60%). Ally damage grows with enemy HP and your Enzymes/Potency, and Outbreak's frenzy boosts allies too (x1.5 damage and speed).
+10. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
 
 ## Run structure and difficulty curve (`data/waves.json`)
 - A spawn **budget** (points/s) ramps 2.4 → 3.8 → 5.5 → 8.5 → 13.5 → 16.9 → 24 → 30 at 0/45/90/150/180/210/240/300 s (bigger crowds from 2:30, a surge in the final minute). Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
@@ -78,7 +79,7 @@ Early tiers cost 25-60 gold, so the first purchase comes after the first run. Co
 No banners. IAP (later): remove-ads (interstitials only, rewarded stays opt-in), starter pack.
 
 ## Game feel ("juice") knobs (`balance.json` → `juice`)
-Hit flash, knockback and its decay, dash afterimages, elite auras, chest reveal spin, damage numbers (capped), kill bursts, screen shake (hurt, nova, boss kill), hit-stop (hurt, boss kill), haptics on hurt and death, pitch-jittered SFX with rate limits, and joystick radius and dead zone. Tune these from playtest notes and schedule a dedicated juice pass per milestone.
+Hit flash, knockback and its decay, damage numbers that arc out and fall (colour by hit size, hot-pink killing blow), kill flash + burst, multi-kill shake, dash afterimages, elite auras, chest reveal spin, damage numbers (capped), kill bursts, screen shake (hurt, nova, boss kill), hit-stop (hurt, boss kill), haptics on hurt and death, pitch-jittered SFX with rate limits, and joystick radius and dead zone. Tune these from playtest notes and schedule a dedicated juice pass per milestone.
 
 ## Analytics events (via `Analytics.event`)
 `session_start`, `run_start`, `upgrade_pick`, `chest_open`, `evolution`, `pickup` (kind), `boss_spawn`, `boss_killed`, `death` (time, level, cause), `run_end` (won, time, level, kills, gold, elites, chests, evolutions, dashes), `meta_buy`, `ad_rewarded_start/end` (placement, rewarded), `ad_interstitial`. These are enough for D1/D7 retention, session length, ads per user and the quit point.

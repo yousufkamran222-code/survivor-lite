@@ -253,3 +253,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - Swarm: win 27% → 15%, p10 1:08-2:18 → 1:29-2:17, p50 2:26-5:00 → 2:17-3:44, p90 3:26-5:00 → 3:23-5:00, level p50 13-32 → 9-12; levels by 2:00 9.6 → 6.7
   - Nucleus: win 32% → 31%, p50 2:22-5:59 → 2:24-6:09, level p50 9-17 → 8-14; levels by 2:00 7.0 → 5.4
 - Swarm drops the most because its own steeper curve (quad 0.27, from the final-minute pass) stacks with the cut; if it feels slow, revert that to 0.22 first. 151 tests.
+
+### 2026-11-04 Kill/number juice v3 and the BUILD overlay
+- Damage numbers arc and fall, pop springily, colour by hit size, and the killing blow turns hot pink; kills flash white and burst harder; 6+ kills in a frame shake and ring. The unreadable owned-upgrade strip is now a BUILD button that opens a paused overlay of everything you own (level, tier bar, effect, evolution path). Details and costs in `docs/POLISH_PLAN.md` "Kill and damage-number juice v3". Presentation only: no balance change. 152 tests.

@@ -1176,7 +1176,7 @@ func _process_dead() -> void:
 				biomass += float(dcfg.biomass_boss)
 			else:
 				biomass += float(d.cost) * float(dcfg.biomass_per_cost)
-		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite, "gilded": e_gild[i] == 1})
+		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite, "gilded": e_gild[i] == 1, "uid": e_uid[i]})
 		if elite:
 			elites_killed += 1
 			_drop_gem(pos, float(data.waves.elites.xp))

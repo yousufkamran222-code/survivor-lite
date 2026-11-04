@@ -35,7 +35,7 @@ scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territo
 scripts/game/        main.gd (screen flow + UI wiring), world_view.gd (draws World, effects, camera shake)
 scripts/ui/          UiKit (theme, widgets, icon cards), HudOverlay (HUD, joystick, buttons),
                      IconArt (vector icons), UpgradeIcon, MenuBackground, MetaShop (upgrades shop
-                     + popup), DragScroll (drag-anywhere scrolling lists)
+                     + popup), DragScroll (drag-anywhere scrolling lists), BuildScreen (in-run paused build overlay)
 scripts/autoload/    Save (Profile as versioned JSON), Analytics, Sfx, Ads (AdService + stub),
                      Online (accounts/leaderboards/achievements/cloud facade + StubOnlineBackend)
 scenes/main.tscn     A single node. Everything else is built in code (hand-editing .tscn is fragile).

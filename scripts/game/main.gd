@@ -22,6 +22,7 @@ var _dead: Array
 var _results: Array
 var _pause: Array
 var _chest: Array
+var _build: Array  # in-run BUILD overlay (paused)
 var _victory: Array  # Nucleus: COLLECT or KEEP GOING
 var _countdown := 0
 var _bench: Benchmark = null  # on-device benchmark in progress
@@ -115,6 +116,7 @@ func _ready() -> void:
 	_results = UiKit.overlay(ui_root)
 	_pause = UiKit.overlay(ui_root)
 	_chest = UiKit.overlay(ui_root, 0.8)
+	_build = UiKit.overlay(ui_root, 0.82)
 	if Save.muted:
 		# The old SOUND button was a mute toggle; the Settings sliders replace
 		# it, so carry "muted" over as both volumes at 0 (visible, fixable).
@@ -141,6 +143,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return  # paused in the order fan: only 1-3 (pick) and Esc (close)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		world.dash()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		_show_build()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_E, KEY_TAB]:
 		_open_banked()
@@ -174,6 +179,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if hud.orders_open:
 				hud.set_orders_open(false)  # tap anywhere else: close and resume
 				return
+		if event.pressed and hud.in_build_button(event.position):
+			_show_build()
+			return
 		# Dash: tap the DASH button, or tap with a second finger while steering.
 		if event.pressed and hud.in_upgrade_button(event.position):
 			_open_banked()
@@ -241,6 +249,8 @@ func _notification(what: int) -> void:
 			_pause_run()
 		elif screen == "paused":
 			_resume()
+		elif screen == "build":
+			_close_build()
 
 
 # -------------------------------------------------------------- game loop
@@ -472,7 +482,7 @@ func _start_run() -> void:
 func _set_screen(s: String) -> void:
 	screen = s
 	_apply_fps()
-	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won"]
+	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
 	view.visible = s != "menu"
@@ -485,7 +495,7 @@ func _set_screen(s: String) -> void:
 func _apply_fps() -> void:
 	var cap := Save.fps_cap  # 0 = max
 	var limit := cap
-	if screen == "paused":
+	if screen == "paused" or screen == "build":
 		limit = int(bal.perf.get("pause_max_fps", 30))
 	elif screen != "playing":
 		var menu_cap := int(bal.perf.get("menu_max_fps", 60))
@@ -502,7 +512,7 @@ func _apply_settings() -> void:
 
 
 func _hide_all() -> void:
-	for o in [_menu, _levelup, _dead, _results, _pause, _chest, _victory]:
+	for o in [_menu, _levelup, _dead, _results, _pause, _chest, _victory, _build]:
 		o[0].visible = false
 
 
@@ -1231,6 +1241,26 @@ func _show_settings() -> void:
 	var st := _settings_screen(_show_menu)
 	col.add_child(st)
 	UiKit.fade_in(st)
+
+
+## The BUILD overlay: everything you own, paused (BuildScreen).
+func _show_build() -> void:
+	if screen != "playing":
+		return
+	Sfx.play("click", 0.0)
+	_set_screen("build")
+	var col: VBoxContainer = _build[1]
+	UiKit.clear(col)
+	var bs := BuildScreen.new()
+	bs.setup(pal, world, _evo_by_weapon, _evo_by_passive, _close_build)
+	col.add_child(bs)
+	UiKit.reveal(_build)
+	Analytics.event("build_view", {"t": int(world.time), "level": world.level})
+
+
+func _close_build() -> void:
+	_build[0].visible = false
+	_set_screen("playing")
 
 
 func _resume() -> void:

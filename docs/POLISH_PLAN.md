@@ -4,7 +4,7 @@ Yousuf's brief: make kills and damage more satisfying (he likes the current dama
 
 **Yousuf's decisions (2026-11-02):** perf first (Phase 0 → 1 → 2 → 3 → 4); crits and kill streaks are **visual only** (no new mechanics, balance untouched); the new player is a **faceless cell**; **generated music** (synthesised loops in `tools/build_assets.py`).
 
-Status: **phases 0-4 built (2026-11-03)**; only optional items left (HUD declutter). Each phase ends with an APK playtest plus the on-device benchmark from Phase 0. Tick items off here as they land, and log them in `PIPELINE.md`.
+Status: **phases 0-4 built (2026-11-03)**; HUD declutter done 2026-11-04 (the dot strip became a BUILD button + overlay), plus kill/number juice v3. Each phase ends with an APK playtest plus the on-device benchmark from Phase 0. Tick items off here as they land, and log them in `PIPELINE.md`.
 
 ---
 
@@ -216,3 +216,10 @@ Risks: WebGL and Android behave differently (always verify on the APK); a high r
 - **Telegraphs** (WorldView, visual only, timings from World): Lancer wind-up draws its exact dash lane (diameter-wide, filling with a line and an arrowhead); a Spitter's mouth glows with a closing ring for the last `spit_telegraph_s` (0.5 s) before a shot, and stays lit while ready; the Mother Cell shows a closing ring for `boss_telegraph_s` (0.7 s) before a burst.
 - **First-run hints** (`data/hints.json`, validated; a test checks every event hint names an event World emits): shared (move, dash, first level-up → UPGRADE, first elite → chest) plus per mode (Infection claim + erosion, Swarm allies, Nucleus defend/build/upgrade). Triggered by run time (`at`) or a World event; one banner at a time above the buttons (higher when the tower bar is up); each shown once ever (`Save.hints_seen` in `profile.settings`); Settings → "Show tips again". The old Infection/Swarm start toasts were replaced; none during the benchmark.
 - Phase 4 list is now done except the optional items (HUD declutter).
+
+### Kill and damage-number juice v3; BUILD overlay (2026-11-04)
+Yousuf: kills "aren't very satisfying"; the numbers are nice but could be better; the owned-upgrade dot strip was unreadable. Presentation only (sims unaffected); knobs in `balance.json` `juice`.
+- **Damage numbers v3:** each number hops out sideways and falls under gravity (`num_rise` 260, `num_spread` 70, `num_grav` 900, `num_life_s` 0.7) instead of a straight rise; a springy pop (big, slight squash, settle; `num_pop` 0.7) that replays on every merge with a small hop; colour by hit size white → yellow → orange → hot pink (`num_big_scale` 0.7); the **killing blow** turns hot pink, pops again, grows (`num_kill_scale` 0.3) and lingers; numbers shrink away at the end. World's `kill` event now carries `uid` (presentation data).
+- **Kills:** a white flash where the germ died (`kill_flash_scale`), 8 particles (was 5) that burst fast and slow down (`kill_burst_drag` 7), two of them white sparks; **multi-kill punch**: 6+ kills in one frame give a shake (`multikill_shake` 0.6 per kill, max 7) and a white ring sized by the count.
+- **BUILD overlay** (`BuildScreen`): the HUD's left-edge dot strip is replaced by a BUILD button (top left, below the boss/Nucleus bars: weapon icons + "+N" upgrades). Tap it (or B) to pause and see every weapon and upgrade: icon, name, LV n / max, tier bar, what it does, and its evolution path (evolved / ready / needs X); RESUME or Back to continue. First-time hint on the first pick.
+- Cost (xvfb `bench_render.gd`, 2 runs each): before 75.5-76.3 fps, view 0.74-0.77 ms, dc 63-70; after 75.1-79.0 fps, view 0.76-0.85 ms, dc 67-68 (noise).

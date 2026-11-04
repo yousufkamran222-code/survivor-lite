@@ -488,27 +488,40 @@ func _draw_outbreak_button() -> void:
 ## Left-edge column of owned upgrades: icon plus level number (weapons
 ## first, evolved ones starred).
 func _draw_owned(ci: CanvasItem) -> void:
-	var px := 34.0
-	# Icons first (baked atlas: one batched draw call), then all the level
-	# numbers (one text batch), so the two never interleave.
-	var slots := []
-	var y := 152.0
-	for pass_type in ["weapon", "passive"]:
-		for u in world.upgrade_list:
-			if u.type != pass_type or not world.owned.has(u.id):
-				continue
-			slots.append([u, Vector2(10.0 + px / 2.0, y)])
-			y += px + 8.0
-		y += 6.0
-	for sl in slots:
-		var u: Dictionary = sl[0]
+	# BUILD button (top-left): your weapons' icons and how many upgrades you
+	# own; tapping it opens the paused build overlay (Main / BuildScreen).
+	var r := build_rect()
+	ci.draw_rect(r, Color(0.08, 0.05, 0.14, 0.7))
+	ci.draw_rect(r, Color(pal.ui_accent, 0.55), false, 2.0)
+	var px := 30.0
+	var x := r.position.x + 8.0 + px / 2.0
+	var passives := 0
+	for u in world.upgrade_list:
+		if not world.owned.has(u.id):
+			continue
+		if u.type != "weapon":
+			passives += 1
+			continue
 		var evo: bool = world.evolved.has(u.id)
+		var c := Vector2(x, r.position.y + 6.0 + px / 2.0)
 		if icon_atlas != null and icon_atlas.has_icon(u.id, evo):
-			icon_atlas.draw_icon(ci, u.id, sl[1], px, evo)
+			icon_atlas.draw_icon(ci, u.id, c, px, evo)
 		else:
-			IconArt.draw(ci, u.id, sl[1], px, IconArt.color_for(u), evo)
-	for sl in slots:
-		ci.draw_string(font, sl[1] + Vector2(px * 0.3, px * 0.55), str(world.owned[sl[0].id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 1, 1, 0.85))
+			IconArt.draw(ci, u.id, c, px, IconArt.color_for(u), evo)
+		x += px + 5.0
+	var label := "BUILD" + ("  +%d" % passives if passives > 0 else "")
+	ci.draw_string(font, Vector2(r.position.x, r.end.y - 9.0), label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 17, Color(1, 1, 1, 0.9))
+
+
+const BUILD_RECT := Rect2(14, 182, 154, 66)  # below the boss / Nucleus bars
+
+
+func build_rect() -> Rect2:
+	return BUILD_RECT
+
+
+func in_build_button(p: Vector2) -> bool:
+	return world != null and build_rect().grow(10).has_point(p)
 
 
 ## Nucleus mode: wave counter / countdown, nucleus health, biomass, the pad

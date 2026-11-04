@@ -49,6 +49,8 @@ var _sp_t := PackedFloat32Array()
 var _sp_next := 0
 var _num_by_uid := {}  # enemy uid -> its live damage number (merging)
 var _sparks_left := 0  # hit sparks still allowed this frame
+var _kills_this_frame := 0  # multi-kill punch (juice.multikill_*)
+var _kill_sum := Vector2.ZERO
 var _shake_t := 0.0
 var shake_setting := 1.0  # Settings → Screen shake (0, 0.5, 1, 1.5)
 var _cell_tex: Texture2D
@@ -150,15 +152,25 @@ func add_shake(amount: float) -> void:
 ## Turns simulation events into effects. Called by Main after every step.
 func consume(events: Array) -> void:
 	var max_fx := int(bal.perf.max_effects)
+	_kills_this_frame = 0
+	_kill_sum = Vector2.ZERO
 	for ev in events:
 		match ev.type:
 			"hit":
 				_on_hit(ev, max_fx)
 			"kill":
 				var c := GameData.color(ev.color)
+				_kills_this_frame += 1
+				_kill_sum += ev.pos
+				# White flash where it died, then a fast burst that slows down
+				# (drag), a couple of white sparks among the coloured bits.
+				_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2.ZERO, "color": Color(1, 1, 1, 0.95), "r": ev.radius * float(juice.get("kill_flash_scale", 1.3)), "life": 0.08}, max_fx + 10)
+				var sp := float(juice.get("kill_burst_speed", 1.0))
 				for k in int(juice.kill_burst_particles):
 					var a := randf() * TAU
-					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(60, 170), "color": c, "r": randf_range(2.5, 5.0), "life": 0.35}, max_fx)
+					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 380) * sp, "drag": float(juice.get("kill_burst_drag", 0.0)),
+						"color": Color(1, 0.97, 0.9) if k < 2 else c, "r": randf_range(3.0, 6.0), "life": 0.4}, max_fx)
+				_mark_killing_blow(int(ev.get("uid", -1)))
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.18}, max_fx)
 				_add_fx({"kind": "kring", "pos": ev.pos, "color": c, "r": ev.radius, "life": 0.22}, max_fx + 10)
 				_add_splat(ev.pos, ev.radius * (3.4 if ev.elite else 2.6), c)
@@ -251,6 +263,12 @@ func consume(events: Array) -> void:
 			"boss_killed":
 				add_shake(float(juice.shake_boss_kill))
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 260.0, "life": 0.6}, max_fx + 4)
+	# Many kills in one frame (a nova or bomb clearing a crowd): a small shake
+	# and a ring sized by how many died.
+	var mk := int(juice.get("multikill_min", 0))
+	if mk > 0 and _kills_this_frame >= mk:
+		add_shake(minf(float(_kills_this_frame) * float(juice.get("multikill_shake", 0.0)), float(juice.get("multikill_shake_max", 0.0))))
+		_add_fx({"kind": "ring", "pos": _kill_sum / _kills_this_frame, "r": minf(60.0 + 12.0 * _kills_this_frame, 320.0), "life": 0.3, "color": Color(1, 1, 1, 0.8)}, max_fx + 4)
 
 
 ## Weapon colour, switched to its evolution colour once evolved.
@@ -290,6 +308,8 @@ func _process_view(delta: float) -> void:
 		if f.has("vel"):
 			if f.has("grav"):
 				f.vel.y += f.grav * delta
+			if f.has("drag"):
+				f.vel *= exp(-float(f.drag) * delta)
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
@@ -579,14 +599,21 @@ func _draw_top_layer() -> void:
 		var gold: Color = pal.ui_accent
 		var pop := float(juice.get("num_pop", 0.0))
 		var big_k := float(juice.get("num_big_scale", 0.0))
+		var kill_k := float(juice.get("num_kill_scale", 0.0))
 		for f in fx:
 			if f.kind == "num":
 				var k: float = f.t / f.life
 				var big := clampf(float(f.frac), 0.0, 1.0)
-				var h := 26.0 * (1.0 + big_k * big) * (1.0 + pop * maxf(0.0, 1.0 - f.t / 0.12))
-				var col := Color.WHITE.lerp(gold, clampf(big * 1.5, 0.0, 1.0))
-				col.a = 1.0 - k * k
-				digits.draw_number(ci, int(f.value), f.pos + Vector2(0, -40.0 * k - 8.0), h, col)
+				# Springy pop: starts big, squashes a little below size, settles.
+				var x: float = f.t / 0.22
+				var punch := pop * exp(-5.0 * x) * cos(9.0 * x)
+				var h := 26.0 * (1.0 + big_k * big) * (1.0 + punch)
+				if f.killed:
+					h *= 1.0 + kill_k
+				h *= 1.0 - 0.6 * maxf(0.0, (k - 0.7) / 0.3)  # shrink away at the end
+				var col := _num_color(big, f.killed)
+				col.a = 1.0 - maxf(0.0, (k - 0.6) / 0.4)
+				digits.draw_number(ci, int(f.value), f.pos, h, col)
 	var bi := world.boss_index
 	if bi >= 0 and bi < world.e_pos.size():
 		var p := world.e_pos[bi]
@@ -712,14 +739,19 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 	if juice.damage_numbers:
 		var uid := int(ev.get("uid", -1))
 		var old: Variant = _num_by_uid.get(uid)
-		if old != null and old.t < float(juice.get("num_merge_s", 0.0)):
+		if old != null and old.t < float(juice.get("num_merge_s", 0.0)) and not old.killed:
 			old.value += roundi(ev.amount)
 			old.frac += float(ev.get("frac", 0.0))
 			old.t = 0.0
+			old.vel = Vector2(old.vel.x * 0.5, -float(juice.get("num_rise", 0.0)) * 0.6)  # hop again
 		elif _damage_numbers < int(bal.perf.max_damage_numbers):
 			_damage_numbers += 1
-			var f := {"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -10), "text": str(roundi(ev.amount)),
-				"value": roundi(ev.amount), "frac": float(ev.get("frac", 0.0)), "uid": uid, "life": 0.55}
+			# Numbers hop out sideways and fall back under gravity (instead of
+			# a straight rise), so a burst of hits sprays instead of stacking.
+			var spread := float(juice.get("num_spread", 0.0))
+			var f := {"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -14), "text": str(roundi(ev.amount)),
+				"value": roundi(ev.amount), "frac": float(ev.get("frac", 0.0)), "uid": uid, "life": float(juice.get("num_life_s", 0.55)),
+				"vel": Vector2(randf_range(-spread, spread), -float(juice.get("num_rise", 0.0))), "grav": float(juice.get("num_grav", 0.0)), "killed": false}
 			_add_fx(f, max_fx)
 			_num_by_uid[uid] = f
 	if _sparks_left > 0:
@@ -727,6 +759,30 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 		for n in 2:
 			var a := randf() * TAU
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(180, 320), "color": Color(1, 0.95, 0.75), "r": 2.5, "life": 0.14}, max_fx + 20)
+
+
+## Damage number colour by how big the hit was (share of the germ's max HP):
+## white -> yellow -> orange -> hot pink; the killing blow is always hot.
+func _num_color(big: float, killed: bool) -> Color:
+	if killed:
+		return Color("#ff5a7a").lerp(Color("#ffd166"), 0.25 * (1.0 - big))
+	if big < 0.25:
+		return Color.WHITE.lerp(Color("#fff07a"), big / 0.25)
+	if big < 0.6:
+		return Color("#fff07a").lerp(Color("#ffab4d"), (big - 0.25) / 0.35)
+	return Color("#ffab4d").lerp(Color("#ff5a7a"), clampf((big - 0.6) / 0.4, 0.0, 1.0))
+
+
+## The number on a germ that just died becomes the killing blow: hot colour,
+## a fresh pop, a bit bigger, and it hangs on a little longer.
+func _mark_killing_blow(uid: int) -> void:
+	var f: Variant = _num_by_uid.get(uid)
+	if f == null or f.killed:
+		return
+	f.killed = true
+	f.t = 0.0
+	f.life = float(f.life) + 0.15
+	f.vel = Vector2(f.vel.x * 0.4, -float(juice.get("num_rise", 0.0)) * 0.8)
 
 
 ## Floor goo: a fixed-size ring buffer, faded out over juice.splat_s.
