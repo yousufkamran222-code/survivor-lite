@@ -39,6 +39,7 @@ var _summary := {}
 var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_best := false
+var _virulence_cleared := 0  # results: the Virulence level this win cleared for the first time (0 = none)
 var _touch_index := -1
 var _evo_moments: Array = []  # evolutions from the open chest, celebrated on close
 var _evo_seq: Dictionary = {}  # the evolution sequence playing now (empty = none)
@@ -555,7 +556,8 @@ func _on_streak_milestone(ev: Dictionary) -> void:
 
 func _start_run() -> void:
 	var meta := Progression.meta_bonus(data.meta, Save.meta_levels)
-	world = World.new(GameData.apply_mode(data, _current_mode().id), randi(), meta)
+	var mode_id: String = _current_mode().id
+	world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
@@ -645,6 +647,7 @@ func _show_menu() -> void:
 	for m in data.modes:
 		row.add_child(_mode_card(m, m.id == current.id))
 	col.add_child(row)
+	col.add_child(_virulence_row(current.id))
 	col.add_child(UiKit.label(current.desc, 22, Color(pal.text, 0.8)))
 	var play := Button.new()
 	play.text = "PLAY"
@@ -729,12 +732,64 @@ func _mode_card(m: Dictionary, selected: bool) -> Button:
 	var subl := UiKit.label(sub if int(rec.get("runs", 0)) > 0 else "Not played yet", 17, Color(accent, 0.9))
 	subl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(subl)
+	var cleared := Save.profile.virulence_cleared(m.id)
+	if cleared > 0:
+		var vl := UiKit.label("V%d cleared" % cleared, 15, Color("#ff5a7a"))
+		vl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(vl)
 	if m.get("tag", "") != "":
 		var tag := UiKit.label(m.tag, 15, pal.ui_accent)
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(tag)
 	b.add_child(v)
 	return b
+
+
+## Virulence selector for the selected mode: arrows step through every
+## unlocked level (older ones stay playable), the next locked one shows how to
+## unlock it, and the line under it says what this level adds.
+func _virulence_row(mode_id: String) -> Control:
+	var prof := Save.profile
+	var sel := prof.virulence_selected(mode_id)
+	var top := prof.virulence_unlocked(mode_id)
+	var levels: Array = data.difficulty.levels
+	var accent: Color = Color("#ff5a7a") if sel > 1 else pal.ui_accent
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 16)
+	var step := func(dl: int) -> void:
+		prof.set_virulence(mode_id, sel + dl)
+		Save.write()
+		Sfx.play("click", 0.0, 1.0 + 0.04 * (sel + dl))
+		_show_menu()
+	var left := UiKit.button("<", step.bind(-1), 64)
+	left.custom_minimum_size = Vector2(72, 64)
+	left.disabled = sel <= 1
+	h.add_child(left)
+	var lab := UiKit.label("%s %d" % [str(data.difficulty.name).to_upper(), sel], 36, accent)
+	lab.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lab.custom_minimum_size = Vector2(300, 0)
+	h.add_child(lab)
+	var right := UiKit.button(">", step.bind(1), 64)
+	right.custom_minimum_size = Vector2(72, 64)
+	right.disabled = sel >= top
+	h.add_child(right)
+	box.add_child(h)
+	var lv: Dictionary = levels[sel - 1]
+	var info := "Adds %s: %s, on top of every level below." % [lv.name, str(lv.desc).to_lower()] if sel > 1 else "The standard game. Win to unlock Virulence 2."
+	if sel > 1:
+		var base_dd: Dictionary = GameData.apply_mode(data, mode_id).balance.get("difficulty", {})
+		var dd: Dictionary = GameData.apply_virulence(GameData.apply_mode(data, mode_id), sel).balance.difficulty
+		info += "\nGerms x%.1f HP, x%.1f damage.  +%d%% gold" % [float(dd.enemy_hp_mult) / float(base_dd.get("enemy_hp_mult", 1.0)), float(dd.damage_taken_mult) / float(base_dd.get("damage_taken_mult", 1.0)), roundi((float(dd.gold_mult) - 1.0) * 100.0)]
+	elif top > 1:
+		info = "The standard game (no modifiers)."
+	var il := UiKit.label(info, 19, Color(pal.text, 0.75))
+	box.add_child(il)
+	if sel == top and top < Profile.MAX_VIRULENCE and prof.virulence_cleared(mode_id) < top:
+		box.add_child(UiKit.label("Win Virulence %d to unlock %d" % [top, top + 1], 17, Color(pal.text, 0.5)))
+	return box
 
 
 ## Square-ish button with an icon over a label (menu bottom row).
@@ -1217,12 +1272,17 @@ func _show_results(won: bool) -> void:
 	# leaderboard submissions (local stub until Play Games is connected).
 	var mid: String = _current_mode().id
 	var prev_best := int(Save.profile.record(mid).get("best_score", 0))
+	var prev_cleared := Save.profile.virulence_cleared(mid)
 	_summary = Progression.run_summary(world, won, mid, data.online.score)
 	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now())
+	_virulence_cleared = 0
+	if won and Save.profile.virulence_cleared(mid) > prev_cleared:
+		_virulence_cleared = Save.profile.virulence_cleared(mid)
+		Save.profile.set_virulence(mid, _virulence_cleared + 1)  # next run defaults to the new level
 	_new_best = int(_summary.score) > prev_best
 	Online.report_run(_summary, data.online.leaderboards, _new_achievements)
 	Save.write()
-	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0, "conversions": world.conversions, "mode": _current_mode().id})
+	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0, "conversions": world.conversions, "mode": _current_mode().id, "virulence": int(world.bal.get("virulence", 1))})
 	_build_results(won)
 
 
@@ -1240,6 +1300,18 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	title.add_theme_constant_override("outline_size", 12)
 	title.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
 	col.add_child(title)
+	var vl := int(world.bal.get("virulence", 1))
+	if _virulence_cleared > 0:
+		var txt := "VIRULENCE %d CLEARED!" % _virulence_cleared
+		if _virulence_cleared < Profile.MAX_VIRULENCE:
+			txt += "  Virulence %d unlocked" % (_virulence_cleared + 1)
+		var chip := UiKit.chip(txt, Color("#ff5a7a"), Color(0.1, 0.04, 0.08), 22)
+		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(chip)
+		if animate:
+			UiKit.fade_in(chip, 0.5)
+	elif vl > 1:
+		col.add_child(UiKit.label("Virulence %d" % vl, 22, Color("#ff5a7a")))
 	# Stats card.
 	var card := UiKit.panel(Color("#2a1f4a"), Color(1, 1, 1, 0.08), 22, 18)
 	var grid := GridContainer.new()

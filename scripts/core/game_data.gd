@@ -3,7 +3,9 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty"]
+const VIRULENCE_MODS := ["enemy_speed_mult", "knock_resist_add", "budget_mult", "ranged_weight_mult", "shot_speed_mult", "iframes_mult",
+	"final_minute_s", "breather_mult", "boss_time_s", "boss_burst_mult", "damage_taken_mult", "enemy_hp_mult"]
 
 
 static func load_all(dir: String = "res://data") -> Dictionary:
@@ -32,6 +34,88 @@ static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
 		if m.id == mode_id:
 			_merge(out.balance, m.get("overrides", {}))
 			out.balance["mode_id"] = mode_id
+	return out
+
+
+## Virulence (data/difficulty.json): level N stacks the modifiers of levels
+## 2..N on a mode-applied copy of the data. *_mult multiply, *_add add, and
+## the *_s times take the earliest. Also sets balance.virulence and the
+## gold/score multipliers. Level 1 changes nothing.
+static func virulence_mods(d: Dictionary, level: int) -> Dictionary:
+	var m := {}
+	var levels: Array = d.get("difficulty", {}).get("levels", [])
+	for k in range(1, mini(level, levels.size())):
+		var mods: Dictionary = levels[k].get("mods", {})
+		for key in mods:
+			var v := float(mods[key])
+			if key.ends_with("_mult"):
+				m[key] = float(m.get(key, 1.0)) * v
+			elif key.ends_with("_add"):
+				m[key] = float(m.get(key, 0.0)) + v
+			else:
+				m[key] = minf(float(m.get(key, INF)), v)
+	return m
+
+
+static func apply_virulence(d: Dictionary, level: int) -> Dictionary:
+	var out := d.duplicate(true)
+	var levels: Array = d.get("difficulty", {}).get("levels", [])
+	level = clampi(level, 1, maxi(levels.size(), 1))
+	var m := virulence_mods(d, level)
+	var b: Dictionary = out.balance
+	var w: Dictionary = out.waves
+	if not b.has("difficulty"):
+		b["difficulty"] = {}
+	var diff: Dictionary = b.difficulty
+	b["virulence"] = level
+	diff["gold_mult"] = 1.0 + float(d.difficulty.get("gold_per_level", 0.0)) * (level - 1)
+	diff["score_mult"] = 1.0 + float(d.difficulty.get("score_per_level", 0.0)) * (level - 1)
+	for key in ["enemy_speed_mult", "shot_speed_mult", "damage_taken_mult", "enemy_hp_mult"]:
+		if m.has(key):
+			diff[key] = float(diff.get(key, 1.0)) * float(m[key])
+	# The base ramp under every level's own modifier: tougher, harder-hitting
+	# germs (and Mother Cell), compounding per level (gentle early, steep late).
+	# Per-mode strength (Nucleus already scales enemies per wave, so it ramps less).
+	var steps := (level - 1) * float(d.difficulty.get("ramp_scale", {}).get(str(b.get("mode_id", "")), 1.0))
+	var hp_ramp := pow(float(d.difficulty.get("hp_growth", 1.0)), steps)
+	var dmg_ramp := pow(float(d.difficulty.get("damage_growth", 1.0)), steps)
+	if level > 1:
+		diff["enemy_hp_mult"] = float(diff.get("enemy_hp_mult", 1.0)) * hp_ramp
+		diff["damage_taken_mult"] = float(diff.get("damage_taken_mult", 1.0)) * dmg_ramp
+		diff["boss_hp_mult"] = float(diff.get("boss_hp_mult", 1.0)) * hp_ramp
+	if m.has("knock_resist_add"):
+		diff["knock_resist_add"] = float(m.knock_resist_add)
+	if m.has("budget_mult"):
+		for p in w.budget_curve:
+			p[1] = float(p[1]) * float(m.budget_mult)
+		for wv in w.get("defense", {}).get("waves", []):
+			wv["budget"] = float(wv.budget) * float(m.budget_mult)
+	if m.has("ranged_weight_mult"):
+		var ranged := {}
+		for e in out.enemies:
+			if e.behavior == "ranged":
+				ranged[e.id] = true
+		for p in w.pool:
+			if ranged.has(p.enemy):
+				p["weight"] = float(p.weight) * float(m.ranged_weight_mult)
+	if m.has("iframes_mult"):
+		b.player["iframes_s"] = float(b.player.iframes_s) * float(m.iframes_mult)
+	if m.has("final_minute_s"):
+		w["final_minute_s"] = minf(float(w.get("final_minute_s", INF)), float(m.final_minute_s))
+		if w.has("elites"):
+			w.elites["final_from_s"] = minf(float(w.elites.get("final_from_s", INF)), float(m.final_minute_s))
+	if m.has("breather_mult") and b.has("defense"):
+		for key in ["breather_s", "boss_breather_s", "first_breather_s"]:
+			if b.defense.has(key):
+				b.defense[key] = float(b.defense[key]) * float(m.breather_mult)
+	if m.has("boss_time_s"):
+		for ev in w.events:
+			if ev.enemy == "boss":
+				ev["t"] = minf(float(ev.t), float(m.boss_time_s))
+	if m.has("boss_burst_mult"):
+		for e in out.enemies:
+			if e.behavior == "boss":
+				e["burst_count"] = int(round(float(e.burst_count) * float(m.boss_burst_mult)))
 	return out
 
 
@@ -131,6 +215,14 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	# Virulence: 10 levels, known modifiers only.
+	var diffd: Dictionary = d.get("difficulty", {})
+	if diffd.get("levels", []).size() != 10:
+		errors.append("difficulty.json needs 10 levels")
+	for lv in diffd.get("levels", []):
+		for key in lv.get("mods", {}):
+			if not (key in VIRULENCE_MODS):
+				errors.append("difficulty level '%s': unknown modifier '%s'" % [lv.get("name", "?"), key])
 	# Boss Rift: every weapon maps to a known power with its numbers.
 	var rift: Dictionary = d.balance.get("rift", {})
 	if rift.get("enabled", false):

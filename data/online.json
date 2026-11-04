@@ -29,6 +29,8 @@
     {"id": "rich",          "name": "Nest Egg",         "desc": "Earn 2,000 gold (lifetime)",     "stat": "gold_earned",        "goal": 2000},
     {"id": "streak_100",    "name": "Chain Reaction",   "desc": "Reach a 100-kill streak",        "stat": "best_streak",        "goal": 100},
     {"id": "streak_250",    "name": "Plague Bearer",    "desc": "Reach a 250-kill streak",        "stat": "best_streak",        "goal": 250},
-    {"id": "streak_500",    "name": "Extinction Event", "desc": "Reach a 500-kill streak",        "stat": "best_streak",        "goal": 500}
+    {"id": "streak_500",    "name": "Extinction Event", "desc": "Reach a 500-kill streak",        "stat": "best_streak",        "goal": 500},
+    {"id": "virulence_5",   "name": "Virulent",         "desc": "Win on Virulence 5",             "stat": "best_virulence",     "goal": 5},
+    {"id": "virulence_10",  "name": "Patient Zero",     "desc": "Win on Virulence 10",            "stat": "best_virulence",     "goal": 10}
   ]
 }

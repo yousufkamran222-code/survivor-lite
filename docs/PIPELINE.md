@@ -301,3 +301,12 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-04 Boss Rift shelved
 - Yousuf: scrap the rift inside the existing modes for now (revisit bosses later). `balance.rift.enabled` false; code/tests/harness kept. Bot sims, seed 600 x 8 per mode: byte-identical to before the rift (Classic, Infection, Swarm, Nucleus), so the balance is back to the pre-rift numbers (Classic 15%, Infection 19%, Swarm 15%, Nucleus 40% over 48 runs). 177 tests.
+
+### 2026-11-04 Virulence 1-10 (D-027)
+- `data/difficulty.json` (10 levels, validated), `GameData.apply_virulence()` (stacks levels 2..N + compounding ramp, per-mode `ramp_scale`), World hooks for germ speed / knock resist / shot speed, Mother Cell HP ramp, gold and score multipliers, Profile v4 (`records.<mode>.virulence` = highest cleared, `settings.virulence` = selected), menu selector, results "VIRULENCE n CLEARED!", HUD "Vn", 2 achievements, sim `--level N`.
+- Virulence 1 = the game as before (sims byte-identical; a resist-cap bug that nudged the Mother Cell at level 1 was caught by that check).
+- **Tuning with every permanent upgrade maxed (`--meta`), seeds 600/700/800 x 6 = 18 runs per level, bot win rate:**
+  - flavour modifiers only: Classic 100% at levels 1-10 (no effect on a maxed account)
+  - linear ramp HP +125%/DMG +50% per level: Classic L3 42%, L4 17%, L5 34%, L6 17%, L10 0%; +80%/+35%: L3 78%, L4 44%, L5 39%, L6 28%, L8 6%; +90%/+40%: L3 56%, L4 33%, L5 28%, L6 28%, L7 11%, L10 6%
+  - **shipped, compounding HP x1.5 / DMG x1.22:** Classic L3 72%, L4 44%, **L5 22%**, L6 11%, L8 0%, L10 0%; Swarm L3 67%, L5 22%, L8 6%; Infection (x0.85) L3 72%, L4 61%, L5 22%, L8 0%; Nucleus (x0.55) L3 89%, L5 22%, L8 0%. (Full ramp in Nucleus: L3 22%, L5 0%; Infection full: L5 6%.)
+- 187 tests.

@@ -105,6 +105,9 @@ const RIFT_OPEN := 2
 const RIFT_ACTIVE := 3
 const RIFT_CENTER := Vector2(100000, 0)  # the arena, far from everything else
 var rift_on := false
+var _v_speed := 1.0  # Virulence: germ speed, extra knock resist, enemy shot speed
+var _v_resist := 0.0
+var _v_shot := 1.0
 var rift_state := RIFT_NONE
 var rift_timer := 0.0  # pending: until it opens; open: until it closes
 var rift_pos := Vector2.ZERO
@@ -304,6 +307,10 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 			upgrade_list.append(u)
 	conv_on = bal.has("conversion") and bal.conversion.get("enabled", false)
 	rift_on = bal.has("rift") and bal.rift.get("enabled", false)
+	var vd: Dictionary = bal.get("difficulty", {})  # Virulence modifiers (GameData.apply_virulence)
+	_v_speed = float(vd.get("enemy_speed_mult", 1.0))
+	_v_resist = float(vd.get("knock_resist_add", 0.0))
+	_v_shot = float(vd.get("shot_speed_mult", 1.0))
 	if conv_on:
 		_order = bal.conversion.orders[ORDER_IDS[ally_order]]
 	for ev in data.get("evolutions", []):
@@ -725,10 +732,12 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	var hp := float(d.hp)
 	if not d.get("fixed_hp", false):
 		hp *= _hp_mult() * _pressure(float(bal.territory.get("pressure_hp_per_infected", 0.0)) if terr != null else 0.0)
-	elif def_on and free_mode:
-		hp *= 1.0 + float(dcfg.free_boss_hp_growth) * (wave - wave_count)
+	else:
+		hp *= float(bal.get("difficulty", {}).get("boss_hp_mult", 1.0))  # Virulence ramp
+		if def_on and free_mode:
+			hp *= 1.0 + float(dcfg.free_boss_hp_growth) * (wave - wave_count)
 	var r := float(d.radius)
-	var spd := float(d.speed)
+	var spd := float(d.speed) * _v_speed
 	if elite:
 		var el: Dictionary = data.waves.elites
 		hp *= float(el.hp_mult)
@@ -965,7 +974,7 @@ func _enemy_shot(pos: Vector2, dir: Vector2, speed: float, dmg: float) -> void:
 	if s_pos.size() >= int(bal.perf.max_enemy_shots):
 		return
 	s_pos.append(pos)
-	s_vel.append(dir * speed)
+	s_vel.append(dir * speed * _v_shot)
 	s_life.append(4.0)
 	s_dmg.append(dmg)
 
@@ -996,6 +1005,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 	var resist := float(d.get("knock_resist", 0.0))
 	if e_elite[i] == 1:
 		resist = maxf(resist, float(data.waves.elites.knock_resist))
+	if _v_resist > 0.0 and e_team[i] == 0:
+		resist = maxf(resist, minf(resist + _v_resist, 0.95))
 	e_knock[i] += knock * (1.0 - resist)
 	if show:
 		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0)})

@@ -524,6 +524,9 @@ func _draw_bars(ci: CanvasItem) -> void:
 	ci.draw_rect(Rect2(0, 0, w * xp_f, 4), Color(1, 1, 1, 0.35))  # top highlight
 	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
 	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.player_hurt if world.final_minute else pal.text)
+	var vlev := int(world.bal.get("virulence", 1))
+	if vlev > 1:  # Virulence level, small, next to the timer
+		ci.draw_string(font, Vector2(w / 2.0 + 64.0, 50), "V%d" % vlev, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#ff5a7a"))
 	var kills_txt := "%d kills" % world.kills
 	ci.draw_string(font, Vector2(16, 96), kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
 	# Live run gold: coin + amount after the kills (gold-tinted in a frenzy).

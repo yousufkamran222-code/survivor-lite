@@ -8,7 +8,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **176 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **187 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests.
 
@@ -42,7 +42,7 @@ Written 2026-11-03 at the end of the first long build session (12 commits on `cl
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
 | Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak; the run pauses while the fan is open), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
 | Meta | 15 permanent upgrades, 96 tiers (~17k gold), scrolling shop with icons and current totals |
-| Progress | `Profile` (v3): lifetime stats incl. best kill streak, per-mode records, 21 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
+| Progress | `Profile` (v4): lifetime stats incl. best kill streak, per-mode Virulence cleared/selected, per-mode records, 21 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
 | Polish | Vector icons for everything (IconArt), card UI with level pips, pick bursts, chest slot-machine with icons, BUILD button + paused build overlay (`BuildScreen`, replaced the old dot strip), redesigned animated main menu |
 | Ads/analytics | `Ads` facade with stub (fake ad overlay); `Analytics.event` prints only. AdMob/Firebase not wired yet (M3) |
@@ -74,7 +74,7 @@ cd /home/user/survivor-lite && godot --headless --path . --import && godot --hea
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 176 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 187 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -152,7 +152,7 @@ scripts/autoload/
   stub_ad_backend.gd      Fake ad overlay, always rewards
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (176 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (187 tests)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
@@ -254,6 +254,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - **meta.json:** 15 entries `{id, name, stat, per_level, desc, fmt pct|flat, costs[]}`; costs must strictly increase (validated).
 - **modes.json:** infection/swarm/nucleus/classic with overrides plus menu card fields.
 - **balance.json `defense`** (Nucleus mode): nucleus hp/radius/damage taken, aggro_radius, pads, build_s, biomass rates, vents, breathers, max wave wait, respawn, per-wave enemy growth. **towers.json:** towers with per-level stats (`weapon` must be one World knows how to fire: `bolt` for now). **waves.json `defense.waves`:** duration, budget, enemies, vents, elites, boss.
+- **difficulty.json:** Virulence ladder: name, gold/score per level, `hp_growth` 1.5 / `damage_growth` 1.22 (compounding), `ramp_scale` per mode (nucleus 0.55, infection 0.85), 10 `levels` {name, desc, mods}; mods are `GameData.VIRULENCE_MODS` (validated). Applied by `GameData.apply_virulence(apply_mode(data, mode), level)` in Main and in the sim (`--level N`).
 - **online.json:** `score` weights; 5 `leaderboards` {id, name, mode, metric score|infected_pct|conversions|kills|time}; 21 `achievements` {id, name, desc, stat (a key of `Profile.flat()`), goal}; 3 are kill-streak ones (`best_streak` 100/250/500).
 
 ---
@@ -336,6 +337,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 000. **Combat depth (D-016, D-017):** Volatile dash card; Outbreak = **Frenzy v2** (Yousuf's design: 5 s, weapons x1.6, damage x1.25, half damage taken, x1.5 XP, plus a harmless 380 px **gold blast** that gilds germs worth 0.5 gold each (`outbreak.gild_radius`/`gild_gold`; replaced x3 gold); 300 kills; Plague Trail kept but off); gold counter on the HUD; UPGRADE in the right column. **Bot win rate is only a sanity alarm (±10-15 points is fine); the target is a good player's first win in ~3-5 runs.** Per-mode `balance.difficulty` knobs hold it (Classic HP x1.2 = 40%, Swarm damage taken x1.3 = 38%, Infection 25%, Nucleus 38%).
 00. **Polish sweep: `docs/POLISH_PLAN.md`** (planned 2026-11-02 at Yousuf's request): Phase 0 on-device benchmark → Phase 1 performance/battery (90 Hz goal) → Phase 2 combat feel → Phase 3 player cell → Phase 4 sweep (music, settings, UI). Decisions recorded (D-014). Phase 0 (benchmark) built; waiting for his phone's benchmark lines (web + APK) before Phase 1.
 0. **Nucleus (tower defence) mode: steps 1-2 built 2026-11-02 (step 1 "feels nice"); step 2 awaiting playtest.** Next is step 3 (polish, best-wave record/leaderboard/achievements, nucleus-repair ad, balance incl. the wave 6-7 spike). Spec, what step 1 includes, sim numbers and steps 2-3 in `docs/ROADMAP.md` "Prototype 3" (D-013). 
+0000000000000. **Virulence 1-10: awaiting playtest** (D-027). Ask: does each step feel fair? Is V2 too big a jump without upgrades (germs x1.5 HP)? Next: the Lab (to push past V5).
 00000000000. **Boss Rift: shelved** (D-026). Built (Phase 1), playtested ("decent, figured it out after several failed attempts"), then switched off in data; revisit bosses/rifts later (maybe its own mode). Don't delete the code.
 0000000000. **Satisfaction rounds** (Yousuf: implement the idea list two sets at a time). Round 1 done (camera + XP loop, D-024); round 2 done (low-HP vignette + heartbeat, subtle hit direction, per-weapon cell animations, bigger evolutions, evolution moment). **He rejected:** set 3 (enemies feel alive) entirely, the HP ring around the cell, muzzle flashes/trails. Round 3 done (results highlights with damage per source, gold fly-in, animated Infection claim fill). He skipped the "living dish" atmosphere idea. The idea list is finished; ask what's next (backlog below).
 000000000. **Kill streak (D-023): awaiting playtest.** Satisfying enough at high numbers? Is a 1.0 s window right (bot best streaks p50: Classic ~70, Swarm ~150, Nucleus ~240, Infection ~430)? Next idea if wanted: streak-triggered upgrades via `balance.streak.rewards`.

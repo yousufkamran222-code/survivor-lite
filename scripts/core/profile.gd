@@ -8,11 +8,12 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 3  # 3: best_streak (lifetime stat + per-mode record); older saves load it as 0
+const VERSION := 4  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected). Older saves load 0 / none
+const MAX_VIRULENCE := 10
 ## Lifetime counters that only ever grow (summed per run).
 const COUNTERS := ["runs", "wins", "deaths", "kills", "time_played", "elites", "chests", "evolutions", "conversions", "dashes", "bosses", "gold_earned"]
 ## Per-mode record fields (kept as maximums).
-const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills", "best_level", "best_infected_pct", "best_conversions", "best_streak"]
+const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills", "best_level", "best_infected_pct", "best_conversions", "best_streak", "virulence"]
 
 var version := VERSION
 var gold := 0
@@ -149,6 +150,10 @@ func flat() -> Dictionary:
 		out[k] = stats[k]
 	out["best_level"] = stats.best_level
 	out["best_streak"] = stats.best_streak
+	var vmax := 0
+	for m in records:
+		vmax = maxi(vmax, int(records[m].get("virulence", 0)))
+	out["best_virulence"] = vmax
 	for e in stats.kills_by_type:
 		out["kills_" + str(e)] = stats.kills_by_type[e]
 	out["evolutions_distinct"] = stats.evolved_ids.size()
@@ -213,8 +218,35 @@ func record_run(s: Dictionary, achievement_defs: Array, now: int) -> Array:
 	r.best_infected_pct = maxi(int(r.best_infected_pct), int(s.infected_pct))
 	r.best_conversions = maxi(int(r.best_conversions), int(s.conversions))
 	r.best_streak = maxi(int(r.get("best_streak", 0)), int(s.get("best_streak", 0)))
+	if s.won:
+		r.virulence = maxi(int(r.get("virulence", 0)), int(s.get("virulence", 1)))
 	updated_at = now
 	return check_achievements(achievement_defs, now)
+
+
+# ---------------------------------------------------------------- Virulence
+
+## Highest Virulence level won in a mode (0 = none yet).
+func virulence_cleared(mode: String) -> int:
+	return int(records.get(mode, {}).get("virulence", 0))
+
+
+## Highest level you may pick: one above the best cleared (1..10).
+func virulence_unlocked(mode: String) -> int:
+	return clampi(virulence_cleared(mode) + 1, 1, MAX_VIRULENCE)
+
+
+## The level picked on the mode card (defaults to the highest unlocked; any
+## unlocked level can be replayed).
+func virulence_selected(mode: String) -> int:
+	var sel: Dictionary = settings.get("virulence", {})
+	return clampi(int(sel.get(mode, virulence_unlocked(mode))), 1, virulence_unlocked(mode))
+
+
+func set_virulence(mode: String, level: int) -> void:
+	if not settings.has("virulence") or not (settings.virulence is Dictionary):
+		settings["virulence"] = {}
+	settings.virulence[mode] = clampi(level, 1, virulence_unlocked(mode))
 
 
 func add_gold(amount: int, now: int) -> void:

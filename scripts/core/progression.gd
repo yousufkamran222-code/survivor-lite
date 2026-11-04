@@ -17,7 +17,7 @@ static func run_gold(balance: Dictionary, kills: int, time_s: float, boss_killed
 		g += float(e.gold_boss_bonus)
 	if won:
 		g += float(e.gold_victory_bonus)
-	return int(floor(g * (1.0 + gold_gain)))
+	return int(floor(g * (1.0 + gold_gain) * float(balance.get("difficulty", {}).get("gold_mult", 1.0))))
 
 
 ## meta_levels: { meta_id: level }. Returns { stat: total_bonus }.
@@ -57,10 +57,11 @@ static func run_summary(w: World, won: bool, mode_id: String, scoring: Dictionar
 		"mode": mode_id, "won": won, "time": w.time, "kills": w.kills, "level": w.level,
 		"elites": w.elites_killed, "chests": w.chests_opened, "evolved_ids": evolved_ids,
 		"conversions": w.conversions, "dashes": w.dashes, "boss_killed": w.boss_killed, "best_streak": w.best_streak,
+		"virulence": int(w.bal.get("virulence", 1)),
 		"kills_by_type": w.kills_by_type.duplicate(),
 		"infected_pct": roundi(w.terr.infected_fraction() * 100.0) if w.terr != null else 0,
 	}
-	s["score"] = run_score(s, scoring)
+	s["score"] = int(run_score(s, scoring) * float(w.bal.get("difficulty", {}).get("score_mult", 1.0)))
 	return s
 
 

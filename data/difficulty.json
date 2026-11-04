@@ -1,0 +1,20 @@
+{
+  "name": "Virulence",
+  "gold_per_level": 0.15,
+  "score_per_level": 0.10,
+  "hp_growth": 1.5,
+  "damage_growth": 1.22,
+  "ramp_scale": {"nucleus": 0.55, "infection": 0.85},
+  "levels": [
+    {"name": "Normal", "desc": "The standard game", "mods": {}},
+    {"name": "Quick germs", "desc": "Germs move 10% faster", "mods": {"enemy_speed_mult": 1.10}},
+    {"name": "Heavy crowd", "desc": "Germs barely get pushed back", "mods": {"knock_resist_add": 0.3}},
+    {"name": "Swarming", "desc": "25% more germs spawn", "mods": {"budget_mult": 1.25}},
+    {"name": "Spitters", "desc": "More ranged germs, faster shots", "mods": {"ranged_weight_mult": 2.0, "shot_speed_mult": 1.3}},
+    {"name": "Thin membrane", "desc": "Shorter invulnerability after a hit", "mods": {"iframes_mult": 0.6}},
+    {"name": "Early climax", "desc": "The final minute starts at 3:30 (shorter breathers in Nucleus)", "mods": {"final_minute_s": 210, "breather_mult": 0.6}},
+    {"name": "Mother's wrath", "desc": "The Mother Cell comes early with double bursts", "mods": {"boss_time_s": 180, "boss_burst_mult": 2.0}},
+    {"name": "Virulent", "desc": "Germs hit 25% harder", "mods": {"damage_taken_mult": 1.25}},
+    {"name": "Pandemic", "desc": "Germs are 25% tougher", "mods": {"enemy_hp_mult": 1.25}}
+  ]
+}

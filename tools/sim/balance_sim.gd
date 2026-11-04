@@ -8,7 +8,8 @@ extends SceneTree
 ## --mode ID (data/modes.json, default: first mode), --classic (= --mode classic),
 ## --json PATH, --free (Nucleus: keep going into Free Mode after the win),
 ## --order guard|hunt|harvest (Swarm: the bot keeps that order),
-## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run)
+## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run),
+## --level N (Virulence level, 1-10)
 
 const DT := 1.0 / 30.0
 
@@ -23,6 +24,8 @@ func _initialize() -> void:
 	if mode_id == "":
 		mode_id = d.modes[0].id
 	d = GameData.apply_mode(d, mode_id)
+	if args.has("level"):  # Virulence level (data/difficulty.json)
+		d = GameData.apply_virulence(d, int(args.level))
 	if args.has("set"):
 		for pair in str(args.set).split(","):
 			var kv := pair.split("=")

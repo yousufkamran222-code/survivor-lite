@@ -18,6 +18,22 @@
 11. **Swarm mode only: orders.** A button left of Outbreak shows the swarm's order; tap it to fan out three orders (**the run pauses** while the fan is open; tap anywhere else, Esc or Back to resume) and tap one to switch (1 s cooldown; keys 1-3): **Guard** (hold the bodyguard ring, allies take 40% less damage and knock germs back), **Hunt** (spread out and attack germs within 350 px of you, +50% ally damage), **Harvest** (fetch stray XP gems up to 1100 px away; a touched gem flies to you at full value; allies fight at 60%). Ally damage grows with enemy HP and your Enzymes/Potency, and Outbreak's frenzy boosts allies too (x1.5 damage and speed).
 12. Death or win leads to results: **gold** earned, then spent in the menu on permanent upgrades. Then play again.
 
+## Virulence (difficulty ladder, `data/difficulty.json`)
+Each mode has its own 10-level ladder. Winning a level unlocks the next for that mode; the mode card's "< VIRULENCE n >" selector picks any unlocked level (older ones stay playable; it moves up to a newly unlocked level automatically). Level N stacks the modifiers of levels 2..N plus a compounding ramp (germ HP x1.5 and damage x1.22 per level; x0.55 strength in Nucleus, x0.85 in Infection, which already scale harder). Rewards: +15% gold and +10% score per level; achievements for winning Virulence 5 (Virulent) and 10 (Patient Zero).
+| Lv | Adds |
+|---|---|
+| 1 | Normal game |
+| 2 | Quick germs: +10% speed |
+| 3 | Heavy crowd: germs barely get pushed back (+0.3 knock resist) |
+| 4 | Swarming: +25% spawn budget |
+| 5 | Spitters: ranged germs x2 as common, shots +30% faster |
+| 6 | Thin membrane: invulnerability after a hit x0.6 |
+| 7 | Early climax: final minute from 3:30 (Nucleus: breathers x0.6) |
+| 8 | Mother's wrath: Mother Cell at 3:00 with double bursts |
+| 9 | Virulent: germs hit +25% harder |
+| 10 | Pandemic: germs +25% tougher |
+Tuned so that with **every current permanent upgrade bought**, Virulence 3-4 is beatable, 5 just barely, and 6+ is beyond today's upgrades (the planned Lab will push further). Elites were deliberately left out: crowd density is the real danger.
+
 ## Run structure and difficulty curve (`data/waves.json`)
 - A spawn **budget** (points/s) ramps 2.4 → 3.8 → 5.5 → 8.5 → 13.5 → 16.9 → 24 → 30 at 0/45/90/150/180/210/240/300 s (bigger crowds from 2:30, a surge in the final minute). Each enemy costs points (Spore 0.4, Germ 1, Lump 6, ...).
 - Enemy HP grows +120% per minute (not the boss), and enemy damage +40% per minute.
@@ -89,6 +105,6 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 ## Later (not v1)
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
 - **Streak upgrades/abilities (hook built 2026-11-04):** e.g. a card "at x100: a free Fever Pulse" or "every x50: heal 10%". Add a reward kind in `World._streak_rewards()` and an entry in `balance.streak.rewards` (or have an upgrade add entries).
-- **Difficulty levels (agreed for later, 2026-11-03):** beating a mode unlocks Lv 2, 3, ... for that mode (like heat/danger levels). Each level adds one modifier from data (faster germs, extra elites, a tougher boss, ...) and +20% gold, so the first win stays a celebration, good players get a ladder, and a maxed account has something to beat (it wins 100% today). Needs: per-mode unlocked/selected level in `Profile` (bump `Profile.VERSION`), a level selector on the mode card, a `difficulty_levels` table merged like mode overrides, per-level records/leaderboards.
+- **Difficulty levels: built 2026-11-04 as Virulence (see "Virulence" above).** Original note: beating a mode unlocks Lv 2, 3, ... for that mode (like heat/danger levels). Each level adds one modifier from data (faster germs, extra elites, a tougher boss, ...) and +20% gold, so the first win stays a celebration, good players get a ladder, and a maxed account has something to beat (it wins 100% today). Needs: per-mode unlocked/selected level in `Profile` (bump `Profile.VERSION`), a level selector on the mode card, a `difficulty_levels` table merged like mode overrides, per-level records/leaderboards.
 - **Sacrifice order (Swarm, 2026-11-03, revisit later):** a 4th swarm order: every ally bursts at once for damage based on its remaining HP, spending the swarm for a panic clear. Held back because it overlaps with Outbreak as a panic button; it would need a cost (e.g. no conversions for a while) or a different trigger so it doesn't become the obvious answer.
 - **Boss Rift (Yousuf's idea, 2026-11-03): Phase 1 built 2026-11-04, then shelved the same day** ("decent, figured it out after several failed attempts", but not in the existing modes). Revisit bosses/rifts later, e.g. as their own mode. Everything is still in code and tests behind `balance.rift.enabled`; ROADMAP Prototype 4 has the design and tuning. Original note: every few minutes a glowing rift opens; step in (your choice) and the run freezes while you fight a unique mini-boss with special attack patterns for ~20 s in a cleared arena. Win: pick a rare reward (1 of 3 upgrades, or a guaranteed evolution step). Lose or run out of time: back to the run as it was (damage taken in the arena carries over, so it's a real risk). Open points: a new boss vs the 8-enemy-type cap (or a Mother Cell variant with new patterns); implement as a separate arena World that the run's World waits behind.
