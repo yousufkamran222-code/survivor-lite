@@ -15,6 +15,8 @@ var show_perf := false
 var sim_ms := 0.0
 var fx_count := 0
 var cam_pos := Vector2.ZERO  # world position at the screen centre
+var cam_zoom := 1.0  # WorldView's camera zoom (arrows map world -> screen with it)
+const XP_H := 22.0  # XP bar height
 var dash_radius := 72.0
 var dash_margin := 40.0
 var elite_color := Color("#ffd166")
@@ -251,6 +253,7 @@ func _draw() -> void:
 
 func _draw_hud() -> void:
 	var w := size.x
+	_draw_xp_live(w)
 	if world.def_on:
 		_draw_defense_live(w)
 	_draw_arrows()
@@ -291,15 +294,36 @@ func _draw_hud() -> void:
 			draw_colored_polygon(PackedVector2Array([tip, tip - d * 14.0 + side, tip - d * 14.0 - side]), Color(1, 1, 1, 0.5))
 
 
+## The animated part of the XP bar (every frame; the bar itself is cached):
+## a bright tip at the fill edge, a glow that pulses faster as the bar nears
+## full, and a white flash + sweep when it fills.
+func _draw_xp_live(w: float) -> void:
+	var f := clampf(world.xp / world.xp_next, 0.0, 1.0)
+	var t := Time.get_ticks_msec() / 1000.0
+	var x := w * f
+	if f > 0.0:
+		draw_rect(Rect2(maxf(x - 10.0, 0.0), 0, minf(10.0, x), XP_H), Color(1, 1, 1, 0.45))
+	if f >= 0.75:
+		var near := (f - 0.75) / 0.25
+		var pulse := 0.5 + 0.5 * sin(t * (6.0 + 10.0 * near))
+		draw_rect(Rect2(0, XP_H, x, 6), Color(pal.xp_bar, (0.15 + 0.35 * near) * pulse))
+		draw_rect(Rect2(0, 0, x, XP_H), Color(1, 1, 1, 0.12 * near * pulse))
+	if _xp_flash > 0.0:
+		var k := _xp_flash / 0.4
+		draw_rect(Rect2(0, 0, w, XP_H), Color(1, 1, 1, 0.7 * k))
+		draw_rect(Rect2(0, XP_H, w, 10), Color(pal.xp_bar, 0.5 * k))
+		var sx := w * (1.0 - k)
+		draw_rect(Rect2(sx - 40.0, 0, 80.0, XP_H), Color(1, 1, 1, 0.8 * k))
+
+
 ## Top bars and readouts (bars layer): XP, level, timer, kills, mode readout,
 ## Nucleus bars, boss bar. Redrawn only when one of them changes.
 func _draw_bars(ci: CanvasItem) -> void:
 	var w := size.x
 	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
-	ci.draw_rect(Rect2(0, 0, w, 16), Color(0, 0, 0, 0.5))
-	ci.draw_rect(Rect2(0, 0, w * xp_f, 16), pal.xp_bar)
-	if _xp_flash > 0.0:
-		ci.draw_rect(Rect2(0, 0, w, 16), Color(1, 1, 1, _xp_flash * 1.5))
+	ci.draw_rect(Rect2(0, 0, w, XP_H), Color(0, 0, 0, 0.5))
+	ci.draw_rect(Rect2(0, 0, w * xp_f, XP_H), pal.xp_bar)
+	ci.draw_rect(Rect2(0, 0, w * xp_f, 4), Color(1, 1, 1, 0.35))  # top highlight
 	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
 	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.player_hurt if world.final_minute else pal.text)
 	var kills_txt := "%d kills" % world.kills
@@ -399,7 +423,7 @@ func _draw_arrows() -> void:
 	if world.def_on:
 		targets.append([world.core_pos, pal.core, false])
 	for tg in targets:
-		var sp: Vector2 = tg[0] - cam_pos + half
+		var sp: Vector2 = (tg[0] - cam_pos) * cam_zoom + half
 		if Rect2(Vector2.ZERO, size).grow(-10).has_point(sp):
 			continue
 		var dir := (sp - half).normalized()

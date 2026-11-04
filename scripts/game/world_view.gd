@@ -18,6 +18,10 @@ var juice: Dictionary
 var pal := {}
 var enemy_colors: Array = []
 var cam: Camera2D
+var cam_zoom := 1.0  # current zoom (HUD arrows need it)
+var _look := Vector2.ZERO  # camera look-ahead offset (juice.cam_lead_s)
+var _zoom_crowd := 1.0  # eases out as the crowd grows (juice.cam_crowd_zoom)
+var _zoom_punch := 0.0  # short zoom-in on big moments
 var font: Font
 var fx: Array = []
 var shake := 0.0
@@ -200,6 +204,7 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 46.0, "life": 0.2, "color": pal.player}, max_fx + 4)
 			"elite_killed":
 				add_shake(10.0)
+				add_zoom_punch(float(juice.get("cam_punch_elite", 0.0)))
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 150.0, "life": 0.4, "color": elite_color}, max_fx + 4)
 				# Gold shower: sparks burst up and fall.
 				for n in 18:
@@ -219,6 +224,13 @@ func consume(events: Array) -> void:
 				add_shake(minf(3.0 + ev.tiles * 0.05, 12.0))
 			"level_gained":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 70.0, "life": 0.35, "color": pal.ui_accent}, max_fx + 4)
+				add_zoom_punch(float(juice.get("cam_punch_level", 0.0)))
+			"levelup_wave":
+				# The shove ring: fast, bright, sized to the push radius.
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": float(ev.radius), "life": 0.32, "color": Color(pal.xp_bar.lightened(0.4), 0.95)}, max_fx + 4)
+				_add_fx({"kind": "pop", "pos": ev.pos, "color": pal.xp_bar, "r": float(ev.radius) * 0.35, "life": 0.25}, max_fx + 4)
+			"streak":
+				add_zoom_punch(float(juice.get("cam_punch_streak", 0.0)))
 			"upgrade":
 				# Pick burst in the upgrade's colour, right on the player.
 				var uc := IconArt.color_for(world.upgrade_defs[ev.id])
@@ -228,6 +240,7 @@ func consume(events: Array) -> void:
 					_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2(cos(a), sin(a)) * 240.0, "color": uc, "r": 6.0, "life": 0.45}, max_fx + 14)
 			"evolution":
 				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 320.0, "life": 0.7, "color": _wcolor(ev.weapon, pal.ui_accent)}, max_fx + 4)
+				add_zoom_punch(float(juice.get("cam_punch_evolution", 0.0)))
 			"hurt":
 				add_shake(float(juice.shake_hurt))
 				_hurt_t = float(bal.player.iframes_s)
@@ -262,6 +275,7 @@ func consume(events: Array) -> void:
 					_add_fx({"kind": "ring", "pos": world.vent_pos[v], "r": 150.0, "life": 0.5, "color": pal.vent}, max_fx + 4)
 			"boss_killed":
 				add_shake(float(juice.shake_boss_kill))
+				add_zoom_punch(float(juice.get("cam_punch_boss", 0.0)))
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 260.0, "life": 0.6}, max_fx + 4)
 	# Many kills in one frame (a nova or bomb clearing a crowd): a small shake
 	# and a ring sized by how many died.
@@ -269,6 +283,11 @@ func consume(events: Array) -> void:
 	if mk > 0 and _kills_this_frame >= mk:
 		add_shake(minf(float(_kills_this_frame) * float(juice.get("multikill_shake", 0.0)), float(juice.get("multikill_shake_max", 0.0))))
 		_add_fx({"kind": "ring", "pos": _kill_sum / _kills_this_frame, "r": minf(60.0 + 12.0 * _kills_this_frame, 320.0), "life": 0.3, "color": Color(1, 1, 1, 0.8)}, max_fx + 4)
+
+
+## Short zoom-in for a big moment (decays at juice.cam_punch_decay per s).
+func add_zoom_punch(amount: float) -> void:
+	_zoom_punch = maxf(_zoom_punch, amount * float(juice.get("cam_punch_mult", 1.0)))
 
 
 ## Weapon colour, switched to its evolution colour once evolved.
@@ -325,8 +344,18 @@ func _process_view(delta: float) -> void:
 	_shake_t += delta
 	var off := Vector2(sin(_shake_t * 47.0) * 0.6 + sin(_shake_t * 21.0 + 1.7) * 0.4,
 		cos(_shake_t * 43.0) * 0.6 + sin(_shake_t * 19.0 + 0.4) * 0.4) * shake * float(juice.get("shake_mult", 1.0)) * shake_setting
-	cam.position = (world.core_pos if world.p_down > 0.0 else world.p_pos) + off
-	var vp := get_viewport_rect().size
+	# Camera: leads a little where you're heading, eases out as the crowd
+	# grows, and punches in on big moments (add_zoom_punch). Knobs in juice.
+	var lead := world.p_vel * float(juice.get("cam_lead_s", 0.0))
+	_look = _look.lerp(lead, 1.0 - exp(-float(juice.get("cam_lead_rate", 4.0)) * delta))
+	var crowd_k := clampf((float(world.hostile_count()) - float(juice.get("cam_crowd_from", 60))) / maxf(float(juice.get("cam_crowd_span", 100)), 1.0), 0.0, 1.0)
+	_zoom_crowd = lerpf(_zoom_crowd, 1.0 - float(juice.get("cam_crowd_zoom", 0.0)) * crowd_k, 1.0 - exp(-0.8 * delta))
+	_zoom_punch = maxf(0.0, _zoom_punch - delta * float(juice.get("cam_punch_decay", 0.25)))
+	cam_zoom = _zoom_crowd * (1.0 + _zoom_punch)
+	cam.zoom = Vector2.ONE * cam_zoom
+	var focus := world.core_pos if world.p_down > 0.0 else world.p_pos + _look
+	cam.position = focus + off
+	var vp := get_viewport_rect().size / cam_zoom
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)
 	_fill_gems(view)
 	_fill_shots()
@@ -351,7 +380,7 @@ func _draw() -> void:
 
 func _draw_world() -> void:
 	# One tiled texture, anchored to the world grid so it scrolls correctly.
-	var vp := get_viewport_rect().size
+	var vp := get_viewport_rect().size / cam_zoom
 	var tile := float(BG_TILE.get_width())
 	var tl := cam.position - vp / 2.0 - Vector2(64, 64)
 	var origin := Vector2(floorf(tl.x / tile), floorf(tl.y / tile)) * tile
@@ -431,17 +460,26 @@ func _draw_defense() -> void:
 
 func _fill_gems(view: Rect2) -> void:
 	_gems.begin()
+	var hop_s := float(juice.get("gem_hop_s", 0.0))
+	var hop_h := float(juice.get("gem_hop_h", 0.0))
 	for i in world.g_pos.size():
 		var p := world.g_pos[i]
 		if not view.has_point(p):
 			continue
 		var v := world.g_val[i]
+		# Pop out of the kill: a short hop with a squash on landing (view only).
+		var age := world.time - world.g_born[i] if i < world.g_born.size() else 1.0
+		var sz := 1.0
+		if age < hop_s:
+			var k := age / hop_s
+			p.y -= sin(k * PI) * hop_h
+			sz = 0.4 + 0.8 * k if k < 0.5 else 1.0 + 0.25 * sin((k - 0.5) * 2.0 * PI)
 		if v >= 10.0:
-			_gems.add(p, 18.0, pal.gem_large)
+			_gems.add(p, 18.0 * sz, pal.gem_large)
 		elif v >= 3.0:
-			_gems.add(p, 14.0, pal.gem_medium)
+			_gems.add(p, 14.0 * sz, pal.gem_medium)
 		else:
-			_gems.add(p, 10.0, pal.gem_small)
+			_gems.add(p, 10.0 * sz, pal.gem_small)
 	_gems.commit()
 
 

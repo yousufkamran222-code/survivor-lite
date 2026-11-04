@@ -263,3 +263,12 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - **HUD:** big right-aligned "x123" below the toasts: punches and jitters on every kill (harder in higher tiers), grows roughly with log(streak), tier colour (the top tier shimmers), tier name and a draining timer bar; milestones swell the tier name and ring it, with a chime climbing per tier, haptics and shake; a broken streak floats away. NEW BEST STREAK! once per run when you pass your lifetime best (≥25). The kill-sound pitch ladder now follows World's streak.
 - **Progress:** `best_streak` in the run summary, Profile stats and per-mode records (**Profile.VERSION 2 → 3**; old saves load it as 0; merge keeps the max), results and Profile screens, achievements Chain Reaction (100), Plague Bearer (250), Extinction Event (500). Sim reports `best_streak_p50/p90` (bot p50: Classic 66, Swarm 149, Nucleus 242, Infection 431: kills in the dish are nearly continuous; 0.6 s still gave 175, so the tiers were scaled up instead).
 - Bug caught by a test: JSON milestones are floats, so `Array.has(25)` never matched. 159 tests.
+
+### 2026-11-04 Satisfaction round 1: camera + XP loop
+- Camera look-ahead, crowd zoom-out, zoom punches; gems hop out of kills; pickup chime ladder; XP bar glow/flash; **level-up shockwave** (shoves germs within 220 px, no damage). Details in `docs/POLISH_PLAN.md` "Satisfaction round 1".
+- **Bot, seeds 600-1100 x 8 (48 runs per mode), before → after (shockwave is the only gameplay change):**
+  - Classic: win 19% → 15%, p10 2:19-2:50 → 1:58-3:04, p50 4:11-4:42 → 2:19-4:11, p90 4:42-5:00 → 3:28-5:00, level p50 8-14 → 8-13
+  - Infection: win 21% → 19%, p10 1:50-2:19 → 1:28-2:16, p50 2:14-5:00 → 2:22-3:29, p90 2:46-5:00 → 2:41-5:00, level p50 15-33 → 15-20
+  - Swarm: win 15% → 15%, p10 1:29-2:17 → 1:25-2:22, p50 2:17-3:44 → 2:17-4:40, p90 3:23-5:00 → 3:21-5:00, level p50 9-12 → 10-13
+  - Nucleus: win 31% → 40%, p50 2:24-6:09 → 2:55-6:06, p90 3:22-6:13 → 6:01-6:11, level p50 8-14 → 9-14 (pushing germs off the nucleus buys the towers time)
+  - All inside the ±10-15 point alarm band. The kiting bot loses a little in Classic (germs knocked out of orbit/pulse reach); humans should feel it as breathing room. 159 tests.

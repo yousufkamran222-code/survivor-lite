@@ -86,6 +86,7 @@ func test_harvest_fetches_stray_gems() -> void:
 	w.g_pos.clear()
 	w.g_val.clear()
 	w.g_pull.clear()
+	w.g_born.clear()
 	w._drop_gem(w.p_pos + Vector2(700, 0), 3.0)
 	var xp0 := w.xp
 	# Guard leaves it lying there.

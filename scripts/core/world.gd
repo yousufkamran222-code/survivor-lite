@@ -166,6 +166,7 @@ var s_dmg := PackedFloat32Array()
 var g_pos := PackedVector2Array()
 var g_val := PackedFloat32Array()
 var g_pull := PackedByteArray()
+var g_born := PackedFloat32Array()  # run time each gem dropped (the view's pop-out hop)
 
 var _grid := {}
 
@@ -1289,10 +1290,12 @@ func _drop_gem(pos: Vector2, value: float) -> void:
 		g_pos[far] = pos
 		g_val[far] = value
 		g_pull[far] = 0
+		g_born[far] = time
 		return
 	g_pos.append(pos)
 	g_val.append(value)
 	g_pull.append(0)
+	g_born.append(time)
 
 
 func _update_gems(dt: float) -> void:
@@ -1315,18 +1318,43 @@ func _update_gems(dt: float) -> void:
 				g_pos[i] = g_pos[last]
 				g_val[i] = g_val[last]
 				g_pull[i] = g_pull[last]
+				g_born[i] = g_born[last]
 				g_pos.resize(last)
 				g_val.resize(last)
 				g_pull.resize(last)
+				g_born.resize(last)
 				continue
 			g_pos[i] = g_pos[i] + off / d * minf(d, speed * dt)
 		i += 1
+	var levelled := false
 	while xp >= xp_next:
 		xp -= xp_next
 		level += 1
 		xp_next = Progression.xp_needed(bal, level)
 		pending_levelups += 1
+		levelled = true
 		_emit({"type": "level_gained", "level": level, "banked": pending_levelups})
+	if levelled:
+		_levelup_wave()
+
+
+## Level-up shockwave (balance.xp.levelup_wave): nearby germs get shoved back
+## (more the closer they are), no damage; elites and the boss resist as usual.
+func _levelup_wave() -> void:
+	var lw: Dictionary = bal.xp.get("levelup_wave", {})
+	var r := float(lw.get("radius", 0.0))
+	if r <= 0.0:
+		return
+	var push := float(lw.knock)
+	for i: int in query(p_pos, r):
+		var off := e_pos[i] - p_pos
+		var d := off.length()
+		var dir := off / d if d > 0.001 else Vector2.RIGHT
+		var resist := float(enemy_defs[e_type[i]].get("knock_resist", 0.0))
+		if e_elite[i] == 1:
+			resist = maxf(resist, float(data.waves.elites.knock_resist))
+		e_knock[i] += dir * push * (1.0 - 0.5 * clampf(d / r, 0.0, 1.0)) * (1.0 - resist)
+	_emit({"type": "levelup_wave", "pos": p_pos, "radius": r})
 
 
 func _roll() -> Array:

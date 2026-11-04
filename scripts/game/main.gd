@@ -40,6 +40,8 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_best := false
 var _touch_index := -1
+var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
+var _pickup_ms := 0
 var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
 var _streak_best_called := false
 var _slowmo := 0.0  # boss-kill slow motion left (real seconds)
@@ -281,6 +283,7 @@ func _process(delta: float) -> void:
 	world.step(dt, _move_input())
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	hud.cam_pos = view.cam.position
+	hud.cam_zoom = view.cam_zoom
 	hud.fx_count = view.fx.size()
 	_handle_events(world.events)
 	view.consume(world.events)
@@ -325,7 +328,12 @@ func _handle_events(events: Array) -> void:
 				if ev.get("gilded", false):
 					Sfx.play("pickup", 0.05, 1.6)
 			"pickup":
-				Sfx.play("pickup", 0.15)
+				# Gems collected in quick succession climb in pitch.
+				var j: Dictionary = bal.juice
+				var now := Time.get_ticks_msec()
+				_pickup_chain = _pickup_chain + 1 if now - _pickup_ms < int(float(j.get("pickup_chain_s", 0.35)) * 1000.0) else 0
+				_pickup_ms = now
+				Sfx.play("pickup", 0.03, 1.0 + minf(_pickup_chain * float(j.get("pickup_pitch_step", 0.0)), float(j.get("pickup_pitch_max", 0.0))))
 			"nova":
 				Sfx.play("nova")
 			"chain":
