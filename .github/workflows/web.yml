@@ -1,22 +1,27 @@
 name: Web playtest build
 
-# Publishes a browser build to GitHub Pages so the game can be playtested on a
-# phone within minutes of a merge. DEV TOOL ONLY: ads, haptics, real
-# performance and Android lifecycle must be checked on the APK.
+# Exports the browser build and uploads it to itch.io (light213/petri, channel
+# "html5") with butler, so the game can be playtested on a phone. DEV TOOL
+# ONLY: ads, haptics, real performance and Android lifecycle must be checked
+# on the APK.
+#
+# Normally the Claude cloud session exports and pushes directly after each
+# change (see docs/SESSION_HANDOFF.md "Web builds"); this workflow is the
+# manual backup. GitHub Pages was dropped on 2026-11-04 after its deploy
+# step kept timing out. Needs the repository secret BUTLER_API_KEY.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: web
   cancel-in-progress: true
+
+env:
+  ITCH_TARGET: light213/petri:html5
 
 jobs:
   build:
@@ -39,19 +44,12 @@ jobs:
         run: |
           mkdir -p build/web
           godot --headless --path . --export-release "Web" build/web/index.html
-          touch build/web/.nojekyll
           ls -la build/web
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Upload to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler push build/web "$ITCH_TARGET" --userversion "${GITHUB_SHA::7}"

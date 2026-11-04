@@ -279,3 +279,7 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-04 Evolution moment v2; developer gold tools
 - Evolution moment is now a ~1.9 s frozen sequence (charge, burst, banner): see `docs/POLISH_PLAN.md` "Evolution moment v2".
 - Developer tools in Settings (`balance.debug.dev_tools`, on for playtests, off for release): **+10,000 gold** (not counted as earned) and **Refund upgrades** (all permanent-upgrade gold back). For testing permanent upgrades on any build, e.g. a fresh web host with an empty save. 162 tests.
+
+### 2026-11-04 Web playtests move to itch.io
+- GitHub Pages' deploy step timed out twice ("updating_pages" for 10 min) although the build itself passed. Yousuf chose itch.io (free, made for browser games, restricted page, no file-size problem: index.wasm is 39.5 MB, over Cloudflare Pages' 25 MB cap).
+- `tools/web_push.sh`: stamps the build SHA, exports, `butler push build/web light213/petri:html5`. Run from the cloud session after each change (no dependency on Actions). `web.yml` now does the same as a manual backup (Pages removed).

@@ -95,10 +95,10 @@ python3 tools/build_assets.py                                               # re
 
 ### CI and builds (GitHub)
 - There is no `gh` CLI. Use the GitHub MCP tools (load them via ToolSearch: `mcp__github__actions_run_trigger`, `actions_list`, `actions_get`, `get_job_logs`).
-- After pushing, **dispatch** `android.yml` and `web.yml` on ref `claude/bold-brown-h48pfg` (`method: run_workflow`), then poll the public API:
+- After pushing, **dispatch** `android.yml` on ref `claude/bold-brown-h48pfg` (`method: run_workflow`) and give Yousuf the run URL straight away (don't sit polling: GitHub's queue has been slow). Push the web build with `tools/web_push.sh`. To check runs, use the public API:
   `curl -sS "https://api.github.com/repos/yousufkamran222-code/survivor-lite/actions/runs?per_page=4&head_sha=$(git rev-parse HEAD)"` in an `until ... all completed` loop (sleep 20).
 - `test.yml` runs automatically on push. Give Yousuf the **Android build run URL**; the APK is the artifact `petri-panic-apk-N`.
-- Pages deploys from the dispatched web run (Yousuf enabled Pages with source "GitHub Actions"). `web.yml` also triggers on push to `main`, but **no `main` branch exists**: everything is on `claude/bold-brown-h48pfg`, which is the default branch.
+- **Web builds go to itch.io** (since 2026-11-04; GitHub Pages' deploy kept timing out): project `light213/petri`, channel `html5`, restricted page owned by Yousuf. From this session after every change: install the web export templates (`templates/web_*` from the 4.7.2 tpz into `~/.local/share/godot/export_templates/4.7.2.stable/`) and butler (`curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default`), then `tools/web_push.sh /path/to/butler`. It reads `BUTLER_API_KEY` from the environment (set in the cloud environment settings; never print or commit it). `web.yml` (manual dispatch) does the same from Actions with the repo secret `BUTLER_API_KEY`. The web export is ~44 MB (index.wasm 39.5 MB), too big for hosts with 25 MB per-file caps (Cloudflare Pages). New host = fresh browser save: Settings → Developer → +10,000 gold.
 - Push only to `claude/bold-brown-h48pfg` (`git push -u origin claude/bold-brown-h48pfg`). Don't create PRs unless asked.
 
 ### Commit conventions
