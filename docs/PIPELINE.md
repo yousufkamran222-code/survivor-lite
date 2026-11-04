@@ -272,3 +272,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - Swarm: win 15% → 15%, p10 1:29-2:17 → 1:25-2:22, p50 2:17-3:44 → 2:17-4:40, p90 3:23-5:00 → 3:21-5:00, level p50 9-12 → 10-13
   - Nucleus: win 31% → 40%, p50 2:24-6:09 → 2:55-6:06, p90 3:22-6:13 → 6:01-6:11, level p50 8-14 → 9-14 (pushing germs off the nucleus buys the towers time)
   - All inside the ±10-15 point alarm band. The kiting bot loses a little in Classic (germs knocked out of orbit/pulse reach); humans should feel it as breathing room. 159 tests.
+
+### 2026-11-04 Satisfaction round 2: danger readability + weapons
+- Low-HP edge vignette + heartbeat, subtle hit-direction bloom, a cheap animation on the cell per owned weapon (stacking by zone), bigger evolved weapon visuals, and an evolution moment after the chest. Presentation only (World's `hurt` event gains `from`; no rule changes, so no sim change). New generated sound `heartbeat`. Details in `docs/POLISH_PLAN.md` "Satisfaction round 2". 160 tests.

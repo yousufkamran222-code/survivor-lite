@@ -361,3 +361,17 @@ func test_mode_difficulty_knobs() -> void:
 	var b := hard.p_hp
 	hard._hurt(10.0, "test")
 	check_near(b - hard.p_hp, (a - base.p_hp) * 2.0, 0.01, "damage taken multiplier (player only)")
+
+
+func test_hurt_event_says_where_the_hit_came_from() -> void:
+	var w := World.new(GameData.apply_mode(data(), "classic"), 2)
+	w.emit_events = true
+	w._add_enemy("grunt", w.p_pos + Vector2(10, 0))
+	w._rebuild_grid()
+	w._contact_damage()
+	var from := Vector2.INF
+	for ev in w.events:
+		if ev.type == "hurt":
+			from = ev.from
+	check(from != Vector2.INF, "hurt carries a source")
+	check(from.x > w.p_pos.x, "from the germ's side")

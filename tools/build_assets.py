@@ -112,6 +112,8 @@ def build_sfx() -> None:
     # Added later: keep new sounds at the end so the shared noise RNG doesn't
     # change the sounds above.
     write("kill2", env(mix(osc(640, 150, 0.14, "tri"), noise(0.14, 0.4) * 0.5), decay_pow=2.2), 0.65)
+    # Low-HP heartbeat: "lub-dub", two soft low thumps (sine only).
+    write("heartbeat", seq(env(osc(95, 48, 0.13, "sine"), attack=0.004, decay_pow=2.4), np.zeros(int(0.08 * RATE)), env(osc(85, 42, 0.11, "sine"), attack=0.004, decay_pow=2.6) * 0.7, np.zeros(int(0.05 * RATE))), 0.9)
 
 
 def build_background(size: int = 512, bg="#1d1433", dots="#2a1e48", cells="#251a40") -> None:

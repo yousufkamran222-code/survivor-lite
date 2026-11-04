@@ -22,6 +22,10 @@ var cam_zoom := 1.0  # current zoom (HUD arrows need it)
 var _look := Vector2.ZERO  # camera look-ahead offset (juice.cam_lead_s)
 var _zoom_crowd := 1.0  # eases out as the crowd grows (juice.cam_crowd_zoom)
 var _zoom_punch := 0.0  # short zoom-in on big moments
+var _nova_flash := 0.0  # weapon auras: brief flashes when the weapon fires
+var _chain_flash := 0.0
+var _spark_ang := 0.0  # where the Nerve Spark crackle shows on the rim
+var _spark_t := 0.0
 var font: Font
 var fx: Array = []
 var shake := 0.0
@@ -184,11 +188,15 @@ func consume(events: Array) -> void:
 						var a := -PI / 2.0 + randf_range(-1.2, 1.2)
 						_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 			"nova":
-				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova)}, max_fx + 4)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova), "w": 9.0 if _evo("nova") and not ev.get("tower", false) else 5.0}, max_fx + 4)
+				if _evo("nova") and not ev.get("tower", false):
+					_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius * 0.72, "life": 0.36, "color": Color.WHITE, "w": 3.0}, max_fx + 4)
+				_nova_flash = 1.0
 				if not ev.get("tower", false):
 					add_shake(float(juice.shake_nova))
 			"chain":
-				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain)}, max_fx + 4)
+				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain), "evo": _evo("chain") and not ev.get("tower", false)}, max_fx + 4)
+				_chain_flash = 1.0
 			"convert":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.35, "color": pal.player_nucleus}, max_fx + 4)
 			"swarm_feed":
@@ -239,8 +247,7 @@ func consume(events: Array) -> void:
 					var a := TAU * n / 10.0
 					_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2(cos(a), sin(a)) * 240.0, "color": uc, "r": 6.0, "life": 0.45}, max_fx + 14)
 			"evolution":
-				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 320.0, "life": 0.7, "color": _wcolor(ev.weapon, pal.ui_accent)}, max_fx + 4)
-				add_zoom_punch(float(juice.get("cam_punch_evolution", 0.0)))
+				pass  # played by Main via evolution_moment() once the chest closes
 			"hurt":
 				add_shake(float(juice.shake_hurt))
 				_hurt_t = float(bal.player.iframes_s)
@@ -283,6 +290,76 @@ func consume(events: Array) -> void:
 	if mk > 0 and _kills_this_frame >= mk:
 		add_shake(minf(float(_kills_this_frame) * float(juice.get("multikill_shake", 0.0)), float(juice.get("multikill_shake_max", 0.0))))
 		_add_fx({"kind": "ring", "pos": _kill_sum / _kills_this_frame, "r": minf(60.0 + 12.0 * _kills_this_frame, 320.0), "life": 0.3, "color": Color(1, 1, 1, 0.8)}, max_fx + 4)
+
+
+## Per-weapon touches on the cell, one per owned weapon, each in its own
+## zone so any combination stacks cleanly (1-3 cheap draws each):
+##   Fever Pulse: a warm glow behind the cell that swells as it charges
+##   Antibodies:  three thin arcs turning just outside the cilia
+##   Pulse Bolt:  the nucleus charges up and flashes on each shot
+##   Nerve Spark: a tiny zig-zag crackle on the rim every few frames
+## Evolved weapons use their evolution colour and a little more intensity.
+func _wcharge(id: String) -> float:
+	if not world.wstats.has(id):
+		return -1.0
+	var cd := float(world.wstats[id].get("cooldown", 1.0))
+	return clampf(1.0 - float(world.cooldowns.get(id, 0.0)) / maxf(cd, 0.01), 0.0, 1.0)
+
+
+func _evo(id: String) -> bool:
+	return world.evolved.has(id)
+
+
+func _draw_weapon_auras_back(ci: CanvasItem, p: Vector2, r: float) -> void:
+	var nova := _wcharge("nova")
+	if nova >= 0.0:
+		var c := _wcolor("nova", pal.nova)
+		var gr := r * (1.25 + 0.55 * nova * nova) * (1.0 + 0.25 * _nova_flash)
+		var a := (0.07 + 0.16 * nova * nova + 0.25 * _nova_flash) * (1.4 if _evo("nova") else 1.0)
+		ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(gr, gr), Vector2(gr, gr) * 2.0), false, Color(c, a))
+	if world.wstats.has("orbit"):
+		var c := _wcolor("orbit", pal.orbit)
+		var rr := r * 1.62
+		var a0 := -world.orbit_angle * 0.5
+		var w := 3.0 if _evo("orbit") else 2.0
+		for k in 3:
+			var s := a0 + TAU * k / 3.0
+			ci.draw_arc(p, rr, s, s + 0.9, 8, Color(c, 0.45), w)
+
+
+func _draw_weapon_auras_front(ci: CanvasItem, p: Vector2, r: float, nc: Vector2, nr: float) -> void:
+	var bolt := _wcharge("bolt")
+	if bolt >= 0.0:
+		var c := _wcolor("bolt", pal.bolt)
+		var fire := clampf(1.0 - bolt * 6.0, 0.0, 1.0)  # just fired: flash
+		var cr := nr * (0.25 + 0.3 * bolt + 0.35 * fire)
+		var cp := p + nc
+		ci.draw_texture_rect(_disc_tex, Rect2(cp - Vector2(cr, cr), Vector2(cr, cr) * 2.0), false, Color(c.lightened(0.4), 0.35 + 0.5 * bolt + 0.4 * fire))
+	if world.wstats.has("chain") and (_chain_flash > 0.0 or fmod(_cell_t, 0.22 if _evo("chain") else 0.4) < 0.07):
+		var c := _wcolor("chain", pal.chain)
+		var a := _spark_ang
+		var d := Vector2.from_angle(a)
+		var o := d.orthogonal()
+		var b := p + d * r * 1.05
+		var pts := PackedVector2Array([b, b + d * 6.0 + o * 5.0, b + d * 11.0 - o * 4.0, b + d * 17.0 + o * 2.0])
+		ci.draw_polyline(pts, Color(c.lightened(0.3), 0.9), 2.5 if _evo("chain") else 2.0)
+
+
+## The evolution moment (Main calls it once the chest closes, during a short
+## freeze): white flash, two rings and a burst in the evolution's colour, and
+## a big zoom punch.
+func evolution_moment(weapon: String) -> void:
+	var c := _wcolor(weapon, pal.ui_accent)
+	var max_fx := int(bal.perf.max_effects) + 40
+	var p := world.p_pos
+	_add_fx({"kind": "dot", "pos": p, "vel": Vector2.ZERO, "color": Color(1, 1, 1, 0.9), "r": 90.0, "life": 0.25}, max_fx)
+	_add_fx({"kind": "ring", "pos": p, "r": 150.0, "life": 0.45, "color": Color.WHITE, "w": 8.0}, max_fx)
+	_add_fx({"kind": "ring", "pos": p, "r": 340.0, "life": 0.8, "color": c, "w": 10.0}, max_fx)
+	for n in 24:
+		var a := TAU * n / 24.0
+		_add_fx({"kind": "dot", "pos": p, "vel": Vector2(cos(a), sin(a)) * randf_range(300, 520), "drag": 3.0, "color": c if n % 3 else Color.WHITE, "r": 6.0, "life": 0.8}, max_fx)
+	add_zoom_punch(float(juice.get("cam_punch_evolution", 0.0)))
+	add_shake(8.0)
 
 
 ## Short zoom-in for a big moment (decays at juice.cam_punch_decay per s).
@@ -332,6 +409,12 @@ func _process_view(delta: float) -> void:
 			f.pos += f.vel * delta
 		i += 1
 	_hurt_t = maxf(0.0, _hurt_t - delta)
+	_nova_flash = maxf(0.0, _nova_flash - delta * 4.0)
+	_chain_flash = maxf(0.0, _chain_flash - delta * 8.0)
+	_spark_t -= delta
+	if _spark_t <= 0.0:
+		_spark_t = 0.11
+		_spark_ang = randf() * TAU
 	_update_cell_pose(delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
 	if world.p_dash_t > 0.0:
@@ -543,11 +626,22 @@ func _fill_bullets() -> void:
 	_bullets.begin()
 	var bc: Color = _wcolor("bolt", pal.bolt)
 	var trail := Color(bc, 0.35)
+	var evo := _evo("bolt")
+	var glow := Color(bc, 0.22)
+	var faint := Color(bc, 0.15)
+	var white := Color(1, 1, 1, 0.9)
 	for i in world.b_pos.size():
 		var p := world.b_pos[i]
 		var r := world.b_rad[i]
-		_bullets.add(p - world.b_vel[i].normalized() * r * 1.6, r * 2.2, trail)
+		var back := world.b_vel[i].normalized() * r
+		if evo and world.b_ally[i] == 0:
+			# Evolved: a soft glow, a longer comet tail and a white-hot core.
+			_bullets.add(p, r * 4.2, glow)
+			_bullets.add(p - back * 3.2, r * 1.6, faint)
+		_bullets.add(p - back * 1.6, r * 2.2, trail)
 		_bullets.add(p, r * 2.0, bc)
+		if evo and world.b_ally[i] == 0:
+			_bullets.add(p, r * 0.9, white)
 	_bullets.commit()
 
 
@@ -598,9 +692,14 @@ func _draw_top_layer() -> void:
 		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j] + 3.0, Color(tc, 0.35))
 		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j], tc)
 	var oc: Color = _wcolor("orbit", pal.orbit)
+	var orbit_evo := _evo("orbit")
 	for p in world.orbit_points:
+		if orbit_evo:  # evolved: a wide soft halo and a white core
+			ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2.ONE * (world.orbit_size + 12.0), Vector2.ONE * (world.orbit_size + 12.0) * 2.0), false, Color(oc, 0.3))
 		ci.draw_circle(p, world.orbit_size + 3.0, Color(oc, 0.35))
 		ci.draw_circle(p, world.orbit_size, oc)
+		if orbit_evo:
+			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	_draw_player(ci)
 	for f in fx:
 		var k: float = f.t / f.life
@@ -612,7 +711,7 @@ func _draw_top_layer() -> void:
 				# of fill rate, which showed up as frame-time spikes.
 				if f.r < 160.0:
 					ci.draw_circle(f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
-				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), 5.0)
+				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), float(f.get("w", 5.0)))
 			"chain":
 				var pts: PackedVector2Array = f.points
 				var c: Color = f.get("color", pal.chain)
@@ -620,7 +719,13 @@ func _draw_top_layer() -> void:
 					var a := pts[j]
 					var b := pts[j + 1]
 					var mid := (a + b) / 2.0 + (b - a).orthogonal().normalized() * randf_range(-14, 14)
-					ci.draw_polyline(PackedVector2Array([a, mid, b]), Color(c, 1.0 - k), 4.0)
+					var seg := PackedVector2Array([a, mid, b])
+					if f.get("evo", false):  # evolved: wide glow + white-hot core
+						ci.draw_polyline(seg, Color(c, 0.3 * (1.0 - k)), 12.0)
+						ci.draw_polyline(seg, Color(c, 1.0 - k), 5.0)
+						ci.draw_polyline(seg, Color(1, 1, 1, 1.0 - k), 2.0)
+					else:
+						ci.draw_polyline(seg, Color(c, 1.0 - k), 4.0)
 			"claim":
 				if world.terr != null:
 					var t := world.terr
@@ -698,6 +803,7 @@ func _draw_player(ci: CanvasItem) -> void:
 	var speed_k := clampf(world.p_vel.length() / float(bal.player.speed), 0.0, 1.0)
 	var n := int(juice.get("cilia", 12))
 	var cc := Color(body, 0.55)
+	_draw_weapon_auras_back(ci, p, r)
 	ci.draw_set_transform(p, _move_ang, Vector2(sx, sy))
 	for k in n:
 		var a := TAU * k / n
@@ -719,6 +825,7 @@ func _draw_player(ci: CanvasItem) -> void:
 	var hl := nc + Vector2(-0.35, -0.35) * nr
 	ci.draw_texture_rect(_disc_tex, Rect2(hl - Vector2(nr, nr) * 0.3, Vector2(nr, nr) * 0.6), false, Color(1, 1, 1, 0.55))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_draw_weapon_auras_front(ci, p, r, nc, nr)
 	if world.p_hp < world.p_max_hp:
 		var w := 48.0
 		var pos := p + Vector2(-w / 2.0, r + 10.0)

@@ -40,6 +40,7 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_best := false
 var _touch_index := -1
+var _evo_moments: Array = []  # evolutions from the open chest, celebrated on close
 var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
 var _pickup_ms := 0
 var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
@@ -81,6 +82,7 @@ func _ready() -> void:
 		_evo_by_passive[ev.requires] = ev
 		_evo_by_weapon[ev.weapon] = ev
 	hud.show_perf = bool(bal.get("debug", {}).get("show_perf", false))
+	hud.juice = bal.juice
 	hud.streak_show = int(bal.juice.get("streak_show", 10))
 	ui_root.add_child(hud)
 	# Bake every upgrade icon (and evolved weapon icon) once for the HUD strip.
@@ -266,6 +268,9 @@ func _process(delta: float) -> void:
 		hud.cpu_ms = 0.0
 		SpriteBatch.draw_ms = 0.0
 		return
+	if not _evo_moments.is_empty():
+		_play_evolution_moments()  # back in play after the evolution chest
+	_update_heartbeat(delta)
 	if hud.orders_open:
 		# The Swarm order fan pauses the run while it's open.
 		view.cpu_ms = 0.0
@@ -339,6 +344,9 @@ func _handle_events(events: Array) -> void:
 			"chain":
 				Sfx.play("chain")
 			"hurt":
+				var from: Vector2 = ev.get("from", Vector2.INF)
+				if from != Vector2.INF and from != world.p_pos:
+					hud.hit_from((from - world.p_pos).normalized())
 				Sfx.play("hurt")
 				hitstop = maxf(hitstop, float(bal.juice.hitstop_hurt_s))
 				Sfx.vibrate(40)
@@ -398,6 +406,8 @@ func _handle_events(events: Array) -> void:
 				Sfx.play("boss", 0.1)
 				Sfx.vibrate(60)
 				hitstop = maxf(hitstop, float(bal.juice.get("hitstop_elite_s", 0.0)))
+			"evolution":
+				_evo_moments.append(ev)  # played when the chest closes
 			"evolution_ready":
 				hud.toast("EVOLUTION READY", pal.ui_accent, 2.4)
 				hud.toast("Kill an elite for a chest", Color(pal.text, 0.9), 2.4)
@@ -489,6 +499,7 @@ func _start_run() -> void:
 	hitstop = 0.0
 	_slowmo = 0.0
 	hud.set_orders_open(false)
+	_evo_moments.clear()
 	Sfx.play_music("run")
 	_life_best_streak = int(Save.profile.stats.get("best_streak", 0))
 	_streak_best_called = false
@@ -999,6 +1010,45 @@ func _close_chest() -> void:
 		_show_levelup()
 	else:
 		_set_screen("playing")
+
+
+## Low HP (below juice.lowhp_frac): a heartbeat that speeds up as HP drops,
+## each beat pulsing the HUD's red vignette.
+var _hb_t := 0.0
+
+
+func _update_heartbeat(delta: float) -> void:
+	var j: Dictionary = bal.juice
+	var frac := world.p_hp / maxf(world.p_max_hp, 1.0)
+	var lim := float(j.get("lowhp_frac", 0.0))
+	hud.low_hp = clampf(1.0 - frac / lim, 0.0, 1.0) if lim > 0.0 and world.p_hp > 0.0 and world.p_down <= 0.0 else 0.0
+	if hud.low_hp <= 0.0:
+		_hb_t = 0.0
+		return
+	_hb_t -= delta
+	if _hb_t <= 0.0:
+		_hb_t = lerpf(float(j.get("heartbeat_slow_s", 1.0)), float(j.get("heartbeat_fast_s", 0.5)), hud.low_hp)
+		Sfx.play("heartbeat", 0.0)
+		hud.beat()
+
+
+## Evolution moment: a short freeze, flash, burst and zoom on the cell, the
+## evolution's name in its colour, a big chime and a buzz.
+func _play_evolution_moments() -> void:
+	if _evo_moments.is_empty():
+		return
+	for ev in _evo_moments:
+		var def: Dictionary = {}
+		for e in data.evolutions:
+			if e.id == ev.id:
+				def = e
+		view.evolution_moment(ev.weapon)
+		hud.toast(str(def.get("name", "EVOLVED")).to_upper() + "!", GameData.color(def.get("color", "#ffd166")), 2.2)
+	hud.toast("EVOLVED", Color(pal.text, 0.9), 2.2)
+	_evo_moments.clear()
+	hitstop = maxf(hitstop, float(bal.juice.get("evolution_freeze_s", 0.0)))
+	Sfx.play("evolve", 0.0, 0.9)
+	Sfx.vibrate(160)
 
 
 ## Opens the picker for a banked level-up (UPGRADE button, E or Tab).

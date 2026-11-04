@@ -1137,7 +1137,7 @@ func _update_enemy_shots(dt: float) -> void:
 		if not gone and p_down <= 0.0 and s_pos[i].distance_squared_to(p_pos) < hit_r * hit_r:
 			gone = true
 			if p_iframes <= 0.0:
-				_hurt(s_dmg[i], "shot")
+				_hurt(s_dmg[i], "shot", s_pos[i])
 		elif not gone and def_on and s_pos[i].distance_squared_to(core_pos) < core_r * core_r:
 			gone = true
 			_hurt_core(s_dmg[i] * float(dcfg.core_shot_mult) * _dmg_mult())
@@ -1227,7 +1227,7 @@ func _process_dead() -> void:
 		_volatile_bursts(bursts)
 
 
-func _hurt(amount: float, cause: String) -> void:
+func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
 	if outbreak_t > 0.0:
@@ -1235,7 +1235,7 @@ func _hurt(amount: float, cause: String) -> void:
 	amount *= float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
 	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_iframes = float(bal.player.iframes_s)
-	_emit({"type": "hurt", "amount": amount})
+	_emit({"type": "hurt", "amount": amount, "from": from})  # from: where the hit came from (HUD direction glow)
 	if p_hp <= 0.0:
 		p_hp = 0.0
 		if def_on:
@@ -1256,9 +1256,9 @@ func _contact_damage() -> void:
 		if e_hp[i] > 0.0:
 			var d: Dictionary = enemy_defs[e_type[i]]
 			if e_elite[i] == 1:
-				_hurt(float(d.damage) * float(data.waves.elites.damage_mult), "elite_" + d.id)
+				_hurt(float(d.damage) * float(data.waves.elites.damage_mult), "elite_" + d.id, e_pos[i])
 			else:
-				_hurt(float(d.damage), d.id)
+				_hurt(float(d.damage), d.id, e_pos[i])
 			return
 
 

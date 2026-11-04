@@ -17,6 +17,15 @@ var fx_count := 0
 var cam_pos := Vector2.ZERO  # world position at the screen centre
 var cam_zoom := 1.0  # WorldView's camera zoom (arrows map world -> screen with it)
 const XP_H := 22.0  # XP bar height
+# Danger readability: a red edge vignette at low HP that pulses with the
+# heartbeat (Main sets low_hp and calls beat()), and a soft glow at the screen
+# edge on the side a hit came from (hit_from). Edges only: cheap fill rate.
+var low_hp := 0.0  # 0 = fine .. 1 = nearly dead
+var _beat := 0.0
+var _hits: Array = []  # [dir: Vector2, t: float]
+var _edge_tex: Array = []  # 4 alpha ramps, opaque at the screen edge: left, right, top, bottom
+var _blob_tex: Texture2D  # 64x64 soft radial blob
+var juice: Dictionary = {}  # set by Main (balance.juice)
 var dash_radius := 72.0
 var dash_margin := 40.0
 var elite_color := Color("#ffd166")
@@ -204,6 +213,8 @@ func _ready() -> void:
 	font = ThemeDB.fallback_font
 	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
 	_bars_layer = _layer(func() -> void: _draw_bars(_bars_layer))
+	_edge_tex = _make_edge_texs()
+	_blob_tex = _make_blob_tex()
 	_sig_strip.resize(5)
 	_sig_bars.resize(17)
 
@@ -224,6 +235,15 @@ func _process(delta: float) -> void:
 	_notice_t = maxf(0.0, _notice_t - delta)
 	_xp_flash = maxf(0.0, _xp_flash - delta)
 	_update_streak(delta)
+	_beat = maxf(0.0, _beat - delta * 3.0)
+	var hl := float(juice.get("hurt_dir_s", 0.45))
+	var hi := 0
+	while hi < _hits.size():
+		_hits[hi][1] += delta
+		if _hits[hi][1] >= hl:
+			_hits.remove_at(hi)
+		else:
+			hi += 1
 	if orders_open:
 		_orders_t += delta
 	if _hint_text != "":
@@ -253,6 +273,7 @@ func _draw() -> void:
 
 func _draw_hud() -> void:
 	var w := size.x
+	_draw_danger()
 	_draw_xp_live(w)
 	if world.def_on:
 		_draw_defense_live(w)
@@ -292,6 +313,73 @@ func _draw_hud() -> void:
 			var tip := stick_origin + d * (stick_radius + 14.0)
 			var side := d.orthogonal() * 9.0
 			draw_colored_polygon(PackedVector2Array([tip, tip - d * 14.0 + side, tip - d * 14.0 - side]), Color(1, 1, 1, 0.5))
+
+
+func beat() -> void:
+	_beat = 1.0
+
+
+## A hit from direction `dir` (world space; the camera doesn't rotate). Hits
+## from nearly the same side refresh one glow instead of stacking.
+func hit_from(dir: Vector2) -> void:
+	for h in _hits:
+		if (h[0] as Vector2).dot(dir) > 0.85:
+			h[0] = dir
+			h[1] = 0.0
+			return
+	_hits.append([dir, 0.0])
+	if _hits.size() > 3:
+		_hits.pop_front()
+
+
+func _draw_danger() -> void:
+	var col: Color = pal.player_hurt
+	if low_hp > 0.0:
+		var a := float(juice.get("lowhp_alpha", 0.35)) * (0.45 + 0.55 * low_hp) + 0.22 * _beat
+		var ew := float(juice.get("lowhp_width", 150.0)) * (0.7 + 0.3 * low_hp + 0.15 * _beat)
+		var c := Color(col, minf(a, 0.8))
+		draw_texture_rect(_edge_tex[0], Rect2(0, 0, ew, size.y), false, c)
+		draw_texture_rect(_edge_tex[1], Rect2(size.x - ew, 0, ew, size.y), false, c)
+		draw_texture_rect(_edge_tex[2], Rect2(0, 0, size.x, ew), false, c)
+		draw_texture_rect(_edge_tex[3], Rect2(0, size.y - ew, size.x, ew), false, c)
+	var life := float(juice.get("hurt_dir_s", 0.45))
+	var ha := float(juice.get("hurt_dir_alpha", 0.22))
+	var half := size / 2.0
+	for h in _hits:
+		var d: Vector2 = h[0]
+		var k: float = h[1] / life
+		# Where the ray from the centre leaves the screen.
+		var tx := INF if absf(d.x) < 0.001 else half.x / absf(d.x)
+		var ty := INF if absf(d.y) < 0.001 else half.y / absf(d.y)
+		var edge := half + d * minf(tx, ty)
+		var gs := Vector2(360, 360)
+		draw_texture_rect(_blob_tex, Rect2(edge - gs / 2.0, gs), false, Color(col, ha * (1.0 - k) * (1.0 - k)))
+
+
+static func _make_edge_texs() -> Array:
+	var h := Image.create(64, 1, false, Image.FORMAT_RGBA8)
+	var v := Image.create(1, 64, false, Image.FORMAT_RGBA8)
+	for i in 64:
+		var t := 1.0 - i / 63.0
+		h.set_pixel(i, 0, Color(1, 1, 1, t * t * t))
+		v.set_pixel(0, i, Color(1, 1, 1, t * t * t))
+	var out := [ImageTexture.create_from_image(h)]
+	h.flip_x()
+	out.append(ImageTexture.create_from_image(h))
+	out.append(ImageTexture.create_from_image(v))
+	v.flip_y()
+	out.append(ImageTexture.create_from_image(v))
+	return out
+
+
+static func _make_blob_tex() -> Texture2D:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 64:
+			var d := Vector2(x - 31.5, y - 31.5).length() / 32.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a * a))
+	return ImageTexture.create_from_image(img)
 
 
 ## The animated part of the XP bar (every frame; the bar itself is cached):
