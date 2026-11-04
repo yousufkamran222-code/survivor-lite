@@ -129,7 +129,7 @@
     "damage_taken_mult": 1.0
   },
   "rift": {
-    "enabled": true,
+    "enabled": false,
     "delay_min_s": 5, "delay_max_s": 10, "open_s": 15,
     "spawn_min": 450, "spawn_max": 700, "touch_radius": 70,
     "arena_radius": 650, "duration_s": 25,

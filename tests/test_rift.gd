@@ -8,6 +8,7 @@ const DT := 1.0 / 30.0
 func _world(seed_value: int = 3) -> World:
 	var w := World.new(GameData.apply_mode(data(), "classic"), seed_value)
 	w.emit_events = true
+	w.rift_on = true  # the rift is switched off in data (shelved); its rules stay tested
 	w.owned["bolt"] = 3
 	w._recompute_stats()
 	return w
@@ -197,6 +198,7 @@ func test_each_power_hurts_germs_and_refills_with_kills() -> void:
 
 func test_validation_catches_bad_power() -> void:
 	var d := data().duplicate(true)
+	d.balance.rift.enabled = true
 	d.balance.rift.weapon_power.bolt = "laser"
 	check(GameData.validate(d).size() > 0)
 
@@ -216,3 +218,12 @@ func test_bot_rift_run_is_stable() -> void:
 			break
 	check(w.rift_state != World.RIFT_ACTIVE, "the fight ends")
 	check_eq(w.state, "playing")
+
+
+func test_rift_is_off_in_every_mode() -> void:
+	for m in data().modes:
+		var w := World.new(GameData.apply_mode(data(), m.id), 1)
+		check(not w.rift_on, "no rift in %s (shelved 2026-11-04)" % m.id)
+		w.outbreak = 1.0
+		w.trigger_outbreak()
+		check_eq(w.rift_state, World.RIFT_NONE)

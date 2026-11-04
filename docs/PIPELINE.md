@@ -298,3 +298,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - Swarm: win 15% → 6%, p10 1:25-2:22 → 1:25-2:17, p50 2:17-4:40 → 1:59-3:21, p90 3:21-5:00 → 2:14-4:12, level p50 10-13 → 7-13; rifts entered 54, won 19 (Swarm's x2 damage taken also applies in the arena)
   - Nucleus: win 40% → 30%, p50 2:55-6:06 → 2:51-6:01, level p50 9-14 → 10-15; rifts entered 47, won 22
   - All within the ±10-15 alarm band. The bot beats the Carrier 31-47% of the time in real runs (it baits imperfectly with odd builds); humans should do better. 176 tests.
+
+### 2026-11-04 Boss Rift shelved
+- Yousuf: scrap the rift inside the existing modes for now (revisit bosses later). `balance.rift.enabled` false; code/tests/harness kept. Bot sims, seed 600 x 8 per mode: byte-identical to before the rift (Classic, Infection, Swarm, Nucleus), so the balance is back to the pre-rift numbers (Classic 15%, Infection 19%, Swarm 15%, Nucleus 40% over 48 runs). 177 tests.

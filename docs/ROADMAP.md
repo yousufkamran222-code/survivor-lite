@@ -135,7 +135,7 @@ Yousuf: towers "all kinda bad compared to the player"; the pick popup broke the 
 - Does the tower-pick popup pause the game like level-ups (proposed: yes)?
 - Pad count 6 vs more pads unlocking at later waves.
 
-## Prototype 4: Boss Rift: **Phase 1 built 2026-11-04** (awaiting playtest)
+## Prototype 4: Boss Rift: **Phase 1 built 2026-11-04, shelved the same day** (Yousuf: decent once he figured it out, but scrap it from the existing modes; revisit bosses/rifts later). Switched off with `balance.rift.enabled` false; code, tests (`tests/test_rift.gd`) and `tools/sim/rift_bench.gd` kept. Sims with it off are byte-identical to before it existed.
 Yousuf's design (2026-11-04), all numbers in `balance.rift`:
 - **Opening:** 5-10 s after you use Outbreak (test setting, may change), a rift opens 450-700 px away (inside the dish, clear of the nucleus) for 15 s, with an off-screen arrow. Ignore it and it closes. All modes, Nucleus included.
 - **Inside:** the arena is a far-off patch of the same World (`World.RIFT_CENTER`, radius 650): the run clock, spawns, germs, shots (set aside and restored), gems, land and waves all freeze. You keep HP, weapons, dash and level. 25 s timer.
