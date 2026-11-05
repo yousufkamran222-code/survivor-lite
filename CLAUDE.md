@@ -1,6 +1,6 @@
 # CLAUDE.md: Petri Panic (survivor-lite roguelite)
 
-Read this first, then **`docs/SESSION_HANDOFF.md`** (full working context: owner, workflow, architecture, gotchas, balance, feedback history, backlog). With `docs/SPEC.md`, `docs/PIPELINE.md` and `docs/ROADMAP.md` that is enough to pick up the project cold. (`docs/HANDOFF.md` is the original pre-code planning handoff, kept for history.)
+Read this first, then **`docs/SESSION_HANDOFF.md`** (full working context: owner, workflow, architecture, gotchas, balance, feedback history, backlog). With `docs/SPEC.md`, `docs/PIPELINE.md` and `docs/ROADMAP.md` that is enough to pick up the project cold. (`docs/HANDOFF.md` is the original pre-code planning handoff, kept for history.) **`docs/LAUNCH_READINESS.md`** lists the known launch blockers and issues (Play Store review, 2026-11-05) to address near launch.
 
 ## What this is
 A solo-dev mobile survivor-lite: drag to move, auto-attack, swarms, pick 1 of 3 upgrades per level, 5:00 runs, gold meta-progression between runs. Ships as a **native Android app**. The web build is a playtest tool only.

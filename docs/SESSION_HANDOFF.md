@@ -371,7 +371,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - Ideas never picked: Mutations (trade-off cards), Symptoms (timed dish events), combining Swarm + Infection (ROADMAP Step 3), organ chapters (Bloodstream/Lungs/Gut), Daily Outbreak (seeded + leaderboard), daily missions/cosmetics, more maps/evolutions, iOS.
 - **Strains** are replaced by Lab abilities (D-029); the "one genome tree per strain" question is moot.
 
-**Release track:**
+**Release track** (full checklist of known blockers and issues: `docs/LAUNCH_READINESS.md`, to re-assess near launch):
 - **M3 release plumbing:** Android export to the Gradle build and AAB; AdMob plugin + `AdmobBackend` behind `Ads` (Google test IDs only in code; real IDs from CI secrets); Firebase Analytics behind `Analytics`; signed release via the `ANDROID_KEYSTORE_*` secrets (Yousuf must create them; SETUP §2). **Verify plugin versions support Godot 4.7 first.**
 - **Play Games Services** as `PlayGamesBackend` behind `Online`: sign-in, Saved Games with `Profile.merge`, leaderboards from `data/online.json`, achievements. Yousuf creates the console entries.
 - M4 store kit (icon, screenshots, 15 s clip, privacy policy, data safety), M5 closed test (12+ testers × 14 days), M6 release + small UA tests.
