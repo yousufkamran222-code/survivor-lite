@@ -10,5 +10,9 @@
   {"id": "splitter", "name": "Mitosis",     "behavior": "chase",  "hp": 32,   "speed": 78,  "damage": 12, "radius": 21, "xp": 2,  "cost": 3.0, "color": "#2ec4b6",
    "split_into": "grunt", "split_count": 2},
   {"id": "boss",     "name": "Mother Cell", "behavior": "boss",   "hp": 1000, "speed": 70,  "damage": 30, "radius": 70, "xp": 60, "cost": 0,   "color": "#d7263d", "knock_resist": 0.97, "fixed_hp": true,
-   "burst_cooldown_s": 3.6, "burst_count": 14, "shot_speed": 210, "shot_damage": 12}
+   "burst_cooldown_s": 3.6, "burst_count": 14, "shot_speed": 210, "shot_damage": 12,
+   "hunt_range": 520, "hunt_mult": 2.4, "pull_radius": 650, "pull": [40, 60, 85], "phase_at": [0.66, 0.33],
+   "aim_every_s": 2.2, "aim_shots": 3, "aim_spread_deg": 24, "aim_speed": 260,
+   "slam_every_s": 6.5, "slam_windup_s": 1.0, "slam_s": 0.35, "slam_radius": 120, "slam_shots": 20, "slam_spawn": "grunt", "slam_spawn_count": 4,
+   "spiral_every_s": 0.12, "spiral_step": 0.4, "phase3_speed_mult": 1.3}
 ]

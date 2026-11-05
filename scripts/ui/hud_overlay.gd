@@ -65,6 +65,16 @@ func flash_xp() -> void:
 
 
 ## Big centred message, e.g. "ELITE GERM!" or "EVOLUTION READY".
+## Small "hit by X" label under the cell (what hurt you), refreshed per hit.
+var _hurt_by := ""
+var _hurt_by_t := 0.0
+
+
+func hurt_by(text: String) -> void:
+	_hurt_by = text
+	_hurt_by_t = 1.0
+
+
 func toast(text: String, color: Color, life: float = 2.0) -> void:
 	for t in toasts:
 		if t.text == text:
@@ -277,6 +287,7 @@ func _draw_hud() -> void:
 	if world.stasis_on():  # Lab ability: time stopped
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.6, 0.88, 1.0, 0.15))
 	_draw_danger()
+	_draw_hurt_info()
 	_draw_xp_live(w)
 	if world.def_on:
 		_draw_defense_live(w)
@@ -506,6 +517,21 @@ func _draw_danger() -> void:
 		var edge := half + d * minf(tx, ty)
 		var gs := Vector2(360, 360)
 		draw_texture_rect(_blob_tex, Rect2(edge - gs / 2.0, gs), false, Color(col, ha * (1.0 - k) * (1.0 - k)))
+
+
+func _draw_hurt_info() -> void:
+	var font := get_theme_default_font()
+	if _hurt_by_t > 0.0 and _hurt_by != "":
+		_hurt_by_t -= get_process_delta_time()
+		var a := clampf(_hurt_by_t * 2.0, 0.0, 1.0)
+		var y := size.y * 0.5 + 64.0
+		draw_string_outline(font, Vector2(0, y), _hurt_by, HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, 6, Color(0, 0, 0, 0.7 * a))
+		draw_string(font, Vector2(0, y), _hurt_by, HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, Color(pal.player_hurt.lightened(0.3), a))
+	if low_hp > 0.35:
+		var a := 0.55 + 0.45 * _beat
+		var y := size.y * 0.5 - 70.0
+		draw_string_outline(font, Vector2(0, y), "LOW HP", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, 8, Color(0, 0, 0, 0.7 * a))
+		draw_string(font, Vector2(0, y), "LOW HP", HORIZONTAL_ALIGNMENT_CENTER, size.x, 30, Color(pal.player_hurt.lightened(0.2), a))
 
 
 static func _make_edge_texs() -> Array:

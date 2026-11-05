@@ -337,6 +337,14 @@ func consume(events: Array) -> void:
 				add_shake(5.0)
 			"engulfed":
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": GameData.color(str(world.ab.get("color", "#ffffff"))), "r": 12.0, "life": 0.18}, max_fx)
+			"boss_slam":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius * 1.6, "life": 0.35, "color": pal.player_hurt, "w": 9.0}, max_fx + 10)
+				add_shake(12.0)
+			"boss_phase":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 260.0, "life": 0.5, "color": pal.player_hurt, "w": 10.0}, max_fx + 10)
+				add_shake(10.0)
+			"elite_brood":
+				_add_fx({"kind": "pop", "pos": ev.pos, "color": elite_color, "r": 24.0, "life": 0.25}, max_fx)
 			"recoil":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.25, "color": Color("#7cc6ff"), "w": 5.0}, max_fx + 4)
 			"dodge":
@@ -902,6 +910,7 @@ func _draw_top_layer() -> void:
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	_draw_rift(ci, now)
+	_draw_threats(ci)
 	_draw_clone(ci)
 	_draw_player(ci)
 	_draw_claim_wave(ci)
@@ -1041,6 +1050,44 @@ func _draw_player(ci: CanvasItem) -> void:
 		var pos := p + Vector2(-w / 2.0, r + 10.0)
 		ci.draw_rect(Rect2(pos, Vector2(w, 6)), Color(0, 0, 0, 0.55))
 		ci.draw_rect(Rect2(pos, Vector2(w * world.p_hp / world.p_max_hp, 6)), pal.hp_bar)
+
+
+## Elite and boss telegraphs (state read from World each frame): a Rammer's
+## charge lane, a Spiker's windup ring, a Magnet's pull radius, and the
+## Mother Cell's slam target filling up.
+func _draw_threats(ci: CanvasItem) -> void:
+	var t := _cell_t
+	var red: Color = pal.player_hurt
+	var aff: Dictionary = world.elite_cfg.get("affixes", {})
+	for i in world.e_pos.size():
+		if world.e_affix[i] == World.AFFIX_NONE:
+			continue
+		var p := world.e_pos[i]
+		var r := world.e_rad[i]
+		match world.affix_id(i):
+			"charge":
+				if world.e_aphase[i] == 1:
+					var c: Dictionary = aff.charge
+					var k := 1.0 - world.e_atimer[i] / maxf(float(c.windup_s), 0.01)
+					var len := float(c.dash_speed) * float(c.dash_s)
+					var end := p + world.e_adir[i] * len
+					ci.draw_line(p, end, Color(red, 0.18 + 0.25 * k), r * 1.6)
+					ci.draw_line(p, p + world.e_adir[i] * len * k, Color(red, 0.55), 4.0)
+			"volley":
+				if world.e_aphase[i] == 1:
+					var k := 1.0 - world.e_atimer[i] / maxf(float(aff.volley.windup_s), 0.01)
+					ci.draw_arc(p, r * (2.2 - 0.9 * k), 0, TAU, 28, Color(1.0, 0.85, 0.3, 0.4 + 0.5 * k), 4.0)
+			"magnet":
+				ci.draw_arc(p, float(aff.magnet.radius), 0, TAU, 48, Color(0.75, 0.55, 1.0, 0.22 + 0.08 * sin(t * 4.0)), 4.0)
+	if world.boss_slam == 1:
+		var d := world.boss_def
+		var k := 1.0 - world.boss_slam_t / maxf(float(d.slam_windup_s), 0.01)
+		var sr := float(d.slam_radius)
+		ci.draw_circle(world.boss_slam_at, sr * k, Color(red, 0.22))
+		ci.draw_arc(world.boss_slam_at, sr, 0, TAU, 40, Color(red, 0.5 + 0.4 * sin(t * 18.0)), 4.0)
+	var bi := world.boss_index
+	if bi >= 0 and bi < world.e_pos.size() and world.boss_def.has("pull_radius"):
+		ci.draw_arc(world.e_pos[bi], float(world.boss_def.pull_radius), 0, TAU, 64, Color(red, 0.08 + 0.04 * sin(t * 3.0)), 3.0)
 
 
 ## Mitosis clone (Lab ability): a paler copy of the cell beside you.

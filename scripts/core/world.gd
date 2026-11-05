@@ -24,6 +24,9 @@ const BEH_RANGED := 1
 const BEH_DASH := 2
 const BEH_BOSS := 3
 const BEHAVIORS := {"chase": BEH_CHASE, "ranged": BEH_RANGED, "dash": BEH_DASH, "boss": BEH_BOSS}
+## Elite affixes (waves.elites.affixes): each elite gets one extra threat.
+const AFFIX_NONE := 0
+const AFFIX_IDS := ["", "charge", "brood", "volley", "magnet"]
 var _frame := 0
 const SEP_EVERY := 3  # separation: each pass handles 1/SEP_EVERY of the enemies
 ## Separation passes per second. Time-based, not per rendered frame: at 30
@@ -89,6 +92,20 @@ var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = non
 var head_start_weapon := ""
 var crits := 0
 var lysis_bursts := 0
+
+# --- Elite and boss threats (waves.elites.affixes, enemies.json boss) ---
+var elite_cfg: Dictionary = {}
+var boss_def: Dictionary = {}
+var p_pull := Vector2.ZERO  # pull on the player this step (Magnet elites, Mother Cell)
+var boss_phase := 1  # Mother Cell: 1-3 by HP (phase_at)
+var boss_slam := 0  # 0 idle, 1 windup (telegraphed spot), 2 leaping
+var boss_slam_t := 0.0
+var boss_slam_at := Vector2.ZERO  # where the slam will land
+var _boss_aim_t := 0.0
+var _boss_slam_cd := 0.0
+var _boss_spiral_t := 0.0
+var _boss_spiral_a := 0.0
+var lull := 0  # timed modes: 0 normal, 1 lull, 2 surge (waves.lulls)
 var momentum := 0.0  # Lab: Momentum, 0..1 (builds while moving)
 var clot_pool := 0.0  # Lab: Clotting, HP still to heal back
 var clot_rate := 0.0
@@ -217,6 +234,10 @@ var e_timer := PackedFloat32Array()
 var e_phase := PackedInt32Array()
 var e_dir := PackedVector2Array()
 var e_hitcd := PackedFloat32Array()
+var e_affix := PackedByteArray()  # elites: AFFIX_* (their extra threat), 0 = none
+var e_atimer := PackedFloat32Array()  # affix cooldown / windup timer
+var e_aphase := PackedByteArray()  # affix state: 0 ready/cooling, 1 windup (telegraph), 2 acting
+var e_adir := PackedVector2Array()  # affix aim (charge direction)
 var e_rad := PackedFloat32Array()  # per enemy (elites are bigger)
 var e_spd := PackedFloat32Array()
 var e_elite := PackedByteArray()
@@ -363,6 +384,11 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	xp_next = Progression.xp_needed(bal, 1)
 	owned[bal.start_weapon] = 1
 	lab_cfg = data.get("lab", {}).get("tuning", {})
+	elite_cfg = data.waves.get("elites", {})
+	for e in data.enemies:
+		if e.behavior == "boss":
+			boss_def = e
+	_boss_slam_cd = float(boss_def.get("slam_every_s", 6.5))
 	_recompute_stats()
 	if float(stats.get("head_start", 0.0)) > 0.0:
 		_head_start()
@@ -434,6 +460,7 @@ func step(dt: float, move: Vector2) -> void:
 		if state != "playing":
 			return
 	elif not frozen:
+		_update_lull()
 		_spawn(dt)
 	_rebuild_grid()
 	if frozen:
@@ -709,6 +736,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 		decoy_cd -= dt
 	if shield_cd > 0.0:
 		shield_cd -= dt
+	if p_pull != Vector2.ZERO and p_dash_t <= 0.0:
+		p_pos += p_pull * dt  # Magnet elites / the Mother Cell drag you in
 	if float(stats.get("momentum", 0.0)) > 0.0:
 		var build := float(lab_cfg.get("momentum_build_s", 2.0))
 		momentum = clampf(momentum + (dt / build if m.length_squared() > 0.09 else -dt * 2.0 / build), 0.0, 1.0)
@@ -802,7 +831,7 @@ func _spawn(dt: float) -> void:
 				var elite: bool = order.get("elite", false)
 				_add_enemy(order.id, _spawn_point(), elite)
 				if elite:
-					_emit({"type": "elite_spawn", "id": order.id})
+					_emit({"type": "elite_spawn", "id": order.id, "affix": affix_id(e_pos.size() - 1)})
 				elif enemy_defs[enemy_idx[order.id]].behavior == "boss":
 					_emit({"type": "boss_spawn"})
 			_:
@@ -848,6 +877,10 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	e_phase.append(0)
 	e_dir.append(Vector2.ZERO)
 	e_hitcd.append(0.0)
+	e_affix.append(_roll_affix() if elite else AFFIX_NONE)
+	e_atimer.append(rng.randf_range(1.0, 2.0) if elite else 0.0)
+	e_aphase.append(0)
+	e_adir.append(Vector2.ZERO)
 
 
 func _remove_enemy(i: int) -> void:
@@ -864,6 +897,10 @@ func _remove_enemy(i: int) -> void:
 		e_phase[i] = e_phase[last]
 		e_dir[i] = e_dir[last]
 		e_hitcd[i] = e_hitcd[last]
+		e_affix[i] = e_affix[last]
+		e_atimer[i] = e_atimer[last]
+		e_aphase[i] = e_aphase[last]
+		e_adir[i] = e_adir[last]
 		e_rad[i] = e_rad[last]
 		e_spd[i] = e_spd[last]
 		e_elite[i] = e_elite[last]
@@ -891,6 +928,10 @@ func _remove_enemy(i: int) -> void:
 	e_phase.resize(last)
 	e_dir.resize(last)
 	e_hitcd.resize(last)
+	e_affix.resize(last)
+	e_atimer.resize(last)
+	e_aphase.resize(last)
+	e_adir.resize(last)
 
 
 ## Integer grid key: much cheaper to hash than Vector2i.
@@ -926,6 +967,7 @@ func _update_enemies(dt: float) -> void:
 	_gem_claims.clear()
 	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
 	var cloaked := ability == "cloak" and ab_t > 0.0
+	p_pull = Vector2.ZERO
 	var wake := clampf(float(stats.get("wake", 0.0)), 0.0, 0.8)
 	var moving := p_vel.length_squared() > 400.0
 	var wake_r2 := float(lab_cfg.get("wake_radius", 170.0)) ** 2
@@ -967,9 +1009,17 @@ func _update_enemies(dt: float) -> void:
 				spd *= 1.0 - float(dcfg.fever_slow)
 			if final_minute:
 				spd *= final_speed
+			if (e_elite[i] == 1 or beh == BEH_BOSS) and e_uid[i] != rift_uid:
+				# Elites and bosses hunt you down: far away they close in fast,
+				# so keeping your distance isn't a free win.
+				var hr := float(boss_def.get("hunt_range", 520.0)) if beh == BEH_BOSS else float(elite_cfg.get("hunt_range", 420.0))
+				if dist > hr and not cloaked:
+					spd *= float(boss_def.get("hunt_mult", 2.4)) if beh == BEH_BOSS else float(elite_cfg.get("hunt_mult", 2.0))
 			vel = dir * spd
 			if beh != BEH_CHASE:
 				vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
+			if e_affix[i] != AFFIX_NONE and not cloaked:
+				vel = _elite_affix(i, pos, dir, dist, vel, dt)
 		# Soft separation so swarms read as a crowd, not one blob. Each enemy
 		# resolves overlaps every SEP_EVERY passes, with a matching push strength.
 		var sep := Vector2.ZERO
@@ -1057,13 +1107,15 @@ func _special_behavior(i: int, t: int, beh: int, pos: Vector2, dir: Vector2, dis
 		BEH_BOSS:
 			boss_index = i
 			e_timer[i] -= dt
-			if e_timer[i] <= 0.0:
+			if e_timer[i] <= 0.0 and boss_phase < 3:
 				e_timer[i] = float(d.burst_cooldown_s)
 				var n := int(d.burst_count)
 				var a0 := rng.randf() * TAU
 				for k in n:
 					var a := a0 + TAU * k / n
 					_enemy_shot(pos, Vector2(cos(a), sin(a)), float(d.shot_speed), float(d.shot_damage))
+			if e_uid[i] != rift_uid and d.has("phase_at"):
+				vel = _boss_threat(i, d, pos, dir, dist, vel, dt)
 	return vel
 
 
@@ -1498,7 +1550,7 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	if float(stats.get("recoil", 0.0)) > 0.0 and p_hp > 0.0:
 		_recoil()
 	p_iframes = float(bal.player.iframes_s) * (1.0 + float(stats.get("iframes_pct", 0.0)))  # Lab: Thick Skin
-	_emit({"type": "hurt", "amount": amount, "from": from})  # from: where the hit came from (HUD direction glow)
+	_emit({"type": "hurt", "amount": amount, "from": from, "cause": cause})  # from: where the hit came from (HUD direction glow)
 	if p_hp <= 0.0 and rift_state == RIFT_ACTIVE:
 		p_hp = 1.0  # a rift can't kill you: thrown out at 1 HP with a frozen head start
 		_rift_exit("eject")
@@ -2241,6 +2293,166 @@ func _slip_wake() -> void:
 		_damage(i, dmg, p_vel.normalized() * 160.0)
 
 
+# ================================================== Elite and boss threats
+
+func _roll_affix() -> int:
+	var aff: Dictionary = elite_cfg.get("affixes", {})
+	if aff.is_empty():
+		return AFFIX_NONE
+	var total := 0.0
+	for id in aff:
+		total += float(aff[id].get("weight", 1.0))
+	var r := rng.randf() * total
+	for id in aff:
+		r -= float(aff[id].get("weight", 1.0))
+		if r <= 0.0:
+			return AFFIX_IDS.find(id)
+	return AFFIX_IDS.find(aff.keys()[0])
+
+
+func affix_id(i: int) -> String:
+	return AFFIX_IDS[e_affix[i]]
+
+
+## An elite's extra threat. Charge and volley are telegraphed (aphase 1 =
+## windup, drawn by the view) so the player can react.
+func _elite_affix(i: int, pos: Vector2, dir: Vector2, dist: float, vel: Vector2, dt: float) -> Vector2:
+	var id: String = AFFIX_IDS[e_affix[i]]
+	var c: Dictionary = elite_cfg.affixes.get(id, {})
+	e_atimer[i] -= dt
+	match id:
+		"charge":
+			match e_aphase[i]:
+				0:
+					if e_atimer[i] <= 0.0 and dist < float(c.range):
+						e_aphase[i] = 1
+						e_atimer[i] = float(c.windup_s)
+						e_adir[i] = dir
+						_emit({"type": "elite_windup", "pos": pos, "kind": id})
+				1:
+					vel = Vector2.ZERO
+					if e_atimer[i] <= 0.0:
+						e_aphase[i] = 2
+						e_atimer[i] = float(c.dash_s)
+				2:
+					vel = e_adir[i] * float(c.dash_speed)
+					if e_atimer[i] <= 0.0:
+						e_aphase[i] = 0
+						e_atimer[i] = float(c.every_s)
+		"volley":
+			match e_aphase[i]:
+				0:
+					if e_atimer[i] <= 0.0 and dist < float(c.range):
+						e_aphase[i] = 1
+						e_atimer[i] = float(c.windup_s)
+						_emit({"type": "elite_windup", "pos": pos, "kind": id})
+				1:
+					vel *= 0.3
+					if e_atimer[i] <= 0.0:
+						e_aphase[i] = 0
+						e_atimer[i] = float(c.every_s)
+						_fan(pos, dir, int(c.shots), deg_to_rad(float(c.spread_deg)), float(c.shot_speed), float(c.shot_damage))
+		"brood":
+			if e_atimer[i] <= 0.0:
+				e_atimer[i] = float(c.every_s)
+				if hostile_count() < int(data.waves.max_alive) + 40:
+					for k in int(c.count):
+						_add_enemy(str(c.spawn), pos + Vector2.from_angle(rng.randf() * TAU) * (e_rad[i] + 14.0))
+					_emit({"type": "elite_brood", "pos": pos})
+		"magnet":
+			var r := float(c.radius)
+			if dist < r and dist > 1.0:
+				p_pull += -dir * float(c.pull) * (1.0 - 0.5 * dist / r)
+	return vel
+
+
+## The Mother Cell: hunts you (hunt_mult), drags you in (pull), aims spreads,
+## and by HP phase adds a telegraphed slam (then a ring of shots + minions)
+## and, in phase 3, a spiral stream and more speed.
+func _boss_threat(i: int, d: Dictionary, pos: Vector2, dir: Vector2, dist: float, vel: Vector2, dt: float) -> Vector2:
+	var f := e_hp[i] / maxf(e_maxhp[i], 1.0)
+	var pa: Array = d.phase_at
+	var ph := 1 if f > float(pa[0]) else (2 if f > float(pa[1]) else 3)
+	if ph != boss_phase:
+		boss_phase = ph
+		_emit({"type": "boss_phase", "phase": ph, "pos": pos})
+	var pulls: Array = d.pull
+	if dist < float(d.pull_radius) and dist > 1.0:
+		p_pull += -dir * float(pulls[ph - 1])
+	if ph == 3:
+		vel *= float(d.phase3_speed_mult)
+	# Aimed spread.
+	_boss_aim_t -= dt
+	if _boss_aim_t <= 0.0:
+		_boss_aim_t = float(d.aim_every_s)
+		_fan(pos, dir, int(d.aim_shots), deg_to_rad(float(d.aim_spread_deg)), float(d.aim_speed), float(d.shot_damage))
+	# Slam (phase 2+): windup on your spot, leap, land in a ring of shots.
+	if ph >= 2:
+		match boss_slam:
+			0:
+				_boss_slam_cd -= dt
+				if _boss_slam_cd <= 0.0:
+					boss_slam = 1
+					boss_slam_t = float(d.slam_windup_s)
+					boss_slam_at = p_pos
+					_emit({"type": "boss_windup", "pos": boss_slam_at, "radius": float(d.slam_radius)})
+			1:
+				vel = Vector2.ZERO
+				boss_slam_t -= dt
+				if boss_slam_t <= 0.0:
+					boss_slam = 2
+					boss_slam_t = float(d.slam_s)
+			2:
+				var to := boss_slam_at - pos
+				vel = to / maxf(boss_slam_t, dt)
+				boss_slam_t -= dt
+				if boss_slam_t <= 0.0:
+					boss_slam = 0
+					_boss_slam_cd = float(d.slam_every_s)
+					var n := int(d.slam_shots)
+					for k in n:
+						var a := TAU * k / n
+						_enemy_shot(boss_slam_at, Vector2(cos(a), sin(a)), float(d.shot_speed), float(d.shot_damage))
+					for k in int(d.slam_spawn_count):
+						_add_enemy(str(d.slam_spawn), boss_slam_at + Vector2.from_angle(TAU * k / maxf(float(d.slam_spawn_count), 1.0)) * (e_rad[i] + 30.0))
+					_emit({"type": "boss_slam", "pos": boss_slam_at, "radius": float(d.slam_radius)})
+	# Spiral stream (phase 3).
+	if ph == 3:
+		_boss_spiral_t -= dt
+		if _boss_spiral_t <= 0.0:
+			_boss_spiral_t = float(d.spiral_every_s)
+			_boss_spiral_a += float(d.spiral_step)
+			for k in 2:
+				var a := _boss_spiral_a + PI * k
+				_enemy_shot(pos, Vector2(cos(a), sin(a)), float(d.shot_speed), float(d.shot_damage))
+	return vel
+
+
+func _fan(pos: Vector2, dir: Vector2, n: int, spread: float, speed: float, dmg: float) -> void:
+	for k in n:
+		var a := spread * ((k / float(maxi(n - 1, 1))) - 0.5) if n > 1 else 0.0
+		_enemy_shot(pos, dir.rotated(a), speed, dmg)
+
+
+## Timed modes: lulls (thin spawns) then surges (waves.lulls). Emits
+## "lull" / "surge" / "lull_end" when the state changes.
+func _update_lull() -> void:
+	var st := 0
+	var m := 1.0
+	for l in data.waves.get("lulls", []):
+		var a := float(l.at)
+		if time >= a and time < a + float(l.s):
+			st = 1
+			m = float(l.mult)
+		elif time >= a + float(l.s) and time < a + float(l.s) + float(l.get("surge_s", 0.0)):
+			st = 2
+			m = float(l.get("surge_mult", 1.0))
+	if st != lull:
+		lull = st
+		_emit({"type": ["lull_end", "lull", "surge"][st]})
+	director.lull_mult = m
+
+
 # ============================================================ Abilities
 
 ## Equips an ability for this run (Main / sim call it before the first step).
@@ -2336,6 +2548,7 @@ func _end_ability() -> void:
 ## While time is stopped: hit cooldowns and flashes still tick (so orbits
 ## keep hitting), nothing moves.
 func _tick_frozen(dt: float) -> void:
+	p_pull = Vector2.ZERO
 	for i in e_pos.size():
 		if e_flash[i] > 0.0:
 			e_flash[i] -= dt
@@ -2581,7 +2794,7 @@ func _start_wave() -> void:
 			break
 		var id: String = choices[rng.randi() % choices.size()]
 		_add_enemy(id, _vent_point(), true)
-		_emit({"type": "elite_spawn", "id": id})
+		_emit({"type": "elite_spawn", "id": id, "affix": affix_id(e_pos.size() - 1)})
 	if def.get("boss", false):
 		_add_enemy("boss", _vent_point())
 		_emit({"type": "boss_spawn"})

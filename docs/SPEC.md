@@ -51,7 +51,11 @@ Tuned so that with **every current permanent upgrade bought**, Virulence 3-4 is 
 | brute | Lump | 1:35 | slow tank, resists knockback | Tests single-target damage |
 | charger | Lancer | 2:00 | flashes, then dashes | Readable burst threat |
 | splitter | Mitosis | 2:30 | splits into 2 Germs | Crowd growth |
-| boss | Mother Cell | 3:50 | chase + 14-shot radial burst | Climax, gold bonus |
+| boss | Mother Cell | 3:50 | hunts you (×2.4 speed beyond 520 px), drags you in (pull 40/60/85 by phase), radial bursts + aimed 3-shot spreads; phase 2 (≤66% HP): telegraphed slam onto your spot (ring of 20 shots + 4 Germs); phase 3 (≤33%): spiral stream, ×1.3 speed | Climax, a real threat, gold bonus |
+
+**Elites** (`waves.elites`, 2026-11-05): ×8 HP, bigger, and they **hunt** (×1.6 speed beyond 420 px, so you can't just outrun them). Each gets one telegraphed **affix**: **Rammer** (0.7 s red lane, then a fast charge), **Brood** (spits 2 Spores every 4.5 s), **Spiker** (0.45 s windup ring, then a 5-shot fan), **Magnet** (pulls you in within 380 px; purple ring). The spawn toast names it ("ELITE RAMMER!").
+**Lulls and surges** (`waves.lulls`, timed modes): at 1:28 and 2:58, 8 s of thin spawns ("The dish goes quiet..."), then 6 s of ×1.5 spawns ("SURGE!").
+**Danger feedback:** a "hit by" label under the cell (e.g. "ELITE LUMP"), and a pulsing LOW HP label on top of the red edge vignette and heartbeat.
 
 ## Upgrades (`data/upgrades.json`), 4 weapons + 7 passives, max 4 weapons
 | Upgrade | Type | Lv1 | Levels 2-5 |

@@ -403,6 +403,7 @@ func _handle_events(events: Array) -> void:
 			"engulfed":
 				Sfx.play("pickup", 0.03, 0.7)
 			"hurt":
+				hud.hurt_by(_cause_name(str(ev.get("cause", ""))))
 				var from: Vector2 = ev.get("from", Vector2.INF)
 				if from != Vector2.INF and from != world.p_pos:
 					hud.hit_from((from - world.p_pos).normalized())
@@ -505,7 +506,27 @@ func _handle_events(events: Array) -> void:
 				Sfx.vibrate(50)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
-				hud.toast("ELITE GERM!", hud.elite_color, 1.8)
+				var an := str(data.waves.elites.get("affixes", {}).get(str(ev.get("affix", "")), {}).get("name", ""))
+				hud.toast("ELITE %s!" % an.to_upper() if an != "" else "ELITE GERM!", hud.elite_color, 1.8)
+			"elite_windup":
+				Sfx.play("deny", 0.0, 0.6 if ev.kind == "charge" else 0.8)
+			"boss_windup":
+				Sfx.play("boss", 0.0, 1.3)
+				Sfx.vibrate(40)
+			"boss_slam":
+				Sfx.play("bomb", 0.0, 0.7)
+				Sfx.vibrate(120)
+				hitstop = maxf(hitstop, 0.06)
+			"boss_phase":
+				Sfx.play("boss", 0.0, 0.8)
+				Sfx.vibrate(150)
+				hud.toast("THE MOTHER CELL ENRAGES!" if int(ev.phase) == 3 else "THE MOTHER CELL STIRS!", pal.player_hurt, 2.0)
+			"lull":
+				hud.toast("The dish goes quiet...", Color(pal.text, 0.8), 2.5)
+			"surge":
+				Sfx.play("elite", 0.0, 0.8)
+				Sfx.vibrate(80)
+				hud.toast("SURGE!", pal.player_hurt, 1.8)
 			"elite_killed":
 				Sfx.play("boss", 0.1)
 				Sfx.vibrate(60)
@@ -1951,6 +1972,16 @@ func _set_order(o: int) -> void:
 func _use_rift_power() -> void:
 	if not world.use_rift_power():
 		Sfx.play("deny", 0.0)
+
+
+## "elite_brute" -> "ELITE LUMP", "shot" -> "SHOT": what just hit you.
+func _cause_name(cause: String) -> String:
+	var elite := cause.begins_with("elite_")
+	var id := cause.trim_prefix("elite_")
+	for e in data.enemies:
+		if e.id == id:
+			return ("ELITE " if elite else "") + str(e.name).to_upper()
+	return id.to_upper().replace("_", " ")
 
 
 func _use_ability() -> void:

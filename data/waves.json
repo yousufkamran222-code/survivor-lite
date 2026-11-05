@@ -26,8 +26,16 @@
     "first_s": 35, "every_s": 40, "final_from_s": 240, "final_every_s": 20,
     "types": ["grunt", "runner", "spitter", "brute", "charger", "splitter"],
     "hp_mult": 8, "radius_mult": 1.7, "speed_mult": 1.15, "damage_mult": 1.5,
-    "xp": 12, "knock_resist": 0.85, "color": "#ffd166"
+    "xp": 12, "knock_resist": 0.85, "color": "#ffd166",
+    "hunt_range": 420, "hunt_mult": 1.6,
+    "affixes": {
+      "charge": {"name": "Rammer", "weight": 1, "every_s": 3.2, "range": 430, "windup_s": 0.7, "dash_s": 0.45, "dash_speed": 560},
+      "brood":  {"name": "Brood", "weight": 1, "every_s": 4.5, "spawn": "swarm", "count": 2},
+      "volley": {"name": "Spiker", "weight": 1, "every_s": 2.6, "range": 620, "windup_s": 0.45, "shots": 5, "spread_deg": 44, "shot_speed": 250, "shot_damage": 8},
+      "magnet": {"name": "Magnet", "weight": 1, "radius": 380, "pull": 65}
+    }
   },
+  "lulls": [{"at": 88, "s": 8, "mult": 0.12, "surge_s": 6, "surge_mult": 1.5}, {"at": 178, "s": 8, "mult": 0.12, "surge_s": 6, "surge_mult": 1.5}],
   "pool": [
     {"enemy": "grunt",    "from": 0,   "until": 9999, "weight": 10},
     {"enemy": "swarm",    "from": 30,  "until": 9999, "weight": 4, "group": 6},

@@ -38,6 +38,19 @@ func move(w: World) -> Vector2:
 		var d2 := off.length_squared()
 		if d2 < 120.0 * 120.0:
 			away += off / maxf(d2, 64.0) * 2.0
+	# Telegraphs (like a player reacting): step out of the Mother Cell's slam
+	# circle and sideways out of a winding-up Rammer's charge lane.
+	if w.boss_slam == 1:
+		var off := w.p_pos - w.boss_slam_at
+		var sr := float(w.boss_def.get("slam_radius", 120.0)) + 40.0
+		if off.length() < sr:
+			away += (off.normalized() if off.length_squared() > 1.0 else Vector2.RIGHT) * 0.05
+	for i in w.e_pos.size():
+		if w.e_affix[i] != World.AFFIX_NONE and w.e_aphase[i] == 1 and w.affix_id(i) == "charge":
+			var rel := w.p_pos - w.e_pos[i]
+			var side := rel - w.e_adir[i] * rel.dot(w.e_adir[i])
+			if rel.dot(w.e_adir[i]) > 0.0 and side.length() < 70.0:
+				away += (side.normalized() if side.length_squared() > 1.0 else w.e_adir[i].orthogonal()) * 0.05
 	var dir := Vector2.ZERO
 	if away.length_squared() > 0.0:
 		dir = away.normalized()
