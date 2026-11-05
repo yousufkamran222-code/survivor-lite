@@ -11,7 +11,8 @@ extends SceneTree
 ## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run),
 ## --level N (Virulence level, 1-10),
 ## --lab all|alt (a maxed Lab on top of --meta or alone; all = first side of each fork, alt = second side),
-## --labx stat,stat (drop those Lab stats, e.g. --labx lysis to measure one keystone)
+## --labx stat,stat (drop those Lab stats, e.g. --labx lysis to measure one keystone),
+## --ability ID [--ability-level N] (equip a Lab ability, default level 3)
 
 const DT := 1.0 / 30.0
 
@@ -63,6 +64,8 @@ func _initialize() -> void:
 				lb.erase(k)
 		for k in lb:
 			meta[k] = float(meta.get(k, 0.0)) + float(lb[k])
+	ability = str(args.get("ability", ""))
+	ability_lv = int(args.get("ability-level", 3))
 	var results := []
 	var t0 := Time.get_ticks_msec()
 	for r in runs:
@@ -72,6 +75,12 @@ func _initialize() -> void:
 	report["runs"] = runs
 	report["mode"] = mode_id
 	report["sim_ms_per_run"] = ms / maxf(runs, 1)
+	if ability != "":
+		var uses := 0.0
+		for r in results:
+			uses += float(r.ability_uses)
+		report["ability"] = ability
+		report["ability_uses_mean"] = uses / maxf(runs, 1)
 	print(JSON.stringify(report, "  "))
 	if args.has("json"):
 		var f := FileAccess.open(str(args.json), FileAccess.WRITE)
@@ -98,11 +107,14 @@ func _parse(argv: PackedStringArray) -> Dictionary:
 var free := false  # --free: Nucleus runs continue into Free Mode after the win
 var force_order := -1  # --order: Swarm bot keeps this order
 var nobait := false  # --nobait: the bot doesn't lure the Seeker Phage (rift tuning)
+var ability := ""  # --ability: equipped Lab ability
+var ability_lv := 3
 
 
 func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 	var w := World.new(d, seed_value, meta)
 	w.emit_events = false
+	w.equip_ability(ability, ability_lv)
 	var bot := BalanceBot.new(seed_value)
 	bot.force_order = force_order
 	bot.bait = not nobait
@@ -142,7 +154,7 @@ func _play(d: Dictionary, seed_value: int, meta: Dictionary) -> Dictionary:
 		"infected": w.terr.infected_fraction() if w.terr != null else 0.0,
 		"conversions": w.conversions, "peak_allies": peak_allies,
 		"rift": [w.rifts_opened, w.rifts_entered, w.rifts_won, w.rifts_timeout, w.rifts_ejected, w.missile_hits_boss, w.rp_uses],
-		"best_streak": w.best_streak, "sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
+		"ability_uses": w.ab_uses, "best_streak": w.best_streak, "sec_per_level": w.time / maxf(w.level - 1, 1), "levels_2min": levels_2min,
 		"ally_share": w.ally_damage / maxf(w.damage_dealt, 1.0), "harvested": w.gems_harvested, "orders": w.order_changes,
 		"waves_cleared": w.waves_cleared, "towers": w.towers_built, "core_left": w.core_hp / w.core_max if w.def_on else 0.0,
 		"gold": Progression.run_gold(d.balance, w.kills, w.time, w.boss_killed, w.state == "won", 0.0, w.bonus_gold_kills()),

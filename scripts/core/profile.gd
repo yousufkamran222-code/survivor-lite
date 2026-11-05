@@ -24,7 +24,7 @@ var records := {}  # mode id -> {RECORD_FIELDS}
 var achievements := {}  # achievement id -> unix time
 var genes := 0  # Lab currency, earned on Virulence wins (data/lab.json genes)
 var lab := {}  # Lab node id -> level
-var abilities := {}  # ability id -> level (unlocked in the Lab; built in phase 2)
+var abilities := {}  # reserved: ability levels live in `lab` (their unlock nodes); equipped one in settings.equipped_ability
 var last_genes := 0  # Genes the last record_run() granted (results screen)
 var updated_at := 0  # unix time of the last change (cloud conflict resolution)
 
@@ -168,6 +168,21 @@ func respec_lab(cfg: Dictionary, now: int) -> int:
 	lab = {}
 	updated_at = now
 	return back
+
+
+## The equipped ability (settings.equipped_ability), or "" if none is set or
+## it's no longer unlocked (e.g. after a respec).
+func equipped_ability(cfg: Dictionary) -> String:
+	var id := str(settings.get("equipped_ability", ""))
+	return id if id != "" and Lab.ability_level(cfg, lab, id) > 0 else ""
+
+
+## Equips an unlocked ability ("" unequips). Returns false if it's locked.
+func equip_ability(cfg: Dictionary, id: String) -> bool:
+	if id != "" and Lab.ability_level(cfg, lab, id) <= 0:
+		return false
+	settings["equipped_ability"] = id
+	return true
 
 
 ## Developer tools: free Genes that don't count as earned.

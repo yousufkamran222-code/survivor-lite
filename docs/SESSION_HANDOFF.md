@@ -151,6 +151,7 @@ scripts/ui/
   upgrade_icon.gd         Control wrapper for one icon
   meta_shop.gd            Permanent-upgrade shop: tile grid + per-upgrade popup, buy VFX/sfx (MetaShop)
   lab_screen.gd           The Lab: branch columns, node popup, Genes pill, two-tap respec (LabScreen)
+  abilities_screen.gd     Ability cards with EQUIP (AbilitiesScreen)
   drag_scroll.gd          ScrollContainer you drag anywhere (momentum; was_dragged() guards taps)
   menu_background.gd      Animated menu backdrop + hero cell
 scripts/autoload/
@@ -350,8 +351,9 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 ## 10. What's next (prioritised backlog)
 
 **Next:**
-1. **Abilities (Lab phase 2)**: Stasis, Engulf, Cloak, Mitosis on a button left of DASH (reuse the shelved Rift Power button/meter: `World` `rift_power*`, HUD `_draw_rift_power_button`), unlock + level nodes per branch in `data/lab.json`, an ABILITIES screen with EQUIP (`Profile.abilities`, `settings.equipped_ability`), sim `--ability <id>`. Spec: ROADMAP "Next: the Lab + Abilities" (D-028, D-029, D-030).
-2. **Lab phase 1 playtest** (built 2026-11-05): are the Gene amounts and node costs fair? Do the forks feel like real choices? Use Settings → Developer "+50 Genes" to try it.
+1. **Dash damage scaling (waiting for Yousuf's choice).** `_dash_power(base) = base × (1 + might) × _hp_mult()`, and `_hp_mult()` = per-minute growth (1 + 1.2/min) × mode `enemy_hp_mult` × the whole Virulence ramp (1.5^(L-1) × ramp_scale, × 1.25 Pandemic at V10). At Classic V10, 4:00 that is ×~335, so a maxed Lunge (~110 base × 1.6 might) hits for ~59,000. It's a fixed share of a germ's HP at every Virulence, but weapons don't get the Virulence part, so at V8-10 the dash outclasses them. Same helper for the decoy, Second Wind, Slipstream, abilities (`_ability_power`) and Rift Powers (`_rp_damage`); Volatile and Lysis use a share of the dead germ's max HP. Options offered: (a) scale by the in-run growth only, not the Virulence ramp (keeps V1 identical); (b) keep it.
+2. **Abilities playtest** (phase 2 built 2026-11-05): do they feel like skill/utility? Are recharges (135-240 kills) right?
+3. **Lab phase 1 playtest** (built 2026-11-05): are the Gene amounts and node costs fair? Do the forks feel like real choices? Use Settings → Developer "+50 Genes" to try it.
 
 **Awaiting his playtest notes** (ask when he's played):
 - Virulence 1-10 (D-027): does each step feel fair? Is V2 (germs x1.5 HP) too big a jump without upgrades? Where does he get stuck with his upgrades?

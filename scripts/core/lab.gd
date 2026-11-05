@@ -108,6 +108,48 @@ static func full_owned(cfg: Dictionary) -> Dictionary:
 	return out
 
 
+# ---------------------------------------------------------------- abilities
+
+## The Lab node that unlocks (and levels) an ability ({} if none).
+static func ability_node(cfg: Dictionary, ability_id: String) -> Dictionary:
+	for n in nodes(cfg):
+		if str(n.get("ability", "")) == ability_id:
+			return n
+	return {}
+
+
+## An ability's level = the level of its Lab node (0 = locked).
+static func ability_level(cfg: Dictionary, owned: Dictionary, ability_id: String) -> int:
+	var n := ability_node(cfg, ability_id)
+	return 0 if n.is_empty() else mini(level(owned, n.id), max_level(n))
+
+
+## Ability ids in data order.
+static func ability_ids(cfg: Dictionary) -> Array:
+	return cfg.get("abilities", {}).keys()
+
+
+## Stats of an ability at a level (1-based): its top-level numbers plus the
+## level row (duration_s, kills).
+static func ability_stats(cfg: Dictionary, ability_id: String, lv: int) -> Dictionary:
+	var a: Dictionary = cfg.abilities[ability_id]
+	var out := a.duplicate()
+	out.erase("levels")
+	var rows: Array = a.levels
+	var row: Dictionary = rows[clampi(lv, 1, rows.size()) - 1]
+	for k in row:
+		out[k] = row[k]
+	return out
+
+
+## An ability level in words: "Lasts 3.5 s, recharges in 215 kills".
+static func ability_text(cfg: Dictionary, ability_id: String, lv: int) -> String:
+	if lv <= 0:
+		return "Locked"
+	var a := ability_stats(cfg, ability_id, lv)
+	return "Lasts %s s, recharges in %d kills" % [str(snappedf(float(a.duration_s), 0.1)), int(a.kills)]
+
+
 ## What a stat node gives at a level, in words: "+12% damage" ("None yet" at 0).
 ## Fork and keystone nodes use their `desc`.
 static func effect_text(node: Dictionary, lv: int) -> String:

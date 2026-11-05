@@ -371,7 +371,13 @@ static func _validate_lab(d: Dictionary, errors: Array) -> void:
 			for c in n.costs:
 				if int(c) <= 0:
 					errors.append("lab node %s has a cost <= 0" % n.id)
-			if n.effects.is_empty():
+			if n.has("ability"):
+				var ab: Dictionary = d.lab.get("abilities", {}).get(str(n.ability), {})
+				if ab.is_empty():
+					errors.append("lab node %s unlocks unknown ability '%s'" % [n.id, n.ability])
+				elif ab.levels.size() != n.costs.size():
+					errors.append("lab node %s needs one cost per level of %s" % [n.id, n.ability])
+			elif n.effects.is_empty():
 				errors.append("lab node %s has no effects" % n.id)
 			for k in n.effects:
 				if not Upgrades.GLOBAL_STATS.has(k):
@@ -386,5 +392,12 @@ static func _validate_lab(d: Dictionary, errors: Array) -> void:
 		for f in forks:
 			if int(forks[f]) != 2:
 				errors.append("lab fork %s needs exactly 2 nodes" % f)
+	for id in d.lab.get("abilities", {}):
+		var ab: Dictionary = d.lab.abilities[id]
+		if Lab.ability_node(d.lab, id).is_empty():
+			errors.append("ability %s has no Lab node that unlocks it" % id)
+		for row in ab.levels:
+			if float(row.get("duration_s", 0)) <= 0.0 or float(row.get("kills", 0)) <= 0.0:
+				errors.append("ability %s levels need duration_s and kills > 0" % id)
 	if d.lab.genes.first_clear.size() != Profile.MAX_VIRULENCE:
 		errors.append("lab.genes.first_clear needs one entry per Virulence level")

@@ -331,6 +331,12 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius * 0.6, "life": 0.5, "color": Color.WHITE, "w": 8.0}, max_fx + 4)
 				add_shake(14.0)
 				add_zoom_punch(float(juice.get("cam_punch_elite", 0.0)))
+			"ability_used":
+				var acol := GameData.color(str(world.ab.get("color", "#ffffff")))
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 140.0, "life": 0.35, "color": acol, "w": 6.0}, max_fx + 4)
+				add_shake(5.0)
+			"engulfed":
+				_add_fx({"kind": "pop", "pos": ev.pos, "color": GameData.color(str(world.ab.get("color", "#ffffff"))), "r": 12.0, "life": 0.18}, max_fx)
 			"slipstream":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.25, "color": IconArt.COLORS.dash, "w": 3.0}, max_fx + 4)
 				for n in 6:
@@ -892,6 +898,7 @@ func _draw_top_layer() -> void:
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	_draw_rift(ci, now)
+	_draw_clone(ci)
 	_draw_player(ci)
 	_draw_claim_wave(ci)
 	for f in fx:
@@ -988,6 +995,8 @@ func _draw_player(ci: CanvasItem) -> void:
 	var body: Color = pal.player
 	if _hurt_t > 0.0 and fmod(_hurt_t, 0.12) < 0.06:
 		body = pal.player_hurt
+	if world.ability == "cloak" and world.ab_t > 0.0:
+		body = Color(body, 0.3 + 0.08 * sin(_cell_t * 9.0))  # Lab ability: Cloak
 	var breathe := float(juice.get("cell_breathe", 0.03)) * sin(_cell_t * 2.4) * (1.0 - clampf(_squash * 8.0, 0.0, 1.0))
 	var squish := 0.18 * _hurt_squish
 	var sx := 1.0 + _squash + breathe - squish
@@ -1028,6 +1037,19 @@ func _draw_player(ci: CanvasItem) -> void:
 		var pos := p + Vector2(-w / 2.0, r + 10.0)
 		ci.draw_rect(Rect2(pos, Vector2(w, 6)), Color(0, 0, 0, 0.55))
 		ci.draw_rect(Rect2(pos, Vector2(w * world.p_hp / world.p_max_hp, 6)), pal.hp_bar)
+
+
+## Mitosis clone (Lab ability): a paler copy of the cell beside you.
+func _draw_clone(ci: CanvasItem) -> void:
+	if world.ability != "mitosis" or world.ab_t <= 0.0:
+		return
+	var r := world.p_radius * 0.9
+	var q := r / ShapeTextures.CELL_BODY
+	var fade := clampf(world.ab_t / 0.4, 0.0, 1.0)
+	var col := GameData.color(str(world.ab.get("color", "#7cff9b")))
+	ci.draw_texture_rect(_disc_tex, Rect2(world.clone_pos - Vector2(r, r) * 1.5, Vector2(r, r) * 3.0), false, Color(col, 0.18 * fade))
+	ci.draw_texture_rect(_cell_tex, Rect2(world.clone_pos - Vector2(q, q), Vector2(q, q) * 2.0), false, Color(pal.player.lerp(col, 0.35), 0.75 * fade))
+	ci.draw_circle(world.clone_pos, r * 0.3, Color(col, 0.9 * fade))
 
 
 ## Chests (gold, bobbing, glowing) and rare pickups (simple icons).

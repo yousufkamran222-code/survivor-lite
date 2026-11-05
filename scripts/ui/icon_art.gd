@@ -209,6 +209,31 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 					ci.draw_line(c + Vector2(x, y), c + Vector2(-x, y), Color(w, 0.6), lw * 0.6)
 			ci.draw_polyline(a1, col, lw)
 			ci.draw_polyline(a2, w, lw)
+		"stasis":
+			# An hourglass.
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.6, -k * 0.85), c + Vector2(k * 0.6, -k * 0.85), c + Vector2(0, 0)]), col)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, 0), c + Vector2(k * 0.6, k * 0.85), c + Vector2(-k * 0.6, k * 0.85)]), w)
+			ci.draw_line(c + Vector2(-k * 0.75, -k * 0.9), c + Vector2(k * 0.75, -k * 0.9), w, lw)
+			ci.draw_line(c + Vector2(-k * 0.75, k * 0.9), c + Vector2(k * 0.75, k * 0.9), w, lw)
+		"engulf":
+			# A big cell swallowing a small germ.
+			ci.draw_arc(c, k * 0.9, 0, TAU, 28, col, lw * 1.3)
+			ci.draw_circle(c + Vector2(k * 0.25, k * 0.15), k * 0.3, w)
+			ci.draw_circle(c + Vector2(-k * 0.3, -k * 0.25), k * 0.14, col)
+		"cloak":
+			# A dashed cell outline with an eye.
+			for t in 8:
+				var a := TAU * t / 8.0
+				ci.draw_arc(c, k * 0.9, a, a + TAU / 16.0, 4, col, lw)
+			ci.draw_arc(c, k * 0.4, PI * 0.15, PI * 0.85, 10, w, lw)
+			ci.draw_arc(c, k * 0.4, PI * 1.15, PI * 1.85, 10, w, lw)
+			ci.draw_circle(c, k * 0.16, w)
+		"mitosis":
+			# Two cells pinching apart.
+			ci.draw_circle(c + Vector2(-k * 0.42, 0), k * 0.48, col)
+			ci.draw_circle(c + Vector2(k * 0.42, 0), k * 0.48, w)
+			ci.draw_circle(c + Vector2(-k * 0.42, 0), k * 0.16, w)
+			ci.draw_circle(c + Vector2(k * 0.42, 0), k * 0.16, col)
 		"keystone":
 			var star := PackedVector2Array()
 			for t in 10:

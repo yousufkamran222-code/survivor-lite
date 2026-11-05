@@ -92,7 +92,7 @@ func test_respec_refunds_genes_for_gold() -> void:
 func test_full_lab_costs_and_bonus() -> void:
 	var cfg := _cfg()
 	var full := Lab.full_owned(cfg)
-	check_eq(Lab.full_cost(cfg), 120, "full Lab price (one side of each fork)")
+	check_eq(Lab.full_cost(cfg), 180, "full Lab price (one side of each fork, abilities maxed)")
 	var bon := Lab.bonus(cfg, full)
 	check_near(float(bon.might), 0.12)
 	check_near(float(bon.max_hp), 30.0)

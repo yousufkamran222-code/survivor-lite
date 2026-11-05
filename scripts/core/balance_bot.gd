@@ -103,6 +103,9 @@ func move(w: World) -> Vector2:
 		dir = (dir * 0.4 + to_r.normalized() * 1.6).normalized()
 	if w.rift_power_ready() and near >= 6:
 		w.use_rift_power()
+	# Lab ability: when crowded or hurt.
+	if w.ability_ready() and (near >= 6 or w.p_hp < w.p_max_hp * 0.4):
+		w.use_ability()
 	# Outbreak: trigger the frenzy when a crowd is close.
 	if w.outbreak_ready() and away.length() > 0.02:
 		w.trigger_outbreak()

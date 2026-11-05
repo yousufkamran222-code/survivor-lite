@@ -89,6 +89,25 @@ var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = non
 var head_start_weapon := ""
 var crits := 0
 var lysis_bursts := 0
+
+# --- Abilities (Lab phase 2; data/lab.json abilities). One equipped per run,
+# set by equip_ability() before the first step; recharged by kills.
+var ability := ""  # stasis | engulf | cloak | mitosis ("" = none)
+var ability_lv := 0
+var ab: Dictionary = {}  # Lab.ability_stats() for the equipped level
+var ab_kills := 0.0  # meter: kills since the last use
+var ab_t := 0.0  # time left while active
+var ab_uses := 0
+var stasis_kills := 0  # kills made during the current Stasis
+var cloak_pos := Vector2.ZERO  # where germs last saw you
+var ambush_t := 0.0  # after a Cloak: first hit on each germ deals x2
+var _ambushed := {}  # enemy uids already ambushed
+var _base_radius := 0.0  # player radius before Engulf
+var clone_pos := Vector2.ZERO  # Mitosis clone
+var _clone_w: Dictionary = {}
+var _clone_cd: Dictionary = {}
+var _clone_orbit := 0.0
+var _clone_echo := -1.0
 var _volatile := {}  # enemy uid -> chain generation, for germs killed by the dash (Volatile)
 
 # --- Outbreak meter: kills fill it; when full the player triggers a frenzy ---
@@ -369,6 +388,9 @@ func step(dt: float, move: Vector2) -> void:
 		_src = "dash"  # Lunge and the Afterimage decoy hit from here
 		_update_player(dt, move)
 		_src = "other"
+	if ability != "":
+		_update_ability(dt)
+	var frozen := stasis_on()  # Stasis: germs, their shots and spawns stand still
 	if rift_on:
 		_update_rift_portal(dt)
 		if rift_state == RIFT_ACTIVE:
@@ -394,20 +416,26 @@ func step(dt: float, move: Vector2) -> void:
 		_src = "other"
 	if def_on:
 		_update_pads(dt)
-		_update_waves(dt)
+		if not frozen:
+			_update_waves(dt)
 		if state != "playing":
 			return
-	else:
+	elif not frozen:
 		_spawn(dt)
 	_rebuild_grid()
-	_update_enemies(dt)
-	if ally_count > 0:
+	if frozen:
+		_tick_frozen(dt)
+	else:
+		_update_enemies(dt)
+	if ally_count > 0 and not frozen:
 		_update_ally_combat(dt)
 	_src = "outbreak"
 	_update_plague(dt)
 	_src = "other"
 	if p_down <= 0.0:
 		_update_weapons(dt)
+		if ability == "mitosis" and ab_t > 0.0:
+			_clone_weapons(dt)
 		_src = "other"
 	else:
 		orbit_points.clear()
@@ -416,12 +444,14 @@ func step(dt: float, move: Vector2) -> void:
 		_update_towers(dt)
 		_src = "other"
 	_update_bullets(dt)
-	_update_enemy_shots(dt)
+	if not frozen:
+		_update_enemy_shots(dt)
 	_process_dead()
 	if not _streak_hits.is_empty():
 		_streak_rewards()
-	_contact_damage()
-	if def_on:
+	if not frozen and not (ability == "engulf" and ab_t > 0.0):
+		_contact_damage()
+	if def_on and not frozen:
 		_update_core(dt)
 	if p_down <= 0.0:
 		_update_gems(dt)
@@ -648,6 +678,8 @@ func _recompute_stats() -> void:
 		wstats[id] = w
 		if not cooldowns.has(id):
 			cooldowns[id] = 0.5
+	if ability == "mitosis" and ab_t > 0.0:
+		_build_clone_weapons()
 
 
 func _update_player(dt: float, move: Vector2) -> void:
@@ -873,12 +905,17 @@ func _update_enemies(dt: float) -> void:
 	_ally_slots = maxi(ally_count, 1)
 	_gem_claims.clear()
 	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
+	var cloaked := ability == "cloak" and ab_t > 0.0
+	var mill_r := float(ab.get("mill_radius", 80.0))
 	for i in e_pos.size():
 		var t := e_type[i]
 		var beh := _tbeh[t]
 		var pos := e_pos[i]
 		var tgt := p_pos
-		if def_on and (p_down > 0.0 or pos.distance_squared_to(p_pos) > aggro2):
+		if cloaked and e_team[i] == 0:
+			# Cloak: they lost you; mill around where they last saw you.
+			tgt = core_pos if def_on else cloak_pos + Vector2.from_angle(float(e_uid[i]) * 2.39996 + time * 0.7) * mill_r
+		elif def_on and (p_down > 0.0 or pos.distance_squared_to(p_pos) > aggro2):
 			tgt = core_pos  # march on the nucleus unless the player is close
 		var to_p := tgt - pos
 		var dist2 := to_p.length_squared()
@@ -1029,6 +1066,9 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		var ed := float(stats.get("elite_damage", 0.0))  # Lab: Precision
 		if ed > 0.0 and (e_elite[i] == 1 or d.behavior == "boss" or e_uid[i] == rift_uid):
 			amount *= 1.0 + ed
+		if ambush_t > 0.0 and not _ambushed.has(e_uid[i]):  # Cloak: ambush
+			_ambushed[e_uid[i]] = true
+			amount *= float(ab.get("ambush_mult", 2.0))
 		var cc := float(stats.get("crit", 0.0))  # Lab: Toxic Burst
 		if cc > 0.0 and _src != "allies" and rng.randf() < cc:
 			amount *= float(lab_cfg.get("crit_mult", 2.0))
@@ -1319,6 +1359,12 @@ func _process_dead() -> void:
 			rp_kills = minf(rp_kills + 1.0, rift_power_cost())
 		kills += 1
 		_add_streak()
+		if ability != "":
+			if ab_t > 0.0:
+				if ability == "stasis":
+					stasis_kills += 1
+			else:
+				ab_kills = minf(ab_kills + 1.0, ability_cost())
 		if lysis > 0.0:
 			lysed.append([pos, e_maxhp[i] * lysis])
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
@@ -2087,6 +2133,186 @@ func _slip_wake() -> void:
 			continue
 		_slip_hits[e_uid[i]] = true
 		_damage(i, dmg, p_vel.normalized() * 160.0)
+
+
+# ============================================================ Abilities
+
+## Equips an ability for this run (Main / sim call it before the first step).
+func equip_ability(id: String, lv: int) -> void:
+	var cfg: Dictionary = data.get("lab", {})
+	if id == "" or lv <= 0 or not cfg.get("abilities", {}).has(id):
+		ability = ""
+		return
+	ability = id
+	ability_lv = lv
+	ab = Lab.ability_stats(cfg, id, lv)
+	ab_kills = 0.0
+
+
+func ability_cost() -> float:
+	return float(ab.get("kills", INF))
+
+
+func ability_ready() -> bool:
+	return ability != "" and ab_t <= 0.0 and ab_kills >= ability_cost() and state == "playing" and p_down <= 0.0 \
+		and rift_state != RIFT_ACTIVE and rift_grace <= 0.0
+
+
+func stasis_on() -> bool:
+	return ability == "stasis" and ab_t > 0.0
+
+
+## Damage of an ability hit: scaled like the dash (keeps up with enemy HP).
+func _ability_power(base: float) -> float:
+	return _dash_power(base)
+
+
+## Tap: start the equipped ability (the meter refills with kills afterwards).
+func use_ability() -> bool:
+	if not ability_ready():
+		return false
+	ab_kills = 0.0
+	ab_uses += 1
+	ab_t = float(ab.duration_s)
+	match ability:
+		"stasis":
+			stasis_kills = 0
+		"engulf":
+			_base_radius = p_radius
+			p_radius = _base_radius * float(ab.get("scale", 3.0))
+		"cloak":
+			cloak_pos = p_pos
+			ambush_t = 0.0
+		"mitosis":
+			clone_pos = p_pos
+			_clone_cd = {}
+			_clone_orbit = orbit_angle + PI
+			_clone_echo = -1.0
+			_build_clone_weapons()
+	_emit({"type": "ability_used", "ability": ability, "pos": p_pos})
+	return true
+
+
+func _update_ability(dt: float) -> void:
+	if ambush_t > 0.0:
+		ambush_t -= dt
+	if ab_t <= 0.0:
+		return
+	ab_t -= dt
+	if p_down > 0.0:
+		ab_t = 0.0  # Nucleus: knocked down, the ability ends
+	match ability:
+		"engulf":
+			_engulf(dt)
+		"mitosis":
+			var side := p_facing.orthogonal() if p_facing != Vector2.ZERO else Vector2.UP
+			var want := p_pos + side * float(ab.get("offset", 80.0))
+			clone_pos = _in_dish(clone_pos.lerp(want, 1.0 - exp(-float(ab.get("follow", 6.0)) * dt)), p_radius)
+	if ab_t <= 0.0:
+		_end_ability()
+
+
+func _end_ability() -> void:
+	ab_t = 0.0
+	match ability:
+		"stasis":
+			_stasis_shock()
+		"engulf":
+			p_radius = _base_radius
+		"cloak":
+			ambush_t = float(ab.get("ambush_after_s", 2.0))
+			_ambushed = {}
+		"mitosis":
+			_clone_w = {}
+	_emit({"type": "ability_end", "ability": ability, "pos": p_pos})
+
+
+## While time is stopped: hit cooldowns and flashes still tick (so orbits
+## keep hitting), nothing moves.
+func _tick_frozen(dt: float) -> void:
+	for i in e_pos.size():
+		if e_flash[i] > 0.0:
+			e_flash[i] -= dt
+		if e_hitcd[i] > 0.0:
+			e_hitcd[i] -= dt
+
+
+## Time restarts: built-up knockback is dropped and a shockwave hits
+## everything nearby, stronger for every kill made during the stop.
+func _stasis_shock() -> void:
+	for i in e_knock.size():
+		e_knock[i] = Vector2.ZERO
+	var r := float(ab.get("shock_radius", 340.0))
+	var mult := minf(1.0 + float(ab.get("shock_per_kill", 0.12)) * stasis_kills, float(ab.get("shock_max_mult", 4.0)))
+	var dmg := _ability_power(float(ab.get("shock_damage", 30.0))) * mult
+	var prev := _src
+	_src = "ability"
+	_rebuild_grid()
+	for i: int in query(p_pos, r):
+		_damage(i, dmg, (e_pos[i] - p_pos).normalized() * 360.0)
+	_src = prev
+	_emit({"type": "stasis_shock", "pos": p_pos, "radius": r, "kills": stasis_kills})
+	_emit({"type": "nova", "pos": p_pos, "radius": r})
+	_process_dead()
+
+
+## Engulf: germs you touch are swallowed whole (a little heal each); elites
+## and bosses take a bite every bite_interval_s instead.
+func _engulf(_dt: float) -> void:
+	var prev := _src
+	_src = "ability"
+	var heal := p_max_hp * float(ab.get("heal_frac", 0.01))
+	for i: int in query(p_pos, p_radius):
+		if e_hp[i] <= 0.0:
+			continue
+		if e_elite[i] == 1 or _tbeh[e_type[i]] == BEH_BOSS or e_uid[i] == rift_uid:
+			if e_hitcd[i] <= 0.0:
+				e_hitcd[i] = float(ab.get("bite_interval_s", 0.4))
+				_damage(i, _ability_power(float(ab.get("bite_damage", 40.0))), (e_pos[i] - p_pos).normalized() * 200.0)
+		else:
+			_damage(i, 1.0e6, Vector2.ZERO, false)
+			p_hp = minf(p_max_hp, p_hp + heal)
+			_emit({"type": "engulfed", "pos": e_pos[i]})
+	_src = prev
+
+
+## Mitosis: the clone's weapons are yours at `power` damage.
+func _build_clone_weapons() -> void:
+	_clone_w = {}
+	var pw := float(ab.get("power", 0.5))
+	for id in wstats:
+		var w: Dictionary = wstats[id].duplicate()
+		if w.has("damage"):
+			w.damage = float(w.damage) * pw
+		_clone_w[id] = w
+		if not _clone_cd.has(id):
+			_clone_cd[id] = 0.3
+
+
+## Runs the weapon code a second time from the clone (own cooldowns, orbit
+## angle and nova echo), then puts the player's state back.
+func _clone_weapons(dt: float) -> void:
+	var keep_pos := p_pos
+	var keep_cd := cooldowns
+	var keep_w := wstats
+	var keep_ang := orbit_angle
+	var keep_echo := _nova_echo
+	var keep_orbs := orbit_points.duplicate()
+	p_pos = clone_pos
+	cooldowns = _clone_cd
+	wstats = _clone_w
+	orbit_angle = _clone_orbit
+	_nova_echo = _clone_echo
+	_update_weapons(dt)
+	_clone_orbit = orbit_angle
+	_clone_echo = _nova_echo
+	keep_orbs.append_array(orbit_points)
+	p_pos = keep_pos
+	cooldowns = keep_cd
+	wstats = keep_w
+	orbit_angle = keep_ang
+	_nova_echo = keep_echo
+	orbit_points = keep_orbs
 
 
 # ============================================================ Nucleus mode

@@ -10,8 +10,8 @@ extends VBoxContainer
 const GENE := Color("#5cf0a8")
 const GENE_DARK := Color("#239a63")
 const COL_W := 152.0
-const ROW_Y := [44.0, 190.0, 336.0, 490.0, 652.0]  # node centres per tier (below the 50 px header)
-const SIZES := [76.0, 76.0, 76.0, 60.0, 96.0]  # icon size per tier
+const ROW_Y := [44.0, 190.0, 336.0, 490.0, 652.0, 818.0]  # node centres per tier (below the 50 px header)
+const SIZES := [76.0, 76.0, 76.0, 60.0, 96.0, 84.0]  # icon size per tier (6 = the ability)
 
 var cfg: Dictionary
 var pal: Dictionary
@@ -27,7 +27,11 @@ var _burst: MetaShop.Burst
 var _respec_armed := false
 
 
-func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Callable) -> void:
+var on_abilities: Callable
+
+
+func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Callable, abilities: Callable = Callable()) -> void:
+	on_abilities = abilities
 	cfg = lab_cfg
 	pal = palette
 	popup_layer = layer
@@ -54,10 +58,17 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Calla
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 12)
 	var respec := UiKit.button(_respec_text(), func() -> void: pass, 90)
-	respec.add_theme_font_size_override("font_size", 24)
+	respec.add_theme_font_size_override("font_size", 20)
 	respec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	respec.pressed.connect(_respec.bind(respec))
 	bottom.add_child(respec)
+	if on_abilities.is_valid():
+		var abl := UiKit.button("ABILITIES", func() -> void:
+			_close_popup()
+			on_abilities.call(), 90)
+		abl.add_theme_font_size_override("font_size", 24)
+		abl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bottom.add_child(abl)
 	var back_b := UiKit.button("BACK", func() -> void:
 		_close_popup()
 		on_back.call(), 90)
@@ -84,7 +95,7 @@ func _column(b: Dictionary) -> Control:
 	var owned: Dictionary = Save.profile.lab
 	var col := Column.new()
 	col.color = GameData.color(b.color)
-	col.custom_minimum_size = Vector2(COL_W, ROW_Y[4] + 50.0 + SIZES[4] / 2.0 + 56.0)
+	col.custom_minimum_size = Vector2(COL_W, ROW_Y[ROW_Y.size() - 1] + 50.0 + SIZES[SIZES.size() - 1] / 2.0 + 56.0)
 	var name := UiKit.label(str(b.name).to_upper(), 24, col.color)
 	name.position = Vector2(0, -6)
 	name.size = Vector2(COL_W, 30)
@@ -245,11 +256,13 @@ func _fill_popup(flash: int) -> void:
 	ic.pivot_offset = Vector2(66, 66)
 	halo.add_child(ic)
 	body.add_child(halo)
-	var kind := "KEYSTONE" if keystone else ("FORK: PICK ONE" if n.has("fork") else str(b.name).to_upper())
+	var kind := "KEYSTONE" if keystone else ("FORK: PICK ONE" if n.has("fork") else ("ABILITY" if n.has("ability") else str(b.name).to_upper()))
 	var chip := UiKit.chip(kind, col, Color(0.1, 0.06, 0.15), 18)
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(chip)
 	body.add_child(UiKit.label(n.name, 42, Color.WHITE))
+	if n.has("ability"):
+		body.add_child(UiKit.label(str(cfg.abilities[n.ability].desc), 21, Color(pal.text, 0.75)))
 	if total > 1:
 		var bar := MetaShop.TierBar.new()
 		bar.have = lv
@@ -262,14 +275,14 @@ func _fill_popup(flash: int) -> void:
 		fx.name = "Effect"
 		fx.add_theme_constant_override("separation", 10)
 		if maxed:
-			fx.add_child(_effect_box("YOUR BONUS", Lab.effect_text(n, lv), pal.ui_accent, true))
+			fx.add_child(_effect_box("YOUR BONUS", _fx_text(n, lv), pal.ui_accent, true))
 		else:
-			fx.add_child(_effect_box("NOW", Lab.effect_text(n, lv), Color.WHITE if lv > 0 else Color(1, 1, 1, 0.45), false))
+			fx.add_child(_effect_box("NOW", _fx_text(n, lv), Color.WHITE if lv > 0 else Color(1, 1, 1, 0.45), false))
 			var arrow := MetaShop.Chevron.new()
 			arrow.color = GENE
 			arrow.custom_minimum_size = Vector2(28, 0)
 			fx.add_child(arrow)
-			fx.add_child(_effect_box("NEXT", Lab.effect_text(n, lv + 1), GENE, true))
+			fx.add_child(_effect_box("NEXT", _fx_text(n, lv + 1), GENE, true))
 		body.add_child(fx)
 	else:
 		var fx := _effect_box("TAKEN" if lv > 0 else "EFFECT", Lab.effect_text(n, 1), pal.ui_accent if lv > 0 else Color.WHITE, lv > 0)
@@ -368,6 +381,9 @@ func _try_buy(b: Button) -> void:
 	var lv := Lab.level(Save.profile.lab, n.id)
 	var big: bool = n.get("keystone", false) or n.has("fork") or lv >= Lab.max_level(n)
 	Analytics.event("lab_buy", {"id": n.id, "level": lv})
+	if n.has("ability") and Save.profile.equipped_ability(cfg) == "":
+		Save.profile.equip_ability(cfg, str(n.ability))  # the first ability you unlock is equipped
+		Save.write()
 	Sfx.play("evolve" if big else "upgrade", 0.0, 1.0 + 0.04 * lv)
 	Sfx.vibrate(120 if big else 35)
 	_fill_popup(lv - 1)
@@ -490,12 +506,18 @@ func _set_genes_text(v: int) -> void:
 func _icon_key(n: Dictionary, b: Dictionary) -> String:
 	if n.has("icon"):
 		return str(n.icon)
+	if n.has("ability"):
+		return str(n.ability)
 	if n.get("keystone", false):
 		return "keystone"
 	var k: String = n.effects.keys()[0]
 	if IconArt.META_KEYS.has(k) and not n.has("fork"):
 		return IconArt.META_KEYS[k]
 	return str(b.get("icon", "lab"))
+
+
+func _fx_text(n: Dictionary, lv: int) -> String:
+	return Lab.ability_text(cfg, str(n.ability), lv) if n.has("ability") else Lab.effect_text(n, lv)
 
 
 func _fixed_label(text: String, px: int, col: Color) -> Label:

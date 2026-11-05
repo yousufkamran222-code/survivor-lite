@@ -274,6 +274,8 @@ func _draw() -> void:
 
 func _draw_hud() -> void:
 	var w := size.x
+	if world.stasis_on():  # Lab ability: time stopped
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.6, 0.88, 1.0, 0.15))
 	_draw_danger()
 	_draw_xp_live(w)
 	if world.def_on:
@@ -283,6 +285,7 @@ func _draw_hud() -> void:
 	_draw_upgrade_button()
 	_draw_outbreak_button()
 	_draw_rift_power_button()
+	_draw_ability_button()
 	_draw_rift_hud(w)
 	_draw_orders()
 	# Toasts.
@@ -369,7 +372,46 @@ const POWER_ICON := {"lance": "chain", "barrage": "bolt", "phalanx": "orbit", "h
 
 
 func power_center() -> Vector2:
+	var c := dash_center() + Vector2(-(dash_radius + POWER_R + 26.0), 0)
+	if world != null and world.ability != "":
+		c.x -= POWER_R * 2.0 + 20.0  # the Lab ability owns the spot next to DASH
+	return c
+
+
+## Lab ability button (left of DASH): kill-meter ring, the ability's icon,
+## level pips; glows when ready; while active the ring drains with the time left.
+func ability_center() -> Vector2:
 	return dash_center() + Vector2(-(dash_radius + POWER_R + 26.0), 0)
+
+
+func in_ability_button(p: Vector2) -> bool:
+	return world != null and world.ability != "" and p.distance_to(ability_center()) <= POWER_R * 1.25
+
+
+func _draw_ability_button() -> void:
+	if world.ability == "":
+		return
+	var c := ability_center()
+	var col := GameData.color(str(world.ab.get("color", "#ffffff")))
+	var t := Time.get_ticks_msec() / 1000.0
+	if world.ab_t > 0.0:
+		var left := clampf(world.ab_t / float(world.ab.duration_s), 0.0, 1.0)
+		draw_circle(c, POWER_R + 6.0, Color(col, 0.25))
+		draw_circle(c, POWER_R, Color(col, 0.55))
+		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
+	elif world.ability_ready():
+		var pulse := 0.5 + 0.5 * sin(t * 7.0)
+		draw_circle(c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
+		draw_circle(c, POWER_R, Color(col, 0.5 + 0.2 * pulse))
+		draw_arc(c, POWER_R, 0, TAU, 40, Color.WHITE, 3.0)
+	else:
+		var f := clampf(world.ab_kills / world.ability_cost(), 0.0, 1.0)
+		draw_circle(c, POWER_R, Color(1, 1, 1, 0.06))
+		draw_arc(c, POWER_R, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
+		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.85), 6.0)
+	IconArt.draw(self, world.ability, c, POWER_R * 1.1, Color.WHITE if world.ab_t > 0.0 or world.ability_ready() else col)
+	for k in world.ability_lv:
+		draw_circle(c + Vector2((k - (world.ability_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
 
 
 func in_power_button(p: Vector2) -> bool:

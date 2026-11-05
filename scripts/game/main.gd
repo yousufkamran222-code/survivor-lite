@@ -163,6 +163,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F:
 		_use_rift_power()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
+		_use_ability()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q:
 		_trigger_outbreak()
 		return
@@ -201,6 +204,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.pressed and hud.in_outbreak_button(event.position):
 			_trigger_outbreak()
+			return
+		if event.pressed and hud.in_ability_button(event.position):
+			_use_ability()
 			return
 		if event.pressed and hud.in_power_button(event.position):
 			_use_rift_power()
@@ -371,6 +377,21 @@ func _handle_events(events: Array) -> void:
 				hitstop = maxf(hitstop, 0.12)
 			"slipstream":
 				Sfx.play("dash", 0.0, 1.3)
+			"ability_used":
+				var ad: Dictionary = data.lab.abilities[ev.ability]
+				Sfx.play({"stasis": "boss", "engulf": "convert", "cloak": "vacuum", "mitosis": "evolve"}.get(ev.ability, "nova"), 0.0, 1.1)
+				Sfx.vibrate(60)
+				hud.toast(str(ad.name).to_upper() + "!", GameData.color(ad.color), 1.4)
+				Analytics.event("ability_used", {"id": ev.ability, "t": int(world.time)})
+			"ability_end":
+				if ev.ability == "cloak":
+					hud.toast("AMBUSH!", GameData.color(data.lab.abilities.cloak.color), 1.2)
+			"stasis_shock":
+				Sfx.play("bomb", 0.0, 0.9)
+				Sfx.vibrate(120)
+				hitstop = maxf(hitstop, 0.08)
+			"engulfed":
+				Sfx.play("pickup", 0.03, 0.7)
 			"hurt":
 				var from: Vector2 = ev.get("from", Vector2.INF)
 				if from != Vector2.INF and from != world.p_pos:
@@ -568,6 +589,8 @@ func _start_run() -> void:
 	var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
 	var mode_id: String = _current_mode().id
 	world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
+	var ab_id := Save.profile.equipped_ability(data.lab)
+	world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
 	view.set_world(world)
 	hud.world = world
 	hitstop = 0.0
@@ -866,9 +889,20 @@ func _show_lab() -> void:
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	var lab := LabScreen.new()
-	lab.setup(data.lab, pal, _menu[0], _show_menu)
+	lab.setup(data.lab, pal, _menu[0], _show_menu, _show_abilities)
 	col.add_child(lab)
 	UiKit.fade_in(lab)
+
+
+## Lab abilities: pick the one to equip (AbilitiesScreen).
+func _show_abilities() -> void:
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	var scr := AbilitiesScreen.new()
+	scr.setup(data.lab, pal, _show_lab)
+	col.add_child(scr)
+	UiKit.fade_in(scr)
 
 
 ## "build abc1234 #12" from data/build_info.json (written by CI), else "dev build".
@@ -1903,6 +1937,11 @@ func _set_order(o: int) -> void:
 
 func _use_rift_power() -> void:
 	if not world.use_rift_power():
+		Sfx.play("deny", 0.0)
+
+
+func _use_ability() -> void:
+	if not world.use_ability():
 		Sfx.play("deny", 0.0)
 
 
