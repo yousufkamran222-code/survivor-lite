@@ -7,7 +7,9 @@ extends SceneTree
 ## Virulence level, shop/Lab completion, play time).
 ##
 ##   godot --headless --path . -s res://tools/sim/campaign_sim.gd -- --mode classic --runs 250 --seed 1
-## Options: --mode ID, --runs N (max runs), --seed S, --json PATH
+## Options: --mode ID, --runs N (max runs), --seed S, --json PATH,
+## --farm (a stuck player: after 5 losses in a row at the top level, replay
+## the highest cleared level once for repeat-win Genes)
 ## The bot is a rough stand-in for a player (it dodges and picks cards
 ## randomly; people aim, route and choose builds), so read it as a shape.
 
@@ -35,8 +37,13 @@ func _initialize() -> void:
 	var minutes := 0.0
 	var shop_max_run := -1
 	var lab_max_run := -1
+	var farm := args.has("farm")
+	var losses := 0
 	for r in max_runs:
 		var vl := p.virulence_unlocked(mode)
+		if farm and losses >= 5 and p.virulence_cleared(mode) > 0:
+			vl = p.virulence_cleared(mode)
+			losses = 0
 		var d := GameData.apply_virulence(GameData.apply_mode(data, mode), vl)
 		var w := World.new(d, seed0 * 100000 + r, Progression.run_bonus(d, p.meta_levels, p.lab))
 		w.emit_events = false
@@ -48,6 +55,8 @@ func _initialize() -> void:
 		p.add_gold(gold, r)
 		var s := Progression.run_summary(w, won, mode, data.online.score)
 		var before := p.virulence_cleared(mode)
+		if vl == p.virulence_unlocked(mode):
+			losses = 0 if won else losses + 1
 		p.record_run(s, [], r, data.lab.genes)
 		if p.virulence_cleared(mode) > before:
 			first_clear[str(p.virulence_cleared(mode))] = r + 1
@@ -65,7 +74,7 @@ func _initialize() -> void:
 			"lab_pct": snappedf(100.0 * lab_spent / lab_total, 0.1), "ability": ab, "bought": bought, "nodes": nodes})
 		if p.virulence_cleared(mode) >= Profile.MAX_VIRULENCE:
 			break
-	var out := {"mode": mode, "seed": seed0, "runs": rows.size(), "first_clear_run": first_clear,
+	var out := {"mode": mode, "seed": seed0, "farm": farm, "runs": rows.size(), "first_clear_run": first_clear,
 		"shop_maxed_run": shop_max_run, "lab_maxed_run": lab_max_run, "hours_played": snappedf(minutes / 60.0, 0.01),
 		"shop_total_gold": shop_total, "lab_total_genes": lab_total, "gold_earned": p.stats.gold_earned,
 		"genes_earned": p.stats.genes_earned, "rows": rows}

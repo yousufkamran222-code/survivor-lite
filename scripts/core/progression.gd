@@ -46,8 +46,9 @@ static func meta_total_text(meta_def: Dictionary, level: int) -> String:
 		return ""
 	var v := float(meta_def.per_level) * level
 	if meta_def.get("fmt", "flat") == "pct":
-		return "+%d%%" % roundi(v * 100.0)
-	return "+%s" % (str(roundi(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v)
+		var pc := v * 100.0
+		return "+%d%%" % roundi(pc) if is_equal_approx(pc, roundf(pc)) else "+%s%%" % str(snappedf(pc, 0.1))
+	return "+%s" % (str(roundi(v)) if is_equal_approx(v, roundf(v)) else str(snappedf(v, 0.01)))
 
 
 ## What the upgrade gives at a level, in words: "+12% damage" ("None yet" at 0).

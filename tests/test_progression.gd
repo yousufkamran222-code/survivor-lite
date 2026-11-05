@@ -53,6 +53,8 @@ func test_meta_total_text() -> void:
 	check_eq(Progression.meta_total_text(pct, 3), "+12%")
 	check_eq(Progression.meta_total_text(flat, 2), "+20")
 	check_eq(Progression.meta_total_text(flat, 0), "")
+	check_eq(Progression.meta_total_text({"per_level": 0.015, "fmt": "pct"}, 1), "+1.5%", "half steps keep their decimal")
+	check_eq(Progression.meta_total_text({"per_level": 0.05, "fmt": "flat"}, 1), "+0.05")
 
 
 func test_meta_dash_charge_starts_full() -> void:
