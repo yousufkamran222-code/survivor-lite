@@ -10,7 +10,8 @@ extends SceneTree
 ## --order guard|hunt|harvest (Swarm: the bot keeps that order),
 ## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run),
 ## --level N (Virulence level, 1-10),
-## --lab all|alt (a maxed Lab on top of --meta or alone; all = first side of each fork, alt = second side)
+## --lab all|alt (a maxed Lab on top of --meta or alone; all = first side of each fork, alt = second side),
+## --labx stat,stat (drop those Lab stats, e.g. --labx lysis to measure one keystone)
 
 const DT := 1.0 / 30.0
 
@@ -57,6 +58,9 @@ func _initialize() -> void:
 					else:
 						owned[n.id] = Lab.max_level(n)
 		var lb := Lab.bonus(d.lab, owned)
+		if args.has("labx"):  # --labx stat,stat: drop these Lab stats (to measure one node)
+			for k in str(args.labx).split(","):
+				lb.erase(k)
 		for k in lb:
 			meta[k] = float(meta.get(k, 0.0)) + float(lb[k])
 	var results := []
