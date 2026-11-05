@@ -2038,8 +2038,16 @@ func _update_ally_combat(dt: float) -> void:
 # ===================================================================== dash
 
 ## Damage scaled like the enemies' HP so dash upgrades stay relevant late.
+## The dash family (Lunge, decoy, Second Wind, Slipstream, abilities) keeps up
+## with enemy HP growth within a run and the mode's toughness, but NOT with
+## the Virulence ladder (it used to, and hit for ~59,000 at V10 while weapons
+## don't scale with Virulence at all).
 func _dash_power(base: float) -> float:
-	return base * (1.0 + float(stats.might)) * _hp_mult()
+	return base * (1.0 + float(stats.might)) * _power_scale()
+
+
+func _power_scale() -> float:
+	return _hp_mult() / maxf(float(bal.get("difficulty", {}).get("virulence_hp_mult", 1.0)), 0.0001)
 
 
 ## Lunge: everything the dash passes through takes damage once per dash.
@@ -3229,7 +3237,7 @@ func rift_power_ready() -> bool:
 ## might, and +level_damage per level above 1.
 func _rp_damage(base: float) -> float:
 	var pc: Dictionary = bal.rift.powers[rift_power]
-	return base * _hp_mult() * (1.0 + float(stats.might)) * (1.0 + float(pc.level_damage) * (rift_power_lv - 1))
+	return base * _power_scale() * (1.0 + float(stats.might)) * (1.0 + float(pc.level_damage) * (rift_power_lv - 1))
 
 
 ## Tap: fire the Rift Power (the meter refills with kills).

@@ -161,3 +161,16 @@ func test_developer_code() -> void:
 	check(st.check_code(str(data().balance.debug.dev_password)), "right code unlocks")
 	SettingsScreen.dev_unlocked = false
 	st.free()
+
+
+func test_dash_power_ignores_the_virulence_ramp() -> void:
+	var d := GameData.apply_mode(data(), "classic")
+	var w1 := World.new(GameData.apply_virulence(d, 1), 1)
+	var w9 := World.new(GameData.apply_virulence(d, 9), 1)
+	w1.time = 120.0
+	w9.time = 120.0
+	check(w9._hp_mult() > w1._hp_mult() * 10.0, "germs are much tougher at V9")
+	check_near(w9._dash_power(10.0), w1._dash_power(10.0), 0.001, "the dash isn't")
+	check_near(w1._dash_power(10.0), 10.0 * (1.0 + float(w1.stats.might)) * w1._hp_mult(), 0.001, "V1 unchanged: full enemy HP scaling")
+	var w10 := World.new(GameData.apply_virulence(d, 10), 1)
+	check_near(w10._dash_power(10.0), 10.0 * (1.0 + float(w10.stats.might)) * 1.2, 0.001, "keeps Classic's own x1.2 (V10 Pandemic x1.25 is Virulence)")

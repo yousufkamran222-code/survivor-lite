@@ -67,6 +67,7 @@ static func apply_virulence(d: Dictionary, level: int) -> Dictionary:
 	if not b.has("difficulty"):
 		b["difficulty"] = {}
 	var diff: Dictionary = b.difficulty
+	var mode_hp := float(diff.get("enemy_hp_mult", 1.0))
 	b["virulence"] = level
 	diff["gold_mult"] = 1.0 + float(d.difficulty.get("gold_per_level", 0.0)) * (level - 1)
 	diff["score_mult"] = 1.0 + float(d.difficulty.get("score_per_level", 0.0)) * (level - 1)
@@ -83,6 +84,9 @@ static func apply_virulence(d: Dictionary, level: int) -> Dictionary:
 		diff["enemy_hp_mult"] = float(diff.get("enemy_hp_mult", 1.0)) * hp_ramp
 		diff["damage_taken_mult"] = float(diff.get("damage_taken_mult", 1.0)) * dmg_ramp
 		diff["boss_hp_mult"] = float(diff.get("boss_hp_mult", 1.0)) * hp_ramp
+	# The part of enemy HP that Virulence added (the dash family divides it
+	# back out: it keeps up with in-run growth, not with the ladder).
+	diff["virulence_hp_mult"] = float(diff.get("enemy_hp_mult", 1.0)) / maxf(mode_hp, 0.0001)
 	if m.has("knock_resist_add"):
 		diff["knock_resist_add"] = float(m.knock_resist_add)
 	if m.has("budget_mult"):
