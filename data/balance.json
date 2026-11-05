@@ -254,6 +254,7 @@
   "debug": {
     "show_perf": true,
     "dev_tools": true,
+    "dev_password": "1289",
     "invincible": false
   },
   "juice": {

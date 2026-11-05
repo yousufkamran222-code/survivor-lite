@@ -231,9 +231,16 @@ func virulence_cleared(mode: String) -> int:
 	return int(records.get(mode, {}).get("virulence", 0))
 
 
-## Highest level you may pick: one above the best cleared (1..10).
+## Highest level you may pick: one above the best cleared (1..10), or all of
+## them with the developer toggle (which never touches the records).
 func virulence_unlocked(mode: String) -> int:
+	if dev_all_virulence():
+		return MAX_VIRULENCE
 	return clampi(virulence_cleared(mode) + 1, 1, MAX_VIRULENCE)
+
+
+func dev_all_virulence() -> bool:
+	return bool(settings.get("dev_all_virulence", false))
 
 
 ## The level picked on the mode card (defaults to the highest unlocked; any

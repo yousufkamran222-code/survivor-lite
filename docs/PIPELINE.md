@@ -310,3 +310,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
   - linear ramp HP +125%/DMG +50% per level: Classic L3 42%, L4 17%, L5 34%, L6 17%, L10 0%; +80%/+35%: L3 78%, L4 44%, L5 39%, L6 28%, L8 6%; +90%/+40%: L3 56%, L4 33%, L5 28%, L6 28%, L7 11%, L10 6%
   - **shipped, compounding HP x1.5 / DMG x1.22:** Classic L3 72%, L4 44%, **L5 22%**, L6 11%, L8 0%, L10 0%; Swarm L3 67%, L5 22%, L8 6%; Infection (x0.85) L3 72%, L4 61%, L5 22%, L8 0%; Nucleus (x0.55) L3 89%, L5 22%, L8 0%. (Full ramp in Nucleus: L3 22%, L5 0%; Infection full: L5 6%.)
 - 187 tests.
+
+### 2026-11-05 Developer tools behind a code; unlock all Virulence levels
+- Settings → DEVELOPER opens an on-screen keypad (works on APK and web without a keyboard); the code is `balance.debug.dev_password` (1289) and stays unlocked until the app closes. New toggle "All Virulence levels": every level in every mode selectable (`settings.dev_all_virulence`), records and achievements untouched; off restores real progress. 189 tests.

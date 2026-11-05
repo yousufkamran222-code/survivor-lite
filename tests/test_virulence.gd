@@ -137,3 +137,27 @@ func test_validation_catches_unknown_modifier() -> void:
 	var d := data().duplicate(true)
 	d.difficulty.levels[3].mods["laser_mult"] = 2.0
 	check(GameData.validate(d).size() > 0)
+
+
+func test_dev_toggle_unlocks_every_level_without_touching_records() -> void:
+	var p := Profile.new()
+	check_eq(p.virulence_unlocked("classic"), 1)
+	p.settings["dev_all_virulence"] = true
+	for m in ["classic", "infection", "swarm", "nucleus"]:
+		check_eq(p.virulence_unlocked(m), Profile.MAX_VIRULENCE, "%s: all unlocked" % m)
+	p.set_virulence("swarm", 10)
+	check_eq(p.virulence_selected("swarm"), 10)
+	check_eq(p.virulence_cleared("swarm"), 0, "records untouched")
+	check_eq(int(p.flat().best_virulence), 0, "no achievement progress from the toggle")
+	p.settings["dev_all_virulence"] = false
+	check_eq(p.virulence_selected("swarm"), 1, "back to real progress")
+
+
+func test_developer_code() -> void:
+	SettingsScreen.dev_unlocked = false
+	var st := SettingsScreen.new()
+	st.dev_password = str(data().balance.debug.dev_password)
+	check(not st.check_code("0000"), "wrong code stays locked")
+	check(st.check_code(str(data().balance.debug.dev_password)), "right code unlocks")
+	SettingsScreen.dev_unlocked = false
+	st.free()

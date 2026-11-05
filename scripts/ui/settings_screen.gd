@@ -10,10 +10,14 @@ var on_change: Callable  # Main re-applies settings (fps cap, shake, fps readout
 var on_back: Callable
 var debug_fps_default := false
 var dev_meta: Array = []  # permanent-upgrade defs when the developer tools are on (balance.debug.dev_tools)
+var dev_password := ""  # balance.debug.dev_password; empty = no lock
+static var dev_unlocked := false  # entered the password this session (until the app closes)
+var _code := ""  # digits typed on the keypad
 
 
-func setup(palette: Dictionary, changed: Callable, back: Callable, fps_default: bool, dev_meta_defs: Array = []) -> void:
+func setup(palette: Dictionary, changed: Callable, back: Callable, fps_default: bool, dev_meta_defs: Array = [], password: String = "") -> void:
 	dev_meta = dev_meta_defs
+	dev_password = password
 	pal = palette
 	on_change = changed
 	on_back = back
@@ -55,13 +59,75 @@ func _build() -> void:
 	tips.disabled = Save.hints_seen.is_empty()
 	add_child(tips)
 	if not dev_meta.is_empty():
-		_dev_rows()
+		if dev_unlocked or dev_password == "":
+			_dev_rows()
+		else:
+			_dev_lock()
 	add_child(UiKit.button("BACK", func() -> void:
 		Save.write()
 		on_back.call(), 90))
 
 
-## Playtest-only tools: free gold to test permanent upgrades, and a refund.
+## The Developer section is locked behind a short code, typed on an
+## on-screen keypad (works the same on the APK and the web build, no
+## keyboard needed). Unlocks until the app is closed.
+func _dev_lock() -> void:
+	var open := UiKit.button("DEVELOPER", func() -> void: pass, 64)
+	open.add_theme_font_size_override("font_size", 20)
+	add_child(open)
+	open.pressed.connect(func() -> void:
+		var at := open.get_index()
+		open.queue_free()
+		var pad := _keypad()
+		add_child(pad)
+		move_child(pad, at))
+
+
+func _keypad() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	var shown := UiKit.label("Enter code", 30, Color("#ff7a6b"))
+	box.add_child(shown)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for key in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "<", "0", "OK"]:
+		var b := UiKit.button(key, func() -> void: pass, 52)
+		b.custom_minimum_size = Vector2(100, 52)
+		b.add_theme_font_size_override("font_size", 26)
+		b.pressed.connect(func() -> void:
+			Sfx.play("click", 0.0)
+			if key == "<":
+				_code = _code.left(maxi(_code.length() - 1, 0))
+			elif key == "OK":
+				if check_code(_code):
+					Sfx.play("upgrade", 0.0)
+					_code = ""
+					_build()
+					return
+				Sfx.play("deny", 0.0)
+				_code = ""
+				shown.text = "Wrong code"
+				return
+			elif _code.length() < 8:
+				_code += key
+			shown.text = "*".repeat(_code.length()) if _code != "" else "Enter code")
+		grid.add_child(b)
+	box.add_child(grid)
+	return box
+
+
+## True (and unlocks the Developer tools) if `code` matches the password.
+func check_code(code: String) -> bool:
+	if dev_password != "" and code == dev_password:
+		dev_unlocked = true
+	return dev_unlocked
+
+
+## Playtest-only tools: free gold to test permanent upgrades, a refund, and
+## every Virulence level unlocked in every mode (records stay untouched).
 func _dev_rows() -> void:
 	add_child(UiKit.label("DEVELOPER (playtest builds only)", 22, Color("#ff7a6b")))
 	var row := HBoxContainer.new()
@@ -85,6 +151,9 @@ func _dev_rows() -> void:
 		refund.text = "Refunded %d" % back)
 	row.add_child(refund)
 	add_child(row)
+	add_child(_choice_row("All Virulence levels", ["Off", "On"], 1 if Save.profile.dev_all_virulence() else 0, func(i: int) -> void:
+		Save.profile.settings["dev_all_virulence"] = i == 1
+		Save.write()))
 
 
 func _row_label(text: String) -> Label:
