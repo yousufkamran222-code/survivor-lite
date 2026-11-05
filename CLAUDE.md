@@ -71,7 +71,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 
 ## Builds and CI (.github/workflows)
 - `test.yml`: on every push and PR it runs the tests and a 4-run balance smoke, written to the job summary.
-- **Web playtest build = itch.io** (`light213/petri`, channel `html5`; GitHub Pages dropped 2026-11-04, its deploy kept timing out). After each change the cloud session runs `tools/web_push.sh <butler>` (export + butler push; needs the web export templates, butler from broth.itch.zone, and `BUTLER_API_KEY` in the environment). `web.yml` is the manual backup (same push from Actions, repo secret `BUTLER_API_KEY`). The menu shows the build SHA.
+- **Web playtest build = itch.io** (`light213/petri`, channel `html5`; GitHub Pages dropped 2026-11-04, its deploy kept timing out). After each change the cloud session runs `tools/web_push.sh <butler>` (export + butler push; needs the web export templates, butler from broth.itch.zone, and `BUTLER_API_KEY` in the environment). `web.yml` is the manual backup (same push from Actions, repo secret `BUTLER_API_KEY`). The menu shows the build SHA. `pages.yml` (manual only, added 2026-11-05) updates the secondary GitHub Pages link https://yousufkamran222-code.github.io/survivor-lite/ when Yousuf asks for it.
 - `android.yml`: manual run or a `v*` tag builds an APK artifact. Signed release if the keystore secrets exist, otherwise debug. An AAB via the Gradle build comes in M3.
 
 ## Direction
