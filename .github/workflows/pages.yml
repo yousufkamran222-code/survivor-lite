@@ -1,0 +1,57 @@
+name: GitHub Pages web build
+
+# Secondary web playtest link on GitHub Pages
+# (https://yousufkamran222-code.github.io/survivor-lite/). The primary web
+# build is itch.io (web.yml / tools/web_push.sh). MANUAL ONLY: the automatic
+# Pages deploy was dropped on 2026-11-04 because its deploy step kept timing
+# out, so run this from the Actions tab when you want the Pages link updated.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-godot
+        with:
+          templates: "true"
+
+      - name: Stamp build info
+        run: |
+          echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
+
+      - name: Export web
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+          touch build/web/.nojekyll
+          ls -la build/web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 300000

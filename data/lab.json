@@ -4,6 +4,9 @@
   "genes": {
     "first_clear": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
     "repeat_win": 2,
+    "per_minute": 1,
+    "per_minute_from_v": 3,
+    "per_minute_max": 5,
     "dev_grant": 50
   },
   "respec_gold": 150,

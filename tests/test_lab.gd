@@ -128,8 +128,8 @@ func test_genes_first_clear_then_repeat() -> void:
 	_win(p, 2)
 	check_eq(p.last_genes, int(fc[1]))
 	_win(p, 3, false)
-	check_eq(p.last_genes, 0, "a loss pays nothing")
-	check_eq(p.genes, int(fc[0]) + int(_cfg().genes.repeat_win) + int(fc[1]))
+	check_eq(p.last_genes, int(_cfg().genes.per_minute_max), "a 5:00 loss at V3 pays only its minutes")
+	check_eq(p.genes, int(fc[0]) + int(_cfg().genes.repeat_win) + int(fc[1]) + int(_cfg().genes.per_minute_max))
 	check_eq(int(p.stats.genes_earned), p.genes)
 
 
@@ -501,3 +501,24 @@ func test_lysis_ignores_virulence() -> void:
 		w._process_dead()
 		hits.append(hp - w.e_hp[0])
 	check_near(float(hits[1]), float(hits[0]), 0.01, "the same burst at V1 and V9")
+
+
+func test_genes_per_minute_from_v3() -> void:
+	var g: Dictionary = _cfg().genes
+	var p := Profile.new()
+	check_eq(p.genes_for_time(g, 2, 299.0), 0, "not below V3")
+	check_eq(p.genes_for_time(g, 3, 179.0), 2, "2 full minutes")
+	check_eq(p.genes_for_time(g, 5, 600.0), int(g.per_minute_max), "capped per run (Nucleus Free Mode)")
+	var s := {"mode": "classic", "won": false, "time": 150.0, "kills": 1, "level": 1, "elites": 0, "chests": 0,
+		"evolved_ids": [], "conversions": 0, "dashes": 0, "boss_killed": false, "kills_by_type": {}, "infected_pct": 0, "score": 1, "virulence": 4}
+	p.record_run(s, [], 1, g)
+	check_eq(p.last_genes, 2, "a lost V4 run still pays for its minutes")
+
+
+func test_mode_gold_mult() -> void:
+	var d := data()
+	var c: Dictionary = GameData.apply_mode(d, "classic").balance
+	var i: Dictionary = GameData.apply_mode(d, "infection").balance
+	var gc := Progression.run_gold(c, 200, 120.0, false, false, 0.0)
+	var gi := Progression.run_gold(i, 200, 120.0, false, false, 0.0)
+	check_eq(gc, int(floor(float(gi) * 2.0)) if gi > 0 else gc, "Classic pays x2")

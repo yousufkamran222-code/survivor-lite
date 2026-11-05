@@ -248,6 +248,15 @@ func genes_for_win(genes_cfg: Dictionary, mode: String, level: int) -> int:
 	return int(genes_cfg.get("repeat_win", 0))
 
 
+## Genes for time survived (won or lost) at Virulence per_minute_from_v+:
+## per_minute per completed minute, at most per_minute_max per run. Keeps the
+## Lab moving while a player is stuck below a new clear.
+func genes_for_time(genes_cfg: Dictionary, level: int, time_s: float) -> int:
+	if genes_cfg.is_empty() or level < int(genes_cfg.get("per_minute_from_v", 99)):
+		return 0
+	return mini(int(floor(time_s / 60.0)) * int(genes_cfg.get("per_minute", 0)), int(genes_cfg.get("per_minute_max", 0)))
+
+
 func best_time_any() -> float:
 	var best := 0.0
 	for m in records:
@@ -308,6 +317,7 @@ func _record(mode: String) -> Dictionary:
 ## Returns the achievement definitions newly unlocked by this run.
 func record_run(s: Dictionary, achievement_defs: Array, now: int, genes_cfg: Dictionary = {}) -> Array:
 	last_genes = genes_for_win(genes_cfg, str(s.mode), int(s.get("virulence", 1))) if s.won else 0
+	last_genes += genes_for_time(genes_cfg, int(s.get("virulence", 1)), float(s.time))
 	genes += last_genes
 	stats.genes_earned = int(stats.genes_earned) + last_genes
 	stats.runs += 1

@@ -17,6 +17,7 @@ static func run_gold(balance: Dictionary, kills: int, time_s: float, boss_killed
 		g += float(e.gold_boss_bonus)
 	if won:
 		g += float(e.gold_victory_bonus)
+	g *= float(e.get("mode_gold_mult", 1.0))  # per mode (modes.json): evens out gold per run between modes
 	return int(floor(g * (1.0 + gold_gain) * float(balance.get("difficulty", {}).get("gold_mult", 1.0))))
 
 

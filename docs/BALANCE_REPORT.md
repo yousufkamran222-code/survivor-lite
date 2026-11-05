@@ -96,7 +96,9 @@ Average run length is ~1.5-2.5 min (the bot dies early at its frontier; a won ru
 3. **The wall (runs 50-150+, 3-6 h):** V6-V9 take 20-100+ runs each. Shop tiers now cost 150-600 gold against 70-190 gold per run (Classic/Nucleus: one tier every 2-6 runs). Genes trickle in only on a new clear, so the Lab barely moves (20-35%). **This is where players would quit:** a long grind with the second progression layer mostly frozen.
 4. **Endgame (V9-10):** reached only by Swarm and Classic accounts after 190-260 runs (7-13 h), without abilities ever unlocked.
 
-## 5. Problems found and suggested fixes (not applied; your call)
+## 5. Problems found and suggested fixes
+**Status (2026-11-05):** #1 and #2 are applied (Yousuf chose the recommended fixes): Genes per completed minute at V3+ (`lab.genes.per_minute` 1, `per_minute_max` 5) and `economy.mode_gold_mult` (Classic ×2.0, Nucleus ×1.8, in `modes.json`). **#3 (Swarm + Lab too strong) and #4 (Nucleus V10 wall) are deferred**, tracked in SESSION_HANDOFF §10 and ROADMAP. #5 (V6/V9 spikes) is open.
+
 1. **Genes are far too scarce (biggest issue).** The Lab is meant to carry players through V7-10, but at most ~38% of it is affordable by then. Options:
    - (a) **Genes on every run that gets far:** e.g. 1 Gene per completed minute at V3+ (a 5:00 win = 5). That gives ~2-3 per run, so the full Lab takes ~100 runs.
    - (b) Bigger first clears (e.g. 10, 12, …, 28 → 190 per mode) and repeat wins worth 4.
