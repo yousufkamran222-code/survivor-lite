@@ -197,6 +197,9 @@ Everything below is the agreed design.
 - Sim: `--lab all` (and `--ability <id>`) so a full Lab + shop can be checked against Virulence 7-10; the bot uses the equipped ability when crowded.
 - Scope: CLAUDE.md rule 8 needs "4 Lab keystones + up to N abilities" added when this is built.
 
+## Post-launch: co-op (idea, not started)
+See `docs/COOP_DESIGN.md`: host-authoritative co-op for 2-4 friends (room codes via a relay such as EOS or W4 Cloud), V1 Classic/Infection, shared XP, down/revive, one role ability each, then a Tethered mode. Phase 1 = per-player World refactor + same-Wi-Fi play.
+
 ## Step 3: combine
 - Converts on your land stop erosion and patrol its edge. Unguarded land slowly decays.
 - Elites and the boss corrupt chunks of land as they walk.

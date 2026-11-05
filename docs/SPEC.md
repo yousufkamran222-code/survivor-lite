@@ -103,6 +103,7 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 `session_start`, `run_start`, `upgrade_pick`, `chest_open`, `evolution`, `pickup` (kind), `boss_spawn`, `boss_killed`, `death` (time, level, cause), `run_end` (won, time, level, kills, gold, elites, chests, evolutions, dashes), `meta_buy`, `ad_rewarded_start/end` (placement, rewarded), `ad_interstitial`. These are enough for D1/D7 retention, session length, ads per user and the quit point.
 
 ## Later (not v1)
+- **Co-op multiplayer (post-launch):** 2-4 players, V1 Classic/Infection, down/revive, abilities as roles, a Tethered mode. Design and feasibility: `docs/COOP_DESIGN.md`.
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
 - **Streak upgrades/abilities (hook built 2026-11-04):** e.g. a card "at x100: a free Fever Pulse" or "every x50: heal 10%". Add a reward kind in `World._streak_rewards()` and an entry in `balance.streak.rewards` (or have an upgrade add entries).
 - **The Lab + Abilities (design agreed 2026-11-05, not built):** a Genes-based skill tree (4 branches with forks and keystones) on top of the gold shop, plus equippable active abilities (Stasis, Engulf, Cloak, Mitosis first; one equipped, kill-recharged, chosen in an Abilities menu). Replaces the Strains idea. Full spec: ROADMAP "Next: the Lab + Abilities".
