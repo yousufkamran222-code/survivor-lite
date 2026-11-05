@@ -63,6 +63,11 @@ func _ready() -> void:
 	for e in errors:
 		push_error("data: " + e)
 	bal = data.balance
+	# The Lab was reshaped (2026-11-05): refund Genes for removed/repriced nodes.
+	var lab_back := Save.profile.migrate_lab(data.lab, Save.now())
+	Save.write()
+	if lab_back > 0:
+		Analytics.event("lab_migrated", {"genes": lab_back})
 	for k in bal.palette:
 		pal[k] = GameData.color(bal.palette[k])
 	RenderingServer.set_default_clear_color(pal.background)
@@ -377,6 +382,11 @@ func _handle_events(events: Array) -> void:
 				hitstop = maxf(hitstop, 0.12)
 			"slipstream":
 				Sfx.play("dash", 0.0, 1.3)
+			"dodge":
+				Sfx.play("dash", 0.0, 1.6)
+				hud.toast("DODGE", Color("#5ce1e6"), 0.6)
+			"recoil":
+				Sfx.play("nova", 0.0, 1.3)
 			"ability_used":
 				var ad: Dictionary = data.lab.abilities[ev.ability]
 				Sfx.play({"stasis": "boss", "engulf": "convert", "cloak": "vacuum", "mitosis": "evolve"}.get(ev.ability, "nova"), 0.0, 1.1)
@@ -943,9 +953,9 @@ func _show_levelup() -> void:
 		buttons.append(b)
 		_pop_in(b, k * 0.07)
 		k += 1
-	var reroll := UiKit.button("Reroll  (watch ad)", _reroll, 80)
+	var reroll := UiKit.button("Reroll  (%d free)" % world.free_rerolls if world.free_rerolls > 0 else "Reroll  (watch ad)", _reroll, 80)
 	reroll.add_theme_font_size_override("font_size", 24)
-	reroll.visible = Ads.is_rewarded_available()
+	reroll.visible = world.free_rerolls > 0 or Ads.is_rewarded_available()
 	col.add_child(reroll)
 	buttons.append(reroll)
 	var later := UiKit.button("Later  (keep %d banked)" % world.pending_levelups, _later, 72)
@@ -1285,6 +1295,9 @@ func _pick(id: String) -> void:
 
 
 func _reroll() -> void:
+	if world.free_reroll():  # Lab: Free Rerolls
+		_show_levelup()
+		return
 	Ads.show_rewarded("reroll", func(ok: bool) -> void:
 		if ok:
 			world.reroll_offers()

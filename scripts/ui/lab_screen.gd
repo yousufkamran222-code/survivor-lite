@@ -10,8 +10,8 @@ extends VBoxContainer
 const GENE := Color("#5cf0a8")
 const GENE_DARK := Color("#239a63")
 const COL_W := 152.0
-const ROW_Y := [44.0, 190.0, 336.0, 490.0, 652.0, 818.0]  # node centres per tier (below the 50 px header)
-const SIZES := [76.0, 76.0, 76.0, 60.0, 96.0, 84.0]  # icon size per tier (6 = the ability)
+const ROW_Y := [44.0, 190.0, 336.0, 482.0, 636.0, 798.0, 964.0]  # node centres per tier (below the 50 px header)
+const SIZES := [76.0, 76.0, 76.0, 76.0, 60.0, 96.0, 84.0]  # icon size per tier (5 = fork, 6 = keystone, 7 = ability)
 
 var cfg: Dictionary
 var pal: Dictionary

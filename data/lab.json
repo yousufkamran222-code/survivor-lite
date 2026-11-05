@@ -2,8 +2,8 @@
   "name": "The Lab",
   "currency": "Genes",
   "genes": {
-    "first_clear": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-    "repeat_win": 1,
+    "first_clear": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    "repeat_win": 2,
     "dev_grant": 50
   },
   "respec_gold": 150,
@@ -21,70 +21,89 @@
     "slip_radius": 26,
     "phase_radius": 34,
     "head_start_level": 2,
-    "mutation_levels": 2
+    "mutation_levels": 2,
+    "overkill_radius": 160,
+    "recoil_radius": 110,
+    "recoil_radius_per_level": 40,
+    "recoil_knock_per_level": 300,
+    "clot_s": 4.0,
+    "last_stand_hp": 0.3,
+    "momentum_build_s": 2.0,
+    "wake_radius": 170,
+    "treasure_items": 1
   },
   "abilities": {
-    "stasis": {"name": "Stasis", "branch": "toxin", "color": "#9be7ff", "desc": "Stop time: germs, shots and spawns freeze while you move and fire. When time restarts, a shockwave hits everything nearby, stronger for every kill in the stop.",
-      "levels": [{"duration_s": 3.0, "kills": 240}, {"duration_s": 3.5, "kills": 215}, {"duration_s": 4.0, "kills": 190}],
-      "shock_radius": 340, "shock_damage": 30, "shock_per_kill": 0.12, "shock_max_mult": 4.0},
-    "engulf": {"name": "Engulf", "branch": "membrane", "color": "#7cc6ff", "desc": "Grow to 3x size: germs you touch are swallowed whole and heal you a little. Elites and bosses take big bites instead.",
-      "levels": [{"duration_s": 3.0, "kills": 200}, {"duration_s": 3.5, "kills": 180}, {"duration_s": 4.0, "kills": 160}],
-      "scale": 3.0, "heal_frac": 0.01, "bite_damage": 40, "bite_interval_s": 0.4},
-    "cloak": {"name": "Cloak", "branch": "flagella", "color": "#c8a6ff", "desc": "Turn invisible: germs lose you and mill around where they last saw you while your weapons keep firing. Your first hit on each germ deals x2 (ambush).",
-      "levels": [{"duration_s": 3.0, "kills": 170}, {"duration_s": 3.5, "kills": 150}, {"duration_s": 4.0, "kills": 135}],
-      "mill_radius": 80, "ambush_mult": 2.0, "ambush_after_s": 2.0},
-    "mitosis": {"name": "Mitosis", "branch": "genome", "color": "#7cff9b", "desc": "Split: a clone fights beside you with your weapons at half power.",
-      "levels": [{"duration_s": 8.0, "kills": 220}, {"duration_s": 9.0, "kills": 200}, {"duration_s": 10.0, "kills": 180}],
-      "power": 0.5, "offset": 80, "follow": 6.0}
+    "stasis": {"name": "Stasis", "branch": "toxin", "color": "#9be7ff", "desc": "Stop time: germs, shots and spawns freeze while you move and fire. When time restarts, a shockwave hits everything nearby, stronger for every kill in the stop.", "levels": [{"duration_s": 3.0, "kills": 240}, {"duration_s": 3.5, "kills": 215}, {"duration_s": 4.0, "kills": 190}], "shock_radius": 340, "shock_damage": 30, "shock_per_kill": 0.12, "shock_max_mult": 4.0},
+    "engulf": {"name": "Engulf", "branch": "membrane", "color": "#7cc6ff", "desc": "Grow to 3x size: germs you touch are swallowed whole and heal you a little. Elites and bosses take big bites instead.", "levels": [{"duration_s": 3.0, "kills": 200}, {"duration_s": 3.5, "kills": 180}, {"duration_s": 4.0, "kills": 160}], "scale": 3.0, "heal_frac": 0.01, "bite_damage": 40, "bite_interval_s": 0.4},
+    "cloak": {"name": "Cloak", "branch": "flagella", "color": "#c8a6ff", "desc": "Turn invisible: germs lose you and mill around where they last saw you while your weapons keep firing. Your first hit on each germ deals x2 (ambush).", "levels": [{"duration_s": 3.0, "kills": 170}, {"duration_s": 3.5, "kills": 150}, {"duration_s": 4.0, "kills": 135}], "mill_radius": 80, "ambush_mult": 2.0, "ambush_after_s": 2.0},
+    "mitosis": {"name": "Mitosis", "branch": "genome", "color": "#7cff9b", "desc": "Split: a clone fights beside you with your weapons at half power.", "levels": [{"duration_s": 8.0, "kills": 220}, {"duration_s": 9.0, "kills": 200}, {"duration_s": 10.0, "kills": 180}], "power": 0.5, "offset": 80, "follow": 6.0}
   },
   "branches": [
     {
       "id": "toxin", "name": "Toxin", "role": "Offence", "color": "#ff6b8a", "icon": "might",
       "nodes": [
-        {"id": "tox_venom", "tier": 1, "name": "Venom", "label": "damage", "fmt": "pct", "effects": {"might": 0.04}, "costs": [1, 2, 3]},
-        {"id": "tox_rapid", "tier": 2, "name": "Rapid Secretion", "label": "weapon speed", "fmt": "pct", "effects": {"haste": 0.03}, "costs": [1, 2, 3]},
-        {"id": "tox_burst", "tier": 3, "name": "Toxic Burst", "label": "big hit chance (x2 damage)", "fmt": "pct", "effects": {"crit": 0.05}, "costs": [2, 3]},
-        {"id": "tox_overclock", "tier": 4, "fork": "toxin", "name": "Overclock", "desc": "Weapons +15% speed, but 10% less max HP", "effects": {"haste": 0.15, "max_hp_pct": -0.10}, "costs": [5]},
-        {"id": "tox_precision", "tier": 4, "fork": "toxin", "name": "Precision", "desc": "+25% damage to elites and bosses", "effects": {"elite_damage": 0.25}, "costs": [5]},
-        {"id": "tox_lysis", "tier": 5, "keystone": true, "name": "Lysis", "desc": "Every kill bursts for 8% of the germ's max HP, hitting germs nearby", "effects": {"lysis": 0.08}, "costs": [8]},
-        {"id": "tox_stasis", "tier": 6, "ability": "stasis", "name": "Stasis", "desc": "Unlocks the Stasis ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
+        {"id": "tox_burst", "icon": "might", "tier": 1, "name": "Toxic Burst", "label": "big hit chance (x2 damage)", "fmt": "pct", "effects": {"crit": 0.05}, "costs": [1, 2, 3]},
+        {"id": "tox_streak", "icon": "outbreak", "tier": 2, "name": "Streak Venom", "label": "damage per kill-streak tier", "fmt": "pct", "effects": {"streak_dmg": 0.015}, "costs": [2, 3, 4]},
+        {"id": "tox_overkill", "icon": "volatile", "tier": 3, "name": "Overkill", "label": "of a kill's extra damage hits the next germ", "fmt": "pct", "effects": {"overkill": 0.34}, "costs": [2, 3, 4]},
+        {"id": "tox_arsenal", "icon": "multishot", "tier": 4, "name": "Arsenal", "label": "damage per different weapon", "fmt": "pct", "effects": {"arsenal": 0.02}, "costs": [2, 3, 4]},
+        {"id": "tox_overclock", "tier": 5, "fork": "toxin", "name": "Overclock", "desc": "Weapons +15% speed, but 10% less max HP", "effects": {"haste": 0.15, "max_hp_pct": -0.1}, "costs": [5]},
+        {"id": "tox_precision", "tier": 5, "fork": "toxin", "name": "Precision", "desc": "+25% damage to elites and bosses", "effects": {"elite_damage": 0.25}, "costs": [5]},
+        {"id": "tox_lysis", "tier": 6, "keystone": true, "name": "Lysis", "desc": "Every kill bursts for 8% of the germ's max HP, hitting germs nearby", "effects": {"lysis": 0.08}, "costs": [8]},
+        {"id": "tox_stasis", "tier": 7, "ability": "stasis", "name": "Stasis", "desc": "Unlocks the Stasis ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
       ]
     },
     {
       "id": "membrane", "name": "Membrane", "role": "Defence", "color": "#7cc6ff", "icon": "armor",
       "nodes": [
-        {"id": "mem_bulk", "tier": 1, "name": "Bulk", "label": "max HP", "fmt": "flat", "effects": {"max_hp": 10}, "costs": [1, 2, 3]},
-        {"id": "mem_wall", "tier": 2, "name": "Lipid Wall", "label": "damage resist", "fmt": "pct", "effects": {"armor": 0.03}, "costs": [1, 2, 3]},
-        {"id": "mem_mend", "tier": 3, "name": "Self-Repair", "label": "HP per second", "fmt": "flat", "effects": {"regen": 0.15}, "costs": [2, 3]},
-        {"id": "mem_biofilm", "tier": 4, "fork": "membrane", "name": "Biofilm", "desc": "A shield blocks one hit, recharging every 20 s", "effects": {"shield": 20}, "costs": [5]},
-        {"id": "mem_thick", "tier": 4, "fork": "membrane", "name": "Thick Skin", "desc": "+50% invulnerability time after a hit", "effects": {"iframes_pct": 0.5}, "costs": [5]},
-        {"id": "mem_second_wind", "tier": 5, "keystone": true, "name": "Second Wind", "desc": "Once per run, at 0 HP you survive at 30% with a shockwave", "effects": {"second_wind": 0.3}, "costs": [8]},
-        {"id": "mem_engulf", "tier": 6, "ability": "engulf", "name": "Engulf", "desc": "Unlocks the Engulf ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
+        {"id": "mem_last_stand", "icon": "armor", "tier": 1, "name": "Last Stand", "label": "less damage below 30% HP", "fmt": "pct", "effects": {"last_stand": 0.13}, "costs": [1, 2, 3]},
+        {"id": "mem_recoil", "icon": "nova", "tier": 2, "name": "Recoil", "desc": "When you're hit, nearby germs are blasted back (bigger and harder per level)", "effects": {"recoil": 1}, "costs": [2, 3, 4]},
+        {"id": "mem_feed", "icon": "regen", "tier": 3, "name": "Feed", "label": "HP per kill", "fmt": "flat", "effects": {"feed": 0.05}, "costs": [2, 3, 4]},
+        {"id": "mem_clot", "icon": "vitality", "tier": 4, "name": "Clotting", "label": "of each hit healed back over 4 s", "fmt": "pct", "effects": {"clot": 0.15}, "costs": [2, 3, 4]},
+        {"id": "mem_biofilm", "tier": 5, "fork": "membrane", "name": "Biofilm", "desc": "A shield blocks one hit, recharging every 20 s", "effects": {"shield": 20}, "costs": [5]},
+        {"id": "mem_thick", "tier": 5, "fork": "membrane", "name": "Thick Skin", "desc": "+50% invulnerability time after a hit", "effects": {"iframes_pct": 0.5}, "costs": [5]},
+        {"id": "mem_second_wind", "tier": 6, "keystone": true, "name": "Second Wind", "desc": "Once per run, at 0 HP you survive at 30% with a shockwave", "effects": {"second_wind": 0.3}, "costs": [8]},
+        {"id": "mem_engulf", "tier": 7, "ability": "engulf", "name": "Engulf", "desc": "Unlocks the Engulf ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
       ]
     },
     {
       "id": "flagella", "name": "Flagella", "role": "Movement", "color": "#5ce1e6", "icon": "swift",
       "nodes": [
-        {"id": "fla_glide", "tier": 1, "name": "Glide", "label": "move speed", "fmt": "pct", "effects": {"move": 0.03}, "costs": [1, 2, 3]},
-        {"id": "fla_whip", "tier": 2, "name": "Whiplash", "label": "dash recharge", "fmt": "pct", "effects": {"dash_cd": 0.05}, "costs": [1, 2, 3]},
-        {"id": "fla_ram", "tier": 3, "name": "Ram", "label": "dash damage", "fmt": "flat", "effects": {"dash_damage": 8}, "costs": [2, 3]},
-        {"id": "fla_twin", "tier": 4, "fork": "flagella", "name": "Twin Flagella", "desc": "+1 dash charge, but dashes recharge 20% slower", "effects": {"dash_charges": 1, "dash_cd_pen": 0.2}, "costs": [5]},
-        {"id": "fla_phase", "tier": 4, "fork": "flagella", "name": "Phase", "desc": "Dashing through enemy shots destroys them", "effects": {"dash_phase": 1}, "costs": [5]},
-        {"id": "fla_slipstream", "tier": 5, "keystone": true, "name": "Slipstream", "desc": "After a dash: +30% speed for 1.5 s and a wake that hurts germs you pass", "effects": {"slipstream": 1}, "costs": [8]},
-        {"id": "fla_cloak", "tier": 6, "ability": "cloak", "name": "Cloak", "desc": "Unlocks the Cloak ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
+        {"id": "fla_momentum", "icon": "swift", "tier": 1, "name": "Momentum", "label": "damage after 2 s on the move", "fmt": "pct", "effects": {"momentum": 0.05}, "costs": [1, 2, 3]},
+        {"id": "fla_refuel", "icon": "adrenaline", "tier": 2, "name": "Refuel", "label": "s dash recharge per kill while dashing", "fmt": "flat", "effects": {"refuel": 0.15}, "costs": [2, 3, 4]},
+        {"id": "fla_evasion", "icon": "afterimage", "tier": 3, "name": "Evasion", "label": "chance to dodge a hit while moving", "fmt": "pct", "effects": {"evasion": 0.04}, "costs": [2, 3, 4]},
+        {"id": "fla_wake", "icon": "lunge", "tier": 4, "name": "Wake", "label": "slow on germs behind you", "fmt": "pct", "effects": {"wake": 0.1}, "costs": [2, 3, 4]},
+        {"id": "fla_twin", "tier": 5, "fork": "flagella", "name": "Twin Flagella", "desc": "+1 dash charge, but dashes recharge 20% slower", "effects": {"dash_charges": 1, "dash_cd_pen": 0.2}, "costs": [5]},
+        {"id": "fla_phase", "tier": 5, "fork": "flagella", "name": "Phase", "desc": "Dashing through enemy shots destroys them", "effects": {"dash_phase": 1}, "costs": [5]},
+        {"id": "fla_slipstream", "tier": 6, "keystone": true, "name": "Slipstream", "desc": "After a dash: +30% speed for 1.5 s and a wake that hurts germs you pass", "effects": {"slipstream": 1}, "costs": [8]},
+        {"id": "fla_cloak", "tier": 7, "ability": "cloak", "name": "Cloak", "desc": "Unlocks the Cloak ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
       ]
     },
     {
       "id": "genome", "name": "Genome", "role": "Economy", "color": "#7cff9b", "icon": "growth",
       "nodes": [
-        {"id": "gen_growth", "tier": 1, "name": "Fast Growth", "label": "XP", "fmt": "pct", "effects": {"xp_gain": 0.05}, "costs": [1, 2, 3]},
-        {"id": "gen_hoard", "tier": 2, "name": "Hoarding", "label": "gold", "fmt": "pct", "effects": {"gold_gain": 0.08}, "costs": [1, 2, 3]},
-        {"id": "gen_reach", "tier": 3, "name": "Long Reach", "label": "pickup range", "fmt": "pct", "effects": {"magnet": 0.15}, "costs": [2, 3]},
-        {"id": "gen_head_start", "tier": 4, "fork": "genome", "name": "Head Start", "desc": "Start each run with a second random weapon at Lv 2", "effects": {"head_start": 1}, "costs": [5]},
-        {"id": "gen_lucky", "tier": 4, "fork": "genome", "name": "Lucky Strain", "desc": "Level-ups offer 4 cards instead of 3", "effects": {"extra_offers": 1}, "costs": [5]},
-        {"id": "gen_mutation", "tier": 5, "keystone": true, "name": "Mutation Lab", "desc": "Each level-up offers one mutated card that gives 2 levels at once", "effects": {"mutation": 1}, "costs": [8]},
-        {"id": "gen_mitosis", "tier": 6, "ability": "mitosis", "name": "Mitosis", "desc": "Unlocks the Mitosis ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
+        {"id": "gen_reroll", "icon": "growth", "tier": 1, "name": "Free Rerolls", "label": "free level-up rerolls per run", "fmt": "flat", "effects": {"free_rerolls": 1}, "costs": [1, 2, 3]},
+        {"id": "gen_bloom", "icon": "incubate", "tier": 2, "name": "Early Bloom", "label": "free level-ups at the start", "fmt": "flat", "effects": {"start_levels": 1}, "costs": [2, 4]},
+        {"id": "gen_ready", "icon": "hive", "tier": 3, "name": "Ready to Go", "label": "Outbreak and ability meters at the start", "fmt": "pct", "effects": {"start_meters": 0.25}, "costs": [2, 4]},
+        {"id": "gen_treasure", "icon": "gold", "tier": 4, "name": "Treasure Sense", "label": "chance of an extra chest item from elites", "fmt": "pct", "effects": {"treasure": 0.15}, "costs": [2, 3, 4]},
+        {"id": "gen_head_start", "tier": 5, "fork": "genome", "name": "Head Start", "desc": "Start each run with a second random weapon at Lv 2", "effects": {"head_start": 1}, "costs": [5]},
+        {"id": "gen_lucky", "tier": 5, "fork": "genome", "name": "Lucky Strain", "desc": "Level-ups offer 4 cards instead of 3", "effects": {"extra_offers": 1}, "costs": [5]},
+        {"id": "gen_mutation", "tier": 6, "keystone": true, "name": "Mutation Lab", "desc": "Each level-up offers one mutated card that gives 2 levels at once", "effects": {"mutation": 1}, "costs": [8]},
+        {"id": "gen_mitosis", "tier": 7, "ability": "mitosis", "name": "Mitosis", "desc": "Unlocks the Mitosis ability. Higher levels: longer, faster recharge", "effects": {}, "costs": [6, 4, 5]}
       ]
     }
-  ]
+  ],
+  "repriced": {"tox_burst": [2, 3]},
+  "retired": {
+    "tox_venom": [1, 2, 3],
+    "tox_rapid": [1, 2, 3],
+    "mem_bulk": [1, 2, 3],
+    "mem_wall": [1, 2, 3],
+    "mem_mend": [2, 3],
+    "fla_glide": [1, 2, 3],
+    "fla_whip": [1, 2, 3],
+    "fla_ram": [2, 3],
+    "gen_growth": [1, 2, 3],
+    "gen_hoard": [1, 2, 3],
+    "gen_reach": [2, 3]
+  }
 }

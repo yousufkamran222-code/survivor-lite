@@ -100,7 +100,7 @@ func test_merge_keeps_all_progress() -> void:
 func test_legacy_import() -> void:
 	var p := Profile.from_legacy(230, {"meta_hp": 2}, 250.0, 14, 11, true, "swarm", {"classic": 250.0, "infection": 180.0})
 	check_eq(p.gold, 230)
-	check_eq(p.meta_level("meta_hp"), 2)
+	check_eq(p.meta_level("meta_hp"), 4, "v1 tier 2 = v6 tier 4 (shop tiers split in two)")
 	check_eq(int(p.stats.runs), 14)
 	check_eq(p.settings.mode, "swarm")
 	check(p.settings.muted)
@@ -181,7 +181,7 @@ func test_legacy_cfg_is_imported() -> void:
 	cf.save(sv.legacy)
 	sv.load_save()
 	check_eq(sv.gold, 300)
-	check_eq(sv.meta_level("meta_might"), 2)
+	check_eq(sv.meta_level("meta_might"), 4, "old tiers doubled")
 	check_eq(sv.runs, 9)
 	check_eq(sv.mode, "classic")
 	check(FileAccess.file_exists(sv.path), "imported profile written as JSON")

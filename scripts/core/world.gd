@@ -89,6 +89,11 @@ var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = non
 var head_start_weapon := ""
 var crits := 0
 var lysis_bursts := 0
+var momentum := 0.0  # Lab: Momentum, 0..1 (builds while moving)
+var clot_pool := 0.0  # Lab: Clotting, HP still to heal back
+var clot_rate := 0.0
+var free_rerolls := 0  # Lab: Free Rerolls left this run
+var dodges := 0
 
 # --- Abilities (Lab phase 2; data/lab.json abilities). One equipped per run,
 # set by equip_ability() before the first step; recharged by kills.
@@ -361,6 +366,14 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	_recompute_stats()
 	if float(stats.get("head_start", 0.0)) > 0.0:
 		_head_start()
+	free_rerolls = int(stats.get("free_rerolls", 0.0))
+	var bloom := int(stats.get("start_levels", 0.0))  # Lab: Early Bloom
+	if bloom > 0:
+		level += bloom
+		pending_levelups += bloom
+		xp_next = Progression.xp_needed(bal, level)
+	if bal.get("outbreak", {}).get("enabled", false):
+		outbreak = clampf(float(stats.get("start_meters", 0.0)), 0.0, 0.99)  # Lab: Ready to Go
 	p_hp = p_max_hp
 	p_dash_charges = dash_max_charges()  # permanent extra charges start full
 
@@ -665,7 +678,7 @@ func _recompute_stats() -> void:
 			for k in ["heal_on_hit", "pulses", "forks"]:
 				if ev.has(k):
 					w[k] = float(ev[k])
-		var dmg_mult := 1.0 + float(stats.might)
+		var dmg_mult := 1.0 + float(stats.might) + float(stats.get("arsenal", 0.0)) * _weapons_owned()  # Lab: Arsenal
 		var cd_mult := maxf(0.35, 1.0 - float(stats.haste))
 		if w.has("damage"):
 			w.damage *= dmg_mult
@@ -696,6 +709,13 @@ func _update_player(dt: float, move: Vector2) -> void:
 		decoy_cd -= dt
 	if shield_cd > 0.0:
 		shield_cd -= dt
+	if float(stats.get("momentum", 0.0)) > 0.0:
+		var build := float(lab_cfg.get("momentum_build_s", 2.0))
+		momentum = clampf(momentum + (dt / build if m.length_squared() > 0.09 else -dt * 2.0 / build), 0.0, 1.0)
+	if clot_pool > 0.0:
+		var h := minf(clot_pool, clot_rate * dt)
+		clot_pool -= h
+		p_hp = minf(p_max_hp, p_hp + h)
 	if decoy_t > 0.0:
 		decoy_t -= dt
 		if decoy_t <= 0.0:
@@ -906,6 +926,9 @@ func _update_enemies(dt: float) -> void:
 	_gem_claims.clear()
 	var aggro2 := float(dcfg.get("aggro_radius", 0.0)) ** 2
 	var cloaked := ability == "cloak" and ab_t > 0.0
+	var wake := clampf(float(stats.get("wake", 0.0)), 0.0, 0.8)
+	var moving := p_vel.length_squared() > 400.0
+	var wake_r2 := float(lab_cfg.get("wake_radius", 170.0)) ** 2
 	var mill_r := float(ab.get("mill_radius", 80.0))
 	for i in e_pos.size():
 		var t := e_type[i]
@@ -935,6 +958,10 @@ func _update_enemies(dt: float) -> void:
 				dir = (decoy_pos - pos).normalized()
 			if terr != null and terr.is_owned(pos):
 				spd *= 1.0 - float(bal.territory.enemy_slow)
+			if wake > 0.0 and moving:  # Lab: Wake slows germs behind you
+				var off := pos - p_pos
+				if off.dot(p_vel) < 0.0 and off.length_squared() < wake_r2:
+					spd *= 1.0 - wake
 			if def_on and e_slow[i] > 0.0:
 				e_slow[i] -= dt
 				spd *= 1.0 - float(dcfg.fever_slow)
@@ -1069,6 +1096,11 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		if ambush_t > 0.0 and not _ambushed.has(e_uid[i]):  # Cloak: ambush
 			_ambushed[e_uid[i]] = true
 			amount *= float(ab.get("ambush_mult", 2.0))
+		var sv := float(stats.get("streak_dmg", 0.0))  # Lab: Streak Venom
+		if sv > 0.0 and streak > 0:
+			amount *= 1.0 + sv * (streak_tier(streak) + 1)
+		if momentum > 0.0:  # Lab: Momentum
+			amount *= 1.0 + float(stats.get("momentum", 0.0)) * momentum
 		var cc := float(stats.get("crit", 0.0))  # Lab: Toxic Burst
 		if cc > 0.0 and _src != "allies" and rng.randf() < cc:
 			amount *= float(lab_cfg.get("crit_mult", 2.0))
@@ -1076,6 +1108,14 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 			crits += 1
 	var eff := minf(amount, e_hp[i])  # effective damage (no overkill)
 	e_hp[i] -= amount
+	var ok := float(stats.get("overkill", 0.0))  # Lab: Overkill splashes the excess on
+	if ok > 0.0 and e_hp[i] <= 0.0 and amount < 1.0e5 and _src != "overkill" and amount > eff and e_team[i] == 0:
+		var j := _nearest_enemy(e_pos[i], float(lab_cfg.get("overkill_radius", 160.0)), {e_uid[i]: true})
+		if j >= 0:
+			var prev := _src
+			_src = "overkill"
+			_damage(j, (amount - eff) * minf(ok, 1.0), Vector2.ZERO)
+			_src = prev
 	damage_dealt += eff
 	damage_by[_src] = float(damage_by.get(_src, 0.0)) + eff
 	if amount > biggest_hit and amount < 1.0e5:  # 1e6 = instant kills (bomb, revive)
@@ -1338,6 +1378,8 @@ func _process_dead() -> void:
 	var bursts := []  # Volatile explosions from germs the dash killed
 	var spreads := []  # plague jumps from infected germs that died
 	var lysis := float(stats.get("lysis", 0.0))
+	var feed := float(stats.get("feed", 0.0))
+	var refuel := float(stats.get("refuel", 0.0))
 	var lysed := []  # Lab: Lysis bursts [pos, damage]
 	for i: int in idx:
 		var d: Dictionary = enemy_defs[e_type[i]]
@@ -1366,7 +1408,11 @@ func _process_dead() -> void:
 			else:
 				ab_kills = minf(ab_kills + 1.0, ability_cost())
 		if lysis > 0.0:
-			lysed.append([pos, e_maxhp[i] * lysis])
+			lysed.append([pos, e_maxhp[i] * lysis / _vhp()])  # not scaled by Virulence (like the dash)
+		if feed > 0.0:  # Lab: Feed
+			p_hp = minf(p_max_hp, p_hp + feed)
+		if refuel > 0.0 and p_dash_t > 0.0:  # Lab: Refuel
+			p_dash_cd = maxf(0.0, p_dash_cd - refuel)
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
 		if e_plague[i] > 0.0:
 			spreads.append(pos)
@@ -1389,7 +1435,11 @@ func _process_dead() -> void:
 		if elite:
 			elites_killed += 1
 			_drop_gem(pos, float(data.waves.elites.xp))
-			_drop_chest(pos, int(bal.chests.elite_items))
+			var items := int(bal.chests.elite_items)
+			var tr := float(stats.get("treasure", 0.0))  # Lab: Treasure Sense
+			if tr > 0.0 and rng.randf() < tr:
+				items += int(lab_cfg.get("treasure_items", 1))
+			_drop_chest(pos, items)
 			if float(stats.get("dash_reset", 0.0)) > 0.0:
 				p_dash_charges = dash_max_charges()
 				p_dash_cd = 0.0
@@ -1424,6 +1474,12 @@ func _process_dead() -> void:
 func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
+	var ev := float(stats.get("evasion", 0.0))  # Lab: Evasion (only while moving)
+	if ev > 0.0 and p_move.length_squared() > 0.04 and rng.randf() < ev:
+		dodges += 1
+		p_iframes = 0.25
+		_emit({"type": "dodge", "pos": p_pos})
+		return
 	if float(stats.get("shield", 0.0)) > 0.0 and shield_cd <= 0.0:
 		shield_cd = float(stats.shield)  # Lab: Biofilm eats the hit
 		p_iframes = float(lab_cfg.get("shield_iframes_s", 0.6))
@@ -1432,7 +1488,15 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.get("damage_taken_mult", 1.0))  # frenzy: half damage
 	amount *= float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
-	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
+	if p_hp < p_max_hp * float(lab_cfg.get("last_stand_hp", 0.3)):
+		amount *= 1.0 - clampf(float(stats.get("last_stand", 0.0)), 0.0, 0.8)  # Lab: Last Stand
+	var taken := amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
+	p_hp -= taken
+	if float(stats.get("clot", 0.0)) > 0.0 and p_hp > 0.0:  # Lab: Clotting heals part of it back
+		clot_pool += taken * float(stats.clot)
+		clot_rate = clot_pool / maxf(float(lab_cfg.get("clot_s", 4.0)), 0.1)
+	if float(stats.get("recoil", 0.0)) > 0.0 and p_hp > 0.0:
+		_recoil()
 	p_iframes = float(bal.player.iframes_s) * (1.0 + float(stats.get("iframes_pct", 0.0)))  # Lab: Thick Skin
 	_emit({"type": "hurt", "amount": amount, "from": from})  # from: where the hit came from (HUD direction glow)
 	if p_hp <= 0.0 and rift_state == RIFT_ACTIVE:
@@ -2047,7 +2111,7 @@ func _dash_power(base: float) -> float:
 
 
 func _power_scale() -> float:
-	return _hp_mult() / maxf(float(bal.get("difficulty", {}).get("virulence_hp_mult", 1.0)), 0.0001)
+	return _hp_mult() / _vhp()
 
 
 ## Lunge: everything the dash passes through takes damage once per dash.
@@ -2072,6 +2136,40 @@ func _decoy_blast() -> void:
 
 
 # ============================================================== The Lab
+
+## The part of enemy HP that Virulence added (1 at V1). Damage that keeps up
+## with enemy HP (dash family, Lysis, Volatile) divides it back out.
+func _vhp() -> float:
+	return maxf(float(bal.get("difficulty", {}).get("virulence_hp_mult", 1.0)), 0.0001)
+
+
+func _weapons_owned() -> int:
+	var n := 0
+	for id in owned:
+		if upgrade_defs[id].type == "weapon":
+			n += 1
+	return n
+
+
+## Free Rerolls (Lab): re-rolls the offers without an ad. Returns false if
+## none are left.
+func free_reroll() -> bool:
+	if free_rerolls <= 0 or state != "levelup":
+		return false
+	free_rerolls -= 1
+	reroll_offers()
+	return true
+
+
+## Recoil (Lab): getting hit blasts nearby germs back.
+func _recoil() -> void:
+	var lv := float(stats.recoil)
+	var r := float(lab_cfg.get("recoil_radius", 110.0)) + float(lab_cfg.get("recoil_radius_per_level", 40.0)) * lv
+	var push := float(lab_cfg.get("recoil_knock_per_level", 300.0)) * lv
+	for i: int in query(p_pos, r):
+		e_knock[i] += (e_pos[i] - p_pos).normalized() * push
+	_emit({"type": "recoil", "pos": p_pos, "radius": r})
+
 
 ## Head Start: a second random weapon (not the starting one) at Lv 2.
 func _head_start() -> void:
@@ -2154,7 +2252,7 @@ func equip_ability(id: String, lv: int) -> void:
 	ability = id
 	ability_lv = lv
 	ab = Lab.ability_stats(cfg, id, lv)
-	ab_kills = 0.0
+	ab_kills = ability_cost() * clampf(float(stats.get("start_meters", 0.0)), 0.0, 0.99)  # Lab: Ready to Go
 
 
 func ability_cost() -> float:
@@ -2715,7 +2813,7 @@ func _volatile_bursts(bursts: Array) -> void:
 	_src = "dash"
 	for b in bursts:
 		var pos: Vector2 = b[0]
-		var dmg := float(b[1]) * frac
+		var dmg := float(b[1]) * frac / _vhp()  # not scaled by Virulence (like the dash)
 		var gen: int = b[2]
 		_emit({"type": "volatile", "pos": pos, "radius": radius})
 		for i: int in query(pos, radius):

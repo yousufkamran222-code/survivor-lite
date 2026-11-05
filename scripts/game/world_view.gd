@@ -337,6 +337,10 @@ func consume(events: Array) -> void:
 				add_shake(5.0)
 			"engulfed":
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": GameData.color(str(world.ab.get("color", "#ffffff"))), "r": 12.0, "life": 0.18}, max_fx)
+			"recoil":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.25, "color": Color("#7cc6ff"), "w": 5.0}, max_fx + 4)
+			"dodge":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 40.0, "life": 0.2, "color": IconArt.COLORS.dash, "w": 3.0}, max_fx + 4)
 			"slipstream":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.25, "color": IconArt.COLORS.dash, "w": 3.0}, max_fx + 4)
 				for n in 6:

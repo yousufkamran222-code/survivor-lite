@@ -8,7 +8,10 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 5  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned). Older saves load 0 / empty
+const VERSION := 6  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned); 6: shop tiers split in two. Older saves load 0 / empty
+## v6 split these shop upgrades into twice as many tiers of half the bonus
+## (same cap): a v5 level N becomes 2N, so nobody loses a bonus.
+const META_SPLIT_V6 := ["meta_hp", "meta_might", "meta_haste", "meta_armor", "meta_regen", "meta_move", "meta_magnet", "meta_growth", "meta_greed", "meta_dash_cd", "meta_dash_dmg", "meta_dash_decoy", "meta_convert"]
 const MAX_VIRULENCE := 10
 ## Lifetime counters that only ever grow (summed per run).
 const COUNTERS := ["runs", "wins", "deaths", "kills", "time_played", "elites", "chests", "evolutions", "conversions", "dashes", "bosses", "gold_earned", "genes_earned"]
@@ -52,6 +55,8 @@ static func from_dict(d: Dictionary) -> Profile:
 	var p := Profile.new()
 	p.gold = int(d.get("gold", 0))
 	p.meta_levels = _int_values(d.get("meta_levels", {}))
+	if int(d.get("version", 0)) < 6:
+		_split_meta(p.meta_levels)
 	var st: Dictionary = d.get("settings", {})
 	for k in st:
 		p.settings[k] = st[k]
@@ -82,6 +87,7 @@ static func from_legacy(gold: int, meta_levels: Dictionary, best_time: float, ru
 	var p := Profile.new()
 	p.gold = gold
 	p.meta_levels = _int_values(meta_levels)
+	_split_meta(p.meta_levels)
 	p.settings.muted = muted
 	p.settings.mode = mode
 	p.stats.runs = runs
@@ -91,6 +97,12 @@ static func from_legacy(gold: int, meta_levels: Dictionary, best_time: float, ru
 	if best_times.is_empty() and best_time > 0.0:
 		p._record("classic").best_time = best_time
 	return p
+
+
+static func _split_meta(levels: Dictionary) -> void:
+	for id in levels:
+		if META_SPLIT_V6.has(id):
+			levels[id] = int(levels[id]) * 2
 
 
 static func _int_values(d: Dictionary) -> Dictionary:
@@ -183,6 +195,39 @@ func equip_ability(cfg: Dictionary, id: String) -> bool:
 		return false
 	settings["equipped_ability"] = id
 	return true
+
+
+## Lab nodes that were removed (cfg.retired: id -> old costs) are refunded in
+## full; nodes whose costs changed (cfg.repriced: id -> old costs) refund the
+## difference. Safe to call on every load. Returns the Genes refunded.
+func migrate_lab(cfg: Dictionary, now: int) -> int:
+	var back := 0
+	var retired: Dictionary = cfg.get("retired", {})
+	var repriced: Dictionary = cfg.get("repriced", {})
+	for id in lab.keys():
+		var lv := lab_level(id)
+		if retired.has(id) or Lab.find(cfg, id).is_empty():
+			var old: Array = retired.get(id, [])
+			for k in mini(lv, old.size()):
+				back += int(old[k])
+			lab.erase(id)
+		elif repriced.has(id) and not settings.get("lab_repriced", {}).has(id):
+			var old: Array = repriced[id]
+			var node := Lab.find(cfg, id)
+			for k in mini(lv, old.size()):
+				back += int(old[k])
+			lv = mini(lv, Lab.max_level(node))
+			lab[id] = lv
+			for k in lv:
+				back -= int(node.costs[k])
+	for id in repriced:
+		if not settings.has("lab_repriced"):
+			settings["lab_repriced"] = {}
+		settings.lab_repriced[id] = true  # only once per node
+	if back != 0:
+		genes = maxi(0, genes + back)
+		updated_at = now
+	return back
 
 
 ## Developer tools: free Genes that don't count as earned.

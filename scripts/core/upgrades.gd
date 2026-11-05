@@ -5,7 +5,9 @@ extends RefCounted
 
 const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "regen", "xp_gain", "gold_gain", "armor", "convert", "ally_power", "ally_cap", "hive", "convert_heal", "dash_charges", "dash_damage", "dash_decoy", "dash_cd", "dash_reset", "dash_volatile",
 	# The Lab (data/lab.json) forks and keystones
-	"crit", "max_hp_pct", "elite_damage", "lysis", "shield", "iframes_pct", "second_wind", "dash_cd_pen", "dash_phase", "slipstream", "head_start", "extra_offers", "mutation"]
+	"crit", "max_hp_pct", "elite_damage", "lysis", "shield", "iframes_pct", "second_wind", "dash_cd_pen", "dash_phase", "slipstream", "head_start", "extra_offers", "mutation",
+	"streak_dmg", "overkill", "arsenal", "last_stand", "recoil", "feed", "clot", "momentum", "refuel", "evasion", "wake",
+	"free_rerolls", "start_levels", "start_meters", "treasure"]
 
 
 static func max_level(def: Dictionary) -> int:

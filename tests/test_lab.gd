@@ -47,16 +47,16 @@ func test_branches_have_stat_nodes_fork_and_keystone() -> void:
 func test_tiers_gate_nodes() -> void:
 	var p := _rich()
 	var cfg := _cfg()
-	check_eq(p.buy_lab(cfg, _node("tox_rapid"), 1), 0, "tier 2 locked before tier 1")
-	check(p.buy_lab(cfg, _node("tox_venom"), 1) > 0)
-	check(p.buy_lab(cfg, _node("tox_rapid"), 2) > 0, "tier 2 opens once tier 1 is owned")
+	check_eq(p.buy_lab(cfg, _node("tox_streak"), 1), 0, "tier 2 locked before tier 1")
+	check(p.buy_lab(cfg, _node("tox_burst"), 1) > 0)
+	check(p.buy_lab(cfg, _node("tox_streak"), 2) > 0, "tier 2 opens once tier 1 is owned")
 	check_eq(p.buy_lab(cfg, _node("tox_lysis"), 3), 0, "keystone needs the fork")
 
 
 func test_fork_is_exclusive() -> void:
 	var p := _rich()
 	var cfg := _cfg()
-	for id in ["mem_bulk", "mem_wall", "mem_mend", "mem_biofilm"]:
+	for id in ["mem_last_stand", "mem_recoil", "mem_feed", "mem_clot", "mem_biofilm"]:
 		check(p.buy_lab(cfg, _node(id), 1) > 0, id)
 	check_eq(p.buy_lab(cfg, _node("mem_thick"), 2), 0, "other side of the fork is blocked")
 	check(Lab.fork_blocked(cfg, _node("mem_thick"), p.lab))
@@ -66,16 +66,16 @@ func test_fork_is_exclusive() -> void:
 func test_genes_and_costs() -> void:
 	var p := _rich(2)
 	var cfg := _cfg()
-	check_eq(p.buy_lab(cfg, _node("gen_growth"), 1), 1)
+	check_eq(p.buy_lab(cfg, _node("gen_reroll"), 1), 1)
 	check_eq(p.genes, 1)
-	check_eq(p.buy_lab(cfg, _node("gen_growth"), 1), 0, "level 2 costs 2, only 1 left")
-	check_eq(p.lab_level("gen_growth"), 1)
+	check_eq(p.buy_lab(cfg, _node("gen_reroll"), 1), 0, "level 2 costs 2, only 1 left")
+	check_eq(p.lab_level("gen_reroll"), 1)
 
 
 func test_respec_refunds_genes_for_gold() -> void:
 	var p := _rich(40)
 	var cfg := _cfg()
-	for id in ["fla_glide", "fla_glide", "fla_whip"]:
+	for id in ["fla_momentum", "fla_momentum", "fla_refuel"]:
 		p.buy_lab(cfg, _node(id), 1)
 	var spent := 40 - p.genes
 	check(spent > 0)
@@ -92,19 +92,21 @@ func test_respec_refunds_genes_for_gold() -> void:
 func test_full_lab_costs_and_bonus() -> void:
 	var cfg := _cfg()
 	var full := Lab.full_owned(cfg)
-	check_eq(Lab.full_cost(cfg), 180, "full Lab price (one side of each fork, abilities maxed)")
+	check_eq(Lab.full_cost(cfg), 238, "full Lab price (one side of each fork, abilities maxed)")
 	var bon := Lab.bonus(cfg, full)
-	check_near(float(bon.might), 0.12)
-	check_near(float(bon.max_hp), 30.0)
+	check_near(float(bon.crit), 0.15)
+	check_near(float(bon.last_stand), 0.39)
+	check(not bon.has("might") and not bon.has("max_hp"), "no shop stats in the Lab any more")
 	check(bon.has("lysis") and bon.has("second_wind") and bon.has("slipstream") and bon.has("mutation"))
 	var rb := Progression.run_bonus(data(), {"meta_might": 2}, full)
-	check_near(float(rb.might), 0.12 + 0.08, 0.0001, "shop + Lab add up")
+	check_near(float(rb.might), 0.04, 0.0001, "shop might (2 x 2%)")
+	check_near(float(rb.crit), 0.15, 0.0001, "plus the Lab")
 
 
 func test_effect_text() -> void:
-	check_eq(Lab.effect_text(_node("tox_venom"), 2), "+8% damage")
-	check_eq(Lab.effect_text(_node("mem_mend"), 2), "+0.3 HP per second")
-	check_eq(Lab.effect_text(_node("mem_bulk"), 0), "None yet")
+	check_eq(Lab.effect_text(_node("tox_burst"), 2), "+10% big hit chance (x2 damage)")
+	check_eq(Lab.effect_text(_node("mem_feed"), 2), "+0.1 HP per kill")
+	check_eq(Lab.effect_text(_node("mem_last_stand"), 0), "None yet")
 
 
 # ---------------------------------------------------------------- Genes
@@ -152,28 +154,28 @@ func test_v4_save_loads_with_empty_lab() -> void:
 
 func test_lab_roundtrips() -> void:
 	var p := _rich(9)
-	p.lab = {"tox_venom": 2, "tox_rapid": 1}
+	p.lab = {"tox_burst": 2, "tox_streak": 1}
 	p.abilities = {"stasis": 1}
 	var q := Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())))
 	check_eq(q.genes, 9)
-	check_eq(q.lab_level("tox_venom"), 2)
+	check_eq(q.lab_level("tox_burst"), 2)
 	check_eq(int(q.abilities.stasis), 1)
 	check_eq(int(q.to_dict().version), Profile.VERSION)
-	check_eq(Profile.VERSION, 5)
+	check_eq(Profile.VERSION, 6)
 
 
 func test_merge_keeps_max_and_newer_fork() -> void:
 	var a := Profile.new()
-	a.lab = {"mem_bulk": 3, "mem_biofilm": 1}
+	a.lab = {"mem_last_stand": 3, "mem_biofilm": 1}
 	a.genes = 4
 	a.updated_at = 100
 	var b := Profile.new()
-	b.lab = {"mem_bulk": 1, "mem_thick": 1, "tox_venom": 2}
+	b.lab = {"mem_last_stand": 1, "mem_thick": 1, "tox_burst": 2}
 	b.genes = 20
 	b.updated_at = 50
 	var m := Profile.merge(a, b, _cfg())
-	check_eq(m.lab_level("mem_bulk"), 3, "keeps the higher level")
-	check_eq(m.lab_level("tox_venom"), 2, "keeps nodes only the older copy had")
+	check_eq(m.lab_level("mem_last_stand"), 3, "keeps the higher level")
+	check_eq(m.lab_level("tox_burst"), 2, "keeps nodes only the older copy had")
 	check_eq(m.lab_level("mem_thick"), 0, "the newer copy's fork choice wins")
 	check_eq(m.lab_level("mem_biofilm"), 1)
 	check_eq(m.genes, 4, "spendable Genes come from the newer copy")
@@ -321,3 +323,181 @@ func test_no_lab_no_change() -> void:
 	w.open_banked()
 	check_eq(w.offers.size(), int(w.bal.upgrades.offers_per_level))
 	check_eq(w.mutated_offer, "")
+
+
+# ------------------------------------------------ middle nodes (2026-11-05)
+
+func test_streak_venom() -> void:
+	var w := _world(["tox_streak"])
+	w._add_enemy("brute", Vector2(300, 0))
+	var hp := w.e_hp[0]
+	w._damage(0, 10.0, Vector2.ZERO)
+	check_near(hp - w.e_hp[0], 10.0, 0.001, "no streak, no bonus")
+	w.streak = 60  # tier index 2 (EPIDEMIC) -> 3 tiers
+	hp = w.e_hp[0]
+	w._damage(0, 10.0, Vector2.ZERO)
+	check_near(hp - w.e_hp[0], 10.0 * (1.0 + 0.045 * 3.0), 0.001)
+
+
+func test_overkill_splashes() -> void:
+	var w := _world(["tox_overkill"])
+	w._add_enemy("grunt", Vector2(300, 0))
+	w._add_enemy("brute", Vector2(340, 0))
+	var bhp := w.e_hp[1]
+	var ghp := w.e_hp[0]
+	w._damage(0, ghp + 50.0, Vector2.ZERO)
+	check_near(bhp - w.e_hp[1], 50.0, 0.01, "the excess hits the nearest germ")
+
+
+func test_arsenal_scales_with_weapons() -> void:
+	var base := _world([])
+	var w := _world(["tox_arsenal"])
+	var wid: String = w.bal.start_weapon
+	check_near(float(w.wstats[wid].damage), float(base.wstats[wid].damage) * (1.0 + float(base.stats.might) + 0.06) / (1.0 + float(base.stats.might)), 0.001)
+
+
+func test_last_stand_and_clotting() -> void:
+	var w := _world(["mem_last_stand"])
+	w.p_hp = w.p_max_hp
+	w._hurt(10.0, "grunt")
+	var full_hit := w.p_max_hp - w.p_hp
+	w.p_hp = w.p_max_hp * 0.2
+	w.p_iframes = 0.0
+	var before := w.p_hp
+	w._hurt(10.0, "grunt")
+	check_near(before - w.p_hp, full_hit * 0.61, 0.01, "39% less below 30% HP")
+	var c := _world(["mem_clot"])
+	c._hurt(20.0, "grunt")
+	var after := c.p_hp
+	for i in 300:
+		c._update_player(DT, Vector2.ZERO)
+	check(c.p_hp > after, "part of the hit heals back")
+	check(c.clot_pool < 0.01)
+
+
+func test_recoil_pushes_germs() -> void:
+	var w := _world(["mem_recoil"])
+	w._add_enemy("grunt", Vector2(60, 0))
+	w._rebuild_grid()
+	w._hurt(5.0, "grunt")
+	check(w.e_knock[0].x > 500.0)
+
+
+func test_feed_and_treasure() -> void:
+	var w := _world(["mem_feed", "gen_treasure"])
+	w.stats["treasure"] = 1.0
+	w.p_hp = 50.0
+	w._add_enemy("grunt", Vector2(300, 0))
+	w._add_enemy("grunt", Vector2(-300, 0), true)
+	w._damage(0, 1.0e4, Vector2.ZERO)
+	w._damage(1, 1.0e4, Vector2.ZERO)
+	w._process_dead()
+	check(w.p_hp > 50.0, "kills heal")
+	check_eq(int(w.c_items[0]), int(w.bal.chests.elite_items) + 1, "extra chest item")
+
+
+func test_momentum_builds_while_moving() -> void:
+	var w := _world(["fla_momentum"])
+	for i in 150:
+		w._update_player(DT, Vector2.RIGHT)
+	check_near(w.momentum, 1.0)
+	w._add_enemy("brute", w.p_pos + Vector2(400, 0))
+	var hp := w.e_hp[0]
+	w._damage(0, 10.0, Vector2.ZERO)
+	check_near(hp - w.e_hp[0], 11.5, 0.001, "+15% at full momentum")
+	for i in 150:
+		w._update_player(DT, Vector2.ZERO)
+	check_near(w.momentum, 0.0)
+
+
+func test_refuel_and_evasion() -> void:
+	var w := _world(["fla_refuel"])
+	w.dash()
+	var cd := w.p_dash_cd
+	w._add_enemy("grunt", w.p_pos + Vector2(300, 0))
+	w._damage(0, 1.0e4, Vector2.ZERO)
+	w._process_dead()
+	check_near(w.p_dash_cd, cd - 0.45, 0.001, "a kill mid-dash cuts the cooldown")
+	var e := _world(["fla_evasion"])
+	e.stats["evasion"] = 1.0
+	e.p_move = Vector2.RIGHT
+	e._hurt(20.0, "grunt")
+	check_near(e.p_hp, e.p_max_hp, 0.001, "dodged while moving")
+	e.p_move = Vector2.ZERO
+	e.p_iframes = 0.0
+	e._hurt(20.0, "grunt")
+	check(e.p_hp < e.p_max_hp, "standing still: no dodge")
+
+
+func test_wake_slows_germs_behind() -> void:
+	var a := _world([])
+	var w := _world(["fla_wake"])
+	for x in [a, w]:
+		x.p_vel = Vector2(200, 0)
+		x._add_enemy("grunt", Vector2(-100, 0))
+		x._rebuild_grid()
+		x._update_enemies(DT)
+	check(w.e_pos[0].x < a.e_pos[0].x, "the germ behind moved less")
+
+
+func test_genome_run_start() -> void:
+	var w := _world(["gen_reroll", "gen_bloom", "gen_ready"])
+	check_eq(w.free_rerolls, 3)
+	check_eq(w.level, 3)
+	check_eq(w.pending_levelups, 2)
+	check_near(w.outbreak, 0.5)
+	w.equip_ability("cloak", 1)
+	check_near(w.ab_kills, w.ability_cost() * 0.5)
+	w.open_banked()
+	var first := w.offers.duplicate()
+	check(w.free_reroll())
+	check_eq(w.free_rerolls, 2)
+
+
+# ------------------------------------------------------------ migrations
+
+func test_retired_nodes_refund_genes() -> void:
+	var p := Profile.new()
+	p.genes = 3
+	p.lab = {"tox_venom": 3, "mem_mend": 1, "tox_lysis": 1, "tox_burst": 2}
+	var back := p.migrate_lab(_cfg(), 1)
+	check_eq(back, 6 + 2 + (5 - 3), "venom 1+2+3, mend 2, burst repriced (2+3) -> (1+2)")
+	check_eq(p.genes, 3 + back)
+	check(not p.lab.has("tox_venom") and not p.lab.has("mem_mend"))
+	check_eq(p.lab_level("tox_lysis"), 1, "kept nodes stay")
+	check_eq(p.lab_level("tox_burst"), 2)
+	check_eq(p.migrate_lab(_cfg(), 2), 0, "only once")
+
+
+func test_v5_shop_levels_double() -> void:
+	var p := Profile.from_dict({"version": 5, "meta_levels": {"meta_hp": 3, "meta_amount": 1, "meta_dash_charge": 1}})
+	check_eq(p.meta_level("meta_hp"), 6, "split upgrades: level x2 keeps the bonus")
+	check_eq(p.meta_level("meta_amount"), 1, "unsplit upgrades unchanged")
+	check_eq(p.meta_level("meta_dash_charge"), 1)
+	var q := Profile.from_dict(p.to_dict())
+	check_eq(q.meta_level("meta_hp"), 6, "a v6 save isn't doubled again")
+
+
+func test_shop_caps_unchanged() -> void:
+	var old_caps := {"meta_hp": 100.0, "meta_might": 0.4, "meta_haste": 0.24, "meta_armor": 0.16, "meta_regen": 0.6, "meta_move": 0.24,
+		"meta_magnet": 0.96, "meta_growth": 0.4, "meta_greed": 0.64, "meta_amount": 2.0, "meta_dash_cd": 0.3, "meta_dash_charge": 1.0,
+		"meta_dash_dmg": 40.0, "meta_dash_decoy": 1.5, "meta_convert": 0.05}
+	for m in data().meta:
+		check_near(float(m.per_level) * m.costs.size(), float(old_caps[m.id]), 0.0001, m.id)
+
+
+func test_lysis_ignores_virulence() -> void:
+	var d := GameData.apply_mode(data(), "classic")
+	var full := {"tox_lysis": 1}
+	var hits := []
+	for lv in [1, 9]:
+		var dv := GameData.apply_virulence(d, lv)
+		var w := World.new(dv, 3, Progression.run_bonus(dv, {}, full))
+		w.emit_events = false
+		w._add_enemy("brute", Vector2(400, 0))
+		w._add_enemy("brute", Vector2(420, 0))
+		var hp := w.e_hp[1]
+		w._damage(0, 1.0e7 - 1.0, Vector2.ZERO)
+		w._process_dead()
+		hits.append(hp - w.e_hp[0])
+	check_near(float(hits[1]), float(hits[0]), 0.01, "the same burst at V1 and V9")
