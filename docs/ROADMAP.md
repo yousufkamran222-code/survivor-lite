@@ -146,6 +146,47 @@ Yousuf's design (2026-11-04), all numbers in `balance.rift`:
 - Bot: enters open rifts above 45% HP; in the arena it runs out, turns back past the phage and runs at the Carrier, dashing aside on lock (`--nobait` turns that off); uses the power when crowded. Sim reports `rifts` {opened, entered, won, timeout, ejected, missile_hits, power_uses}.
 - **Phase 2:** more bosses (pattern lists in data), a proper power pool, the full feel pass (entry transition, arena backdrop, victory slow-mo polish). **Phase 3:** rift stats/achievements, maybe a "Rift Rush" mode.
 
+## Next: the Lab + Abilities: **design agreed 2026-11-05, NOT started** (wait for Yousuf's go)
+Yousuf will start this in a new session. Everything below is agreed; numbers marked TBD are for the build session to propose.
+
+**Why:** Virulence (D-027) is tuned so today's maxed shop clears V3-4 and barely V5. The Lab is the second progression layer that pushes players further. **Target (for a human player, not the bot):** full Lab + full shop = an *easy* clear of V7-8 and a *decent* clear of V9-10. Yousuf: don't make major rebalances from bot numbers alone, since players differ.
+
+**Shape**
+- The gold **shop stays** as the flat stats layer. The **Lab** is a second layer: a skill tree of fewer, more interesting nodes.
+- Currency: **Genes**, earned mainly from **Virulence wins** (first clear of a level pays a lot, repeat wins a little; exact amounts TBD). Gold stays for the shop.
+- **4 branches**, each about 7-8 nodes: a few stat nodes, **one exclusive fork** (pick A or B), a **passive keystone** at the end, plus that branch's **ability** unlock (below). About 30 nodes in total.
+- **Respec:** cheap, paid in gold; Genes are refunded.
+- **Mode-specific nodes come later** (a small "Specialisations" row: Swarm +4 ally cap, Infection +25% claim XP, Nucleus towers start at Lv 2).
+
+| Branch | Stat nodes | Fork (pick one) | Keystone | Ability |
+|---|---|---|---|---|
+| **Toxin** (offence) | damage, cooldowns, a "big hit" chance | **Overclock** (weapons +15% speed, −10% max HP) / **Precision** (+25% damage to elites and bosses) | **Lysis:** every kill bursts for 8% of the germ's max HP in a small radius | **Stasis** |
+| **Membrane** (defence) | max HP, armour, regen | **Biofilm** (a shield absorbs one hit, recharging every 20 s) / **Thick skin** (+50% invulnerability time after hits; counters Virulence 6) | **Second Wind:** once per run, at 0 HP survive at 30% with a shockwave (separate from the revive ad) | **Engulf** |
+| **Flagella** (movement + dash) | move speed, dash cooldown, dash damage | **Twin Flagella** (+1 dash charge, +20% cooldown) / **Phase** (dashing through enemy shots destroys them) | **Slipstream:** after a dash, +30% speed for 1.5 s and a damaging wake | **Cloak** |
+| **Genome** (economy + run start) | XP, gold, pickup range | **Head Start** (start with a second random weapon at Lv 2) / **Lucky Strain** (pick 1 of 4 on level-ups) | **Mutation Lab:** each level-up offers one rare "mutated" (stronger) card | **Mitosis** |
+
+**Abilities** (Yousuf's idea; they **replace the Strains concept**, so the game keeps one character)
+- **One equipped ability per run**, on a button **left of DASH**. Reuse the shelved Rift Power button, kill meter and multi-step effect code (`World` "Boss Rift" section: `rift_power*`, `_update_rift_power`; HUD `_draw_rift_power_button`).
+- **Recharge by kills**, like Outbreak (about 150-250 kills per ability, tuned per ability). They should feel like utility and skill (escape, setup, timing), not a second Outbreak (Outbreak = the frenzy panic button).
+- **A separate Abilities menu** lists every ability you've unlocked; pick **one to equip** (sets the game up for many more abilities and for builds, without crowding the HUD). **Later:** a high-level Lab upgrade that lets you switch the equipped ability during a run.
+- Unlock each in the Lab at the end of its branch (Genes); spend more Genes for **ability levels** (longer duration, shorter recharge).
+- First four:
+  - **Cloak:** about 3 s invisible: germs lose track of you, drift to where they last saw you and mill around; your weapons keep firing; your first hit on each germ after uncloaking deals x2 ("ambush"). Different from the Afterimage decoy: everything loses you, not just a few.
+  - **Stasis:** about 3 s time stop: germs, shots and spawns freeze while you move and your weapons fire; when time restarts, a shockwave hits everything nearby, stronger for every kill made during the stop (the rift's frozen-world logic shows how). Strong, so a long recharge.
+  - **Engulf:** about 3 s at 3x size; germs you touch are swallowed whole and heal you a little.
+  - **Mitosis:** a clone fights beside you for about 8 s with your weapons at half power (check bullets against the cap on the cheap phone).
+- Later pool: **Fever Aura** (6 s burning aura, +20% damage taken), **Antigen Mark** (tag every germ on screen: +50% damage taken for 6 s), **Repulse** (huge knockback to the screen edge), **Hijack** (the 10 nearest germs fight for you for 8 s).
+
+**UI**
+- A **LAB** tile on the menu next to UPGRADES. Four vertical columns (one per branch) in a DragScroll; nodes are icon circles joined by lines; forks side by side, the unchosen side greyed out; tapping a node opens the shop-style popup (now → next, cost, big button); keystones get a gold frame and a bigger reveal; a Genes counter and a Respec button.
+- An **ABILITIES** screen (from the Lab, and maybe the mode screen): every unlocked ability as a card (icon, what it does, level, recharge) with EQUIP; locked ones show which branch unlocks them.
+
+**How it fits the code**
+- `data/lab.json` (branches, nodes, costs, forks, effects, abilities and their levels), validated in `GameData.validate()`. Stat nodes reuse `Upgrades.GLOBAL_STATS` like the shop's meta bonus; keystones and abilities need small World hooks (like the dash cards and Rift Powers).
+- Profile **v5**: `genes`, owned Lab nodes and fork choices, unlocked abilities + levels, equipped ability; old saves migrate (bump `Profile.VERSION`, handle in `from_dict`, merge keeps the max). Genes granted on Virulence wins (results screen shows "+N Genes").
+- Sim: `--lab all` (and `--ability <id>`) so a full Lab + shop can be checked against Virulence 7-10; the bot uses the equipped ability when crowded.
+- Scope: CLAUDE.md rule 8 needs "4 Lab keystones + up to N abilities" added when this is built.
+
 ## Step 3: combine
 - Converts on your land stop erosion and patrol its edge. Unguarded land slowly decays.
 - Elites and the boss corrupt chunks of land as they walk.

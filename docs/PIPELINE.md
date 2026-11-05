@@ -313,3 +313,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-05 Developer tools behind a code; unlock all Virulence levels
 - Settings → DEVELOPER opens an on-screen keypad (works on APK and web without a keyboard); the code is `balance.debug.dev_password` (1289) and stays unlocked until the app closes. New toggle "All Virulence levels": every level in every mode selectable (`settings.dev_all_virulence`), records and achievements untouched; off restores real progress. 189 tests.
+
+### 2026-11-05 The Lab + Abilities: design agreed (not started)
+- Discussed with Yousuf and written up in ROADMAP "Next: the Lab + Abilities" (D-028, D-029): Genes from Virulence wins, 4 branches with forks and keystones, cheap gold respec, abilities (Stasis / Engulf / Cloak / Mitosis) with one equipped via an Abilities menu, replacing Strains. Target for players: full Lab + shop clears V7-8 easily, V9-10 decently. He'll start it in a new session.

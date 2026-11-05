@@ -1,12 +1,11 @@
 # Things only you can do (step by step)
 
-## 1. Turn on the web playtest build (2 minutes, do this first)
-1. In the repo on GitHub, go to **Settings → Pages**. Under **Build and deployment → Source**, choose **GitHub Actions**.
-2. Go to **Actions → Web playtest build → Run workflow** and pick the branch (the default branch, or `main` once it exists).
-3. When it finishes (about 3-5 min), the run page shows the URL, something like `https://yousufkamran222-code.github.io/survivor-lite/`. Open it on your phone and use **Add to Home screen** for one-tap access.
-4. From then on, every merge into `main` redeploys automatically.
-
-> If the deploy step says the branch is "not allowed to deploy to github-pages", go to **Settings → Environments → github-pages** and add the branch under deployment branches (or merge into `main`).
+## 1. Web playtest build (itch.io, set up 2026-11-04)
+The web build is on your itch.io project **light213/petri** (restricted page), at light213.itch.io/petri. Claude uploads a new build after every change with `tools/web_push.sh` (using butler and the `BUTLER_API_KEY` you added to the cloud environment); the menu shows the build code so you can tell which version you're playing.
+- If a new Claude session can't upload, check that `BUTLER_API_KEY` is still set in the cloud environment settings (environment menu in the session's title bar → Edit), and as a GitHub repository secret for the backup workflow (**Actions → Web playtest build → Run workflow**).
+- The itch page settings (one-time, already done): "This file will be played in the browser", viewport 720 x 1280, Mobile friendly (portrait), Fullscreen button.
+- A new host starts with an empty save: use Settings → DEVELOPER (code 1289) → +10,000 gold / All Virulence levels.
+- GitHub Pages is no longer used (its deploy step kept timing out).
 
 ## 2. Android signing keystore → GitHub secrets (10 minutes, needed before Play upload)
 Do this once on your PC. Java is required for `keytool`; Android Studio bundles it, or install Temurin JDK 17.
