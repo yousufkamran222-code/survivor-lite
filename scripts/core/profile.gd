@@ -8,10 +8,10 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 4  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected). Older saves load 0 / none
+const VERSION := 5  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned). Older saves load 0 / empty
 const MAX_VIRULENCE := 10
 ## Lifetime counters that only ever grow (summed per run).
-const COUNTERS := ["runs", "wins", "deaths", "kills", "time_played", "elites", "chests", "evolutions", "conversions", "dashes", "bosses", "gold_earned"]
+const COUNTERS := ["runs", "wins", "deaths", "kills", "time_played", "elites", "chests", "evolutions", "conversions", "dashes", "bosses", "gold_earned", "genes_earned"]
 ## Per-mode record fields (kept as maximums).
 const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills", "best_level", "best_infected_pct", "best_conversions", "best_streak", "virulence"]
 
@@ -22,6 +22,10 @@ var settings := {"muted": false, "mode": "infection"}
 var stats := {}  # COUNTERS + "kills_by_type" {enemy: n} + "evolved_ids" {evo: true} + "best_level" + "best_streak"
 var records := {}  # mode id -> {RECORD_FIELDS}
 var achievements := {}  # achievement id -> unix time
+var genes := 0  # Lab currency, earned on Virulence wins (data/lab.json genes)
+var lab := {}  # Lab node id -> level
+var abilities := {}  # ability id -> level (unlocked in the Lab; built in phase 2)
+var last_genes := 0  # Genes the last record_run() granted (results screen)
 var updated_at := 0  # unix time of the last change (cloud conflict resolution)
 
 
@@ -40,6 +44,7 @@ func to_dict() -> Dictionary:
 	return {
 		"version": version, "gold": gold, "meta_levels": meta_levels, "settings": settings,
 		"stats": stats, "records": records, "achievements": achievements, "updated_at": updated_at,
+		"genes": genes, "lab": lab, "abilities": abilities,
 	}
 
 
@@ -66,6 +71,9 @@ static func from_dict(d: Dictionary) -> Profile:
 	for id in d.get("achievements", {}):
 		p.achievements[str(id)] = int(d.achievements[id])
 	p.updated_at = int(d.get("updated_at", 0))
+	p.genes = int(d.get("genes", 0))  # v4 saves: no Lab yet
+	p.lab = _int_values(d.get("lab", {}))
+	p.abilities = _int_values(d.get("abilities", {}))
 	return p
 
 
@@ -130,6 +138,56 @@ func buy_meta(def: Dictionary, now: int) -> int:
 	return cost
 
 
+# ------------------------------------------------------------------ the Lab
+
+func lab_level(id: String) -> int:
+	return int(lab.get(id, 0))
+
+
+## Buys the next level of a Lab node if it's open, not maxed, not the other
+## side of a taken fork, and the Genes cover it. Returns the Genes spent.
+func buy_lab(cfg: Dictionary, node: Dictionary, now: int) -> int:
+	if not Lab.can_buy(cfg, node, lab, genes):
+		return 0
+	var cost := Lab.next_cost(node, lab)
+	genes -= cost
+	lab[node.id] = lab_level(node.id) + 1
+	updated_at = now
+	return cost
+
+
+## Resets the whole Lab for gold (cfg.respec_gold) and refunds every Gene.
+## Returns the Genes refunded, or -1 if the gold doesn't cover it.
+func respec_lab(cfg: Dictionary, now: int) -> int:
+	var price := int(cfg.get("respec_gold", 0))
+	if gold < price:
+		return -1
+	var back := Lab.spent(cfg, lab)
+	gold -= price
+	genes += back
+	lab = {}
+	updated_at = now
+	return back
+
+
+## Developer tools: free Genes that don't count as earned.
+func dev_grant_genes(amount: int, now: int) -> void:
+	genes += amount
+	updated_at = now
+
+
+## Genes for winning `mode` at Virulence `level`: the first clear of a level
+## pays genes_cfg.first_clear[level - 1], a repeat win genes_cfg.repeat_win.
+## Call before record_run() updates the record.
+func genes_for_win(genes_cfg: Dictionary, mode: String, level: int) -> int:
+	if genes_cfg.is_empty():
+		return 0
+	if level > virulence_cleared(mode):
+		var fc: Array = genes_cfg.first_clear
+		return int(fc[clampi(level, 1, fc.size()) - 1])
+	return int(genes_cfg.get("repeat_win", 0))
+
+
 func best_time_any() -> float:
 	var best := 0.0
 	for m in records:
@@ -185,8 +243,13 @@ func _record(mode: String) -> Dictionary:
 
 ## Applies one finished run (see Progression.run_summary). Gold is NOT added
 ## here: the results screen adds it when collected (after a possible 2x ad).
+## Genes from a win (genes_cfg = data/lab.json "genes") ARE added here; the
+## amount is left in last_genes for the results screen.
 ## Returns the achievement definitions newly unlocked by this run.
-func record_run(s: Dictionary, achievement_defs: Array, now: int) -> Array:
+func record_run(s: Dictionary, achievement_defs: Array, now: int, genes_cfg: Dictionary = {}) -> Array:
+	last_genes = genes_for_win(genes_cfg, str(s.mode), int(s.get("virulence", 1))) if s.won else 0
+	genes += last_genes
+	stats.genes_earned = int(stats.genes_earned) + last_genes
 	stats.runs += 1
 	if s.won:
 		stats.wins += 1
@@ -279,7 +342,8 @@ func check_achievements(defs: Array, now: int) -> Array:
 ## no progress is lost: counters, records and meta levels keep the larger
 ## value, achievements are unioned, and spendable gold/settings come from the
 ## more recently updated copy.
-static func merge(a: Profile, b: Profile) -> Profile:
+## lab_cfg (data/lab.json) lets it tell fork partners apart.
+static func merge(a: Profile, b: Profile, lab_cfg: Dictionary = {}) -> Profile:
 	var newer := a if a.updated_at >= b.updated_at else b
 	var older := b if newer == a else a
 	var m := Profile.from_dict(newer.to_dict())
@@ -297,7 +361,22 @@ static func merge(a: Profile, b: Profile) -> Profile:
 		var r := m._record(mode)
 		for f in older.records[mode]:
 			r[f] = maxf(float(r.get(f, 0)), float(older.records[mode][f])) if f == "best_time" else maxi(int(r.get(f, 0)), int(older.records[mode][f]))
+	# Lab: nodes keep the higher level, unless the older copy took the other
+	# side of a fork (the newer copy's choice wins). Genes are spendable, so
+	# they come from the newer copy like gold.
+	for id in older.lab:
+		var other_side := false
+		for nid in m.lab:
+			var na := Lab.find(lab_cfg, id)
+			var nb := Lab.find(lab_cfg, nid)
+			if nid != id and m.lab_level(nid) > 0 and na.has("fork") and nb.get("fork", "") == na.fork:
+				other_side = true
+		if not other_side:
+			m.lab[id] = maxi(m.lab_level(id), int(older.lab[id]))
+	for id in older.abilities:
+		m.abilities[id] = maxi(int(m.abilities.get(id, 0)), int(older.abilities[id]))
 	for id in older.achievements:
 		if not m.achievements.has(id):
 			m.achievements[id] = older.achievements[id]
 	return m
+

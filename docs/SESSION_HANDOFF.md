@@ -136,6 +136,7 @@ scripts/core/             Pure logic (RefCounted, no Nodes), deterministic for a
   upgrades.gd             Stat summing from level tables, offer rolling, GLOBAL_STATS list
   progression.gd          XP curve, run gold, meta bonus/costs/text, run_summary + run_score + metric_value
   profile.gd     (226)    Persistent progress model: stats, records, achievements, merge(), legacy import
+  lab.gd                  The Lab rules: tiers, forks, costs, bonus(), full_owned() (pure)
   game_data.gd            Loads data/*.json, apply_mode() deep-merge, validate() cross-references
   balance_bot.gd          Sim/test "player": dodge, chase loot, loop home in territory, dash, random-ish picks
 scripts/game/
@@ -149,6 +150,7 @@ scripts/ui/
   icon_art.gd    (170)    All vector icons (upgrades, meta, modes, trophy, sound, gold)
   upgrade_icon.gd         Control wrapper for one icon
   meta_shop.gd            Permanent-upgrade shop: tile grid + per-upgrade popup, buy VFX/sfx (MetaShop)
+  lab_screen.gd           The Lab: branch columns, node popup, Genes pill, two-tap respec (LabScreen)
   drag_scroll.gd          ScrollContainer you drag anywhere (momentum; was_dragged() guards taps)
   menu_background.gd      Animated menu backdrop + hero cell
 scripts/autoload/
@@ -258,6 +260,7 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
   - pool unlock times; scripted events: rings, boss at 230 s, final flood
 - **upgrades.json:** 4 weapons (bolt/orbit/nova/chain, 5 levels each; orbit has `blocks_shots`), passives might/haste/swift/vitality/magnet/multishot(2)/regen(3), dash cards flagella2/lunge/afterimage/adrenaline, Swarm-only viral/hive/incubate. Each level row is stat deltas; `desc` is per level, or one string.
 - **evolutions.json:** storm (bolt + multishot), wall (orbit + vitality, heal_on_hit), fever (nova + regen, pulses 2), neural (chain + haste, forks 3).
+- **lab.json:** `genes` {first_clear[10], repeat_win, dev_grant}, `respec_gold`, `tuning` (fork/keystone numbers), 4 `branches` {id, name, role, color, icon, nodes[{id, tier, name, label|desc, fmt, effects {stat: per level}, costs[], fork?, keystone?}]}; validated by `GameData._validate_lab`.
 - **meta.json:** 15 entries `{id, name, stat, per_level, desc, fmt pct|flat, costs[]}`; costs must strictly increase (validated).
 - **modes.json:** infection/swarm/nucleus/classic with overrides plus menu card fields.
 - **balance.json `defense`** (Nucleus mode): nucleus hp/radius/damage taken, aggro_radius, pads, build_s, biomass rates, vents, breathers, max wave wait, respawn, per-wave enemy growth. **towers.json:** towers with per-level stats (`weapon` must be one World knows how to fire: `bolt` for now). **waves.json `defense.waves`:** duration, budget, enemies, vents, elites, boss.
@@ -346,8 +349,9 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 
 ## 10. What's next (prioritised backlog)
 
-**Next (agreed, waiting for Yousuf's go):**
-1. **The Lab + Abilities**: full spec in `docs/ROADMAP.md` "Next: the Lab + Abilities" (D-028, D-029). Build plan in the spec: `data/lab.json`, Profile v5 (Genes, nodes, forks, abilities, equipped), Genes from Virulence wins, LAB and ABILITIES screens, keystones + 4 abilities (Stasis, Engulf, Cloak, Mitosis) reusing the shelved Rift Power button/meter code, sim `--lab all`. Tune for players: full Lab + shop = V7-8 easy, V9-10 decent.
+**Next:**
+1. **Abilities (Lab phase 2)**: Stasis, Engulf, Cloak, Mitosis on a button left of DASH (reuse the shelved Rift Power button/meter: `World` `rift_power*`, HUD `_draw_rift_power_button`), unlock + level nodes per branch in `data/lab.json`, an ABILITIES screen with EQUIP (`Profile.abilities`, `settings.equipped_ability`), sim `--ability <id>`. Spec: ROADMAP "Next: the Lab + Abilities" (D-028, D-029, D-030).
+2. **Lab phase 1 playtest** (built 2026-11-05): are the Gene amounts and node costs fair? Do the forks feel like real choices? Use Settings → Developer "+50 Genes" to try it.
 
 **Awaiting his playtest notes** (ask when he's played):
 - Virulence 1-10 (D-027): does each step feel fair? Is V2 (germs x1.5 HP) too big a jump without upgrades? Where does he get stuck with his upgrades?

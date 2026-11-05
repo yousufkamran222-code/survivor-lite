@@ -189,6 +189,33 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 				ci.draw_line(c + d * k * 0.45, c + d * k * 0.88, col, lw * 2.2)
 			ci.draw_circle(c, k * 0.62, col)
 			ci.draw_circle(c, k * 0.26, Color(0.12, 0.08, 0.22))
+		"lab":
+			# A round flask with bubbling liquid.
+			ci.draw_rect(Rect2(c + Vector2(-k * 0.18, -k * 0.95), Vector2(k * 0.36, k * 0.5)), w)
+			ci.draw_circle(c + Vector2(0, k * 0.25), k * 0.62, w)
+			ci.draw_circle(c + Vector2(0, k * 0.32), k * 0.48, col)
+			ci.draw_circle(c + Vector2(-k * 0.15, k * 0.2), k * 0.1, w)
+			ci.draw_circle(c + Vector2(k * 0.18, k * 0.42), k * 0.07, w)
+		"gene":
+			# A short double helix.
+			var a1 := PackedVector2Array()
+			var a2 := PackedVector2Array()
+			for t in 13:
+				var y := -k * 0.9 + k * 1.8 * t / 12.0
+				var x := sin(t / 12.0 * TAU) * k * 0.5
+				a1.append(c + Vector2(x, y))
+				a2.append(c + Vector2(-x, y))
+				if t % 2 == 1:
+					ci.draw_line(c + Vector2(x, y), c + Vector2(-x, y), Color(w, 0.6), lw * 0.6)
+			ci.draw_polyline(a1, col, lw)
+			ci.draw_polyline(a2, w, lw)
+		"keystone":
+			var star := PackedVector2Array()
+			for t in 10:
+				var a := -PI / 2.0 + TAU * t / 10.0
+				star.append(c + Vector2(cos(a), sin(a)) * k * (0.95 if t % 2 == 0 else 0.42))
+			ci.draw_colored_polygon(star, col)
+			ci.draw_circle(c, k * 0.2, w)
 		"trophy":
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.6, -k * 0.75), c + Vector2(k * 0.6, -k * 0.75), c + Vector2(k * 0.4, -k * 0.05), c + Vector2(-k * 0.4, -k * 0.05)]), col)
 			ci.draw_circle(c + Vector2(0, -k * 0.1), k * 0.4, col)

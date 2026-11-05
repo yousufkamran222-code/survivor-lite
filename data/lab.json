@@ -1,0 +1,72 @@
+{
+  "name": "The Lab",
+  "currency": "Genes",
+  "genes": {
+    "first_clear": [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "repeat_win": 1,
+    "dev_grant": 50
+  },
+  "respec_gold": 150,
+  "tuning": {
+    "crit_mult": 2.0,
+    "lysis_radius": 70,
+    "shield_iframes_s": 0.6,
+    "second_wind_radius": 260,
+    "second_wind_damage": 60,
+    "second_wind_knock": 520,
+    "second_wind_iframes_s": 2.0,
+    "slip_s": 1.5,
+    "slip_speed": 0.3,
+    "slip_damage": 14,
+    "slip_radius": 26,
+    "phase_radius": 34,
+    "head_start_level": 2,
+    "mutation_levels": 2
+  },
+  "branches": [
+    {
+      "id": "toxin", "name": "Toxin", "role": "Offence", "color": "#ff6b8a", "icon": "might",
+      "nodes": [
+        {"id": "tox_venom", "tier": 1, "name": "Venom", "label": "damage", "fmt": "pct", "effects": {"might": 0.04}, "costs": [1, 2, 3]},
+        {"id": "tox_rapid", "tier": 2, "name": "Rapid Secretion", "label": "weapon speed", "fmt": "pct", "effects": {"haste": 0.03}, "costs": [1, 2, 3]},
+        {"id": "tox_burst", "tier": 3, "name": "Toxic Burst", "label": "big hit chance (x2 damage)", "fmt": "pct", "effects": {"crit": 0.05}, "costs": [2, 3]},
+        {"id": "tox_overclock", "tier": 4, "fork": "toxin", "name": "Overclock", "desc": "Weapons +15% speed, but 10% less max HP", "effects": {"haste": 0.15, "max_hp_pct": -0.10}, "costs": [5]},
+        {"id": "tox_precision", "tier": 4, "fork": "toxin", "name": "Precision", "desc": "+25% damage to elites and bosses", "effects": {"elite_damage": 0.25}, "costs": [5]},
+        {"id": "tox_lysis", "tier": 5, "keystone": true, "name": "Lysis", "desc": "Every kill bursts for 8% of the germ's max HP, hitting germs nearby", "effects": {"lysis": 0.08}, "costs": [8]}
+      ]
+    },
+    {
+      "id": "membrane", "name": "Membrane", "role": "Defence", "color": "#7cc6ff", "icon": "armor",
+      "nodes": [
+        {"id": "mem_bulk", "tier": 1, "name": "Bulk", "label": "max HP", "fmt": "flat", "effects": {"max_hp": 10}, "costs": [1, 2, 3]},
+        {"id": "mem_wall", "tier": 2, "name": "Lipid Wall", "label": "damage resist", "fmt": "pct", "effects": {"armor": 0.03}, "costs": [1, 2, 3]},
+        {"id": "mem_mend", "tier": 3, "name": "Self-Repair", "label": "HP per second", "fmt": "flat", "effects": {"regen": 0.15}, "costs": [2, 3]},
+        {"id": "mem_biofilm", "tier": 4, "fork": "membrane", "name": "Biofilm", "desc": "A shield blocks one hit, recharging every 20 s", "effects": {"shield": 20}, "costs": [5]},
+        {"id": "mem_thick", "tier": 4, "fork": "membrane", "name": "Thick Skin", "desc": "+50% invulnerability time after a hit", "effects": {"iframes_pct": 0.5}, "costs": [5]},
+        {"id": "mem_second_wind", "tier": 5, "keystone": true, "name": "Second Wind", "desc": "Once per run, at 0 HP you survive at 30% with a shockwave", "effects": {"second_wind": 0.3}, "costs": [8]}
+      ]
+    },
+    {
+      "id": "flagella", "name": "Flagella", "role": "Movement", "color": "#5ce1e6", "icon": "swift",
+      "nodes": [
+        {"id": "fla_glide", "tier": 1, "name": "Glide", "label": "move speed", "fmt": "pct", "effects": {"move": 0.03}, "costs": [1, 2, 3]},
+        {"id": "fla_whip", "tier": 2, "name": "Whiplash", "label": "dash recharge", "fmt": "pct", "effects": {"dash_cd": 0.05}, "costs": [1, 2, 3]},
+        {"id": "fla_ram", "tier": 3, "name": "Ram", "label": "dash damage", "fmt": "flat", "effects": {"dash_damage": 8}, "costs": [2, 3]},
+        {"id": "fla_twin", "tier": 4, "fork": "flagella", "name": "Twin Flagella", "desc": "+1 dash charge, but dashes recharge 20% slower", "effects": {"dash_charges": 1, "dash_cd_pen": 0.2}, "costs": [5]},
+        {"id": "fla_phase", "tier": 4, "fork": "flagella", "name": "Phase", "desc": "Dashing through enemy shots destroys them", "effects": {"dash_phase": 1}, "costs": [5]},
+        {"id": "fla_slipstream", "tier": 5, "keystone": true, "name": "Slipstream", "desc": "After a dash: +30% speed for 1.5 s and a wake that hurts germs you pass", "effects": {"slipstream": 1}, "costs": [8]}
+      ]
+    },
+    {
+      "id": "genome", "name": "Genome", "role": "Economy", "color": "#7cff9b", "icon": "growth",
+      "nodes": [
+        {"id": "gen_growth", "tier": 1, "name": "Fast Growth", "label": "XP", "fmt": "pct", "effects": {"xp_gain": 0.05}, "costs": [1, 2, 3]},
+        {"id": "gen_hoard", "tier": 2, "name": "Hoarding", "label": "gold", "fmt": "pct", "effects": {"gold_gain": 0.08}, "costs": [1, 2, 3]},
+        {"id": "gen_reach", "tier": 3, "name": "Long Reach", "label": "pickup range", "fmt": "pct", "effects": {"magnet": 0.15}, "costs": [2, 3]},
+        {"id": "gen_head_start", "tier": 4, "fork": "genome", "name": "Head Start", "desc": "Start each run with a second random weapon at Lv 2", "effects": {"head_start": 1}, "costs": [5]},
+        {"id": "gen_lucky", "tier": 4, "fork": "genome", "name": "Lucky Strain", "desc": "Level-ups offer 4 cards instead of 3", "effects": {"extra_offers": 1}, "costs": [5]},
+        {"id": "gen_mutation", "tier": 5, "keystone": true, "name": "Mutation Lab", "desc": "Each level-up offers one mutated card that gives 2 levels at once", "effects": {"mutation": 1}, "costs": [8]}
+      ]
+    }
+  ]
+}

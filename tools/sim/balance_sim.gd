@@ -9,7 +9,8 @@ extends SceneTree
 ## --json PATH, --free (Nucleus: keep going into Free Mode after the win),
 ## --order guard|hunt|harvest (Swarm: the bot keeps that order),
 ## --set key.path=value,... (override balance numbers, or waves.* ones, for a tuning run),
-## --level N (Virulence level, 1-10)
+## --level N (Virulence level, 1-10),
+## --lab all|alt (a maxed Lab on top of --meta or alone; all = first side of each fork, alt = second side)
 
 const DT := 1.0 / 30.0
 
@@ -46,6 +47,18 @@ func _initialize() -> void:
 		for m in d.meta:
 			levels[m.id] = m.costs.size()
 		meta = Progression.meta_bonus(d.meta, levels)
+	if args.has("lab"):
+		var owned := Lab.full_owned(d.lab)
+		if str(args.lab) == "alt":
+			for n in Lab.nodes(d.lab):
+				if n.has("fork"):
+					if owned.has(n.id):
+						owned.erase(n.id)
+					else:
+						owned[n.id] = Lab.max_level(n)
+		var lb := Lab.bonus(d.lab, owned)
+		for k in lb:
+			meta[k] = float(meta.get(k, 0.0)) + float(lb[k])
 	var results := []
 	var t0 := Time.get_ticks_msec()
 	for r in runs:

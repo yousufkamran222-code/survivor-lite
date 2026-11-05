@@ -361,6 +361,16 @@ func _handle_events(events: Array) -> void:
 				Sfx.play("nova")
 			"chain":
 				Sfx.play("chain")
+			"shield_block":
+				Sfx.play("deny", 0.0, 1.4)
+				Sfx.vibrate(25)
+			"second_wind":
+				Sfx.play("evolve", 0.0, 0.8)
+				Sfx.vibrate(150)
+				hud.toast("SECOND WIND!", pal.ui_accent, 2.0)
+				hitstop = maxf(hitstop, 0.12)
+			"slipstream":
+				Sfx.play("dash", 0.0, 1.3)
 			"hurt":
 				var from: Vector2 = ev.get("from", Vector2.INF)
 				if from != Vector2.INF and from != world.p_pos:
@@ -555,7 +565,7 @@ func _on_streak_milestone(ev: Dictionary) -> void:
 
 
 func _start_run() -> void:
-	var meta := Progression.meta_bonus(data.meta, Save.meta_levels)
+	var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
 	var mode_id: String = _current_mode().id
 	world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
 	view.set_world(world)
@@ -671,6 +681,7 @@ func _show_menu() -> void:
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 12)
 	bottom.add_child(_tile_button("gold", pal.ui_accent, "UPGRADES", _show_shop))
+	bottom.add_child(_tile_button("lab", LabScreen.GENE, "LAB", _show_lab))
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
 	bottom.add_child(_tile_button("settings", pal.player_nucleus, "SETTINGS", _show_settings))
 	col.add_child(bottom)
@@ -849,6 +860,17 @@ func _show_shop() -> void:
 	UiKit.fade_in(shop)
 
 
+## The Lab: Genes-paid skill tree (LabScreen).
+func _show_lab() -> void:
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	var lab := LabScreen.new()
+	lab.setup(data.lab, pal, _menu[0], _show_menu)
+	col.add_child(lab)
+	UiKit.fade_in(lab)
+
+
 ## "build abc1234 #12" from data/build_info.json (written by CI), else "dev build".
 func _build_label() -> String:
 	if not FileAccess.file_exists("res://data/build_info.json"):
@@ -961,7 +983,12 @@ func _upgrade_card(id: String) -> Button:
 	var boosts := false  # a permanent upgrade already gives this card's effect
 	for k in def.levels[0]:
 		boosts = boosts or float(world.meta_bonus.get(k, 0.0)) > 0.0
-	if nl == 1 and boosts and def.type != "weapon":
+	if id == world.mutated_offer:
+		top.add_child(UiKit.chip("MUTATED  +2 LV", LabScreen.GENE))
+		sb.border_color = LabScreen.GENE
+		sb.set_border_width_all(4)
+		sb.border_width_left = 8
+	elif nl == 1 and boosts and def.type != "weapon":
 		top.add_child(UiKit.chip("BOOST", Color(1, 1, 1, 0.85)))
 	elif nl == 1:
 		top.add_child(UiKit.chip("NEW " + ("WEAPON" if def.type == "weapon" else ""), accent))
@@ -1274,7 +1301,7 @@ func _show_results(won: bool) -> void:
 	var prev_best := int(Save.profile.record(mid).get("best_score", 0))
 	var prev_cleared := Save.profile.virulence_cleared(mid)
 	_summary = Progression.run_summary(world, won, mid, data.online.score)
-	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now())
+	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now(), data.lab.genes)
 	_virulence_cleared = 0
 	if won and Save.profile.virulence_cleared(mid) > prev_cleared:
 		_virulence_cleared = Save.profile.virulence_cleared(mid)
@@ -1312,6 +1339,12 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 			UiKit.fade_in(chip, 0.5)
 	elif vl > 1:
 		col.add_child(UiKit.label("Virulence %d" % vl, 22, Color("#ff5a7a")))
+	if Save.profile.last_genes > 0:
+		var gchip := UiKit.chip("+%d GENES  (spend them in the Lab)" % Save.profile.last_genes, LabScreen.GENE, Color(0.04, 0.12, 0.08), 22)
+		gchip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		col.add_child(gchip)
+		if animate:
+			UiKit.fade_in(gchip, 0.7)
 	# Stats card.
 	var card := UiKit.panel(Color("#2a1f4a"), Color(1, 1, 1, 0.08), 22, 18)
 	var grid := GridContainer.new()

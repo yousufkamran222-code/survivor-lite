@@ -318,6 +318,21 @@ func consume(events: Array) -> void:
 				add_shake(5.0)
 			"volatile":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.25, "color": IconArt.COLORS.dash}, max_fx + 4)
+			# The Lab (data/lab.json): forks and keystones.
+			"lysis":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.22, "color": Color("#ff6b8a"), "w": 3.0}, max_fx)
+			"shield_block":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": world.p_radius * 2.4, "life": 0.3, "color": Color("#7cc6ff"), "w": 6.0}, max_fx + 4)
+				for n in 8:
+					var a := TAU * n / 8.0
+					_add_fx({"kind": "dot", "pos": ev.pos + Vector2(cos(a), sin(a)) * world.p_radius * 1.6, "vel": Vector2(cos(a), sin(a)) * 200.0, "color": Color("#7cc6ff"), "r": 4.0, "life": 0.3}, max_fx + 12)
+				add_shake(4.0)
+			"second_wind":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius * 0.6, "life": 0.5, "color": Color.WHITE, "w": 8.0}, max_fx + 4)
+				add_shake(14.0)
+				add_zoom_punch(float(juice.get("cam_punch_elite", 0.0)))
+			"slipstream":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 60.0, "life": 0.25, "color": IconArt.COLORS.dash, "w": 3.0}, max_fx + 4)
 				for n in 6:
 					var a := randf() * TAU
 					_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 360), "color": IconArt.COLORS.dash, "r": 4.0, "life": 0.3}, max_fx + 20)
@@ -995,6 +1010,10 @@ func _draw_player(ci: CanvasItem) -> void:
 		ci.draw_texture_rect(_disc_tex, Rect2(-gr, -gr, gr * 2.0, gr * 2.0), false, Color(pal.outbreak, 0.35))
 	var q := r / ShapeTextures.CELL_BODY
 	ci.draw_texture_rect(_cell_tex, Rect2(-q, -q, q * 2.0, q * 2.0), false, body)
+	if float(world.stats.get("shield", 0.0)) > 0.0 and world.shield_cd <= 0.0:
+		ci.draw_arc(Vector2.ZERO, r * 1.45, 0, TAU, 28, Color("#7cc6ff", 0.55 + 0.2 * sin(_cell_t * 3.0)), 3.0)  # Lab: Biofilm is up
+	if world.slip_t > 0.0:
+		ci.draw_arc(Vector2.ZERO, r * 1.3, 0, TAU, 24, Color(IconArt.COLORS.dash, 0.6), 2.0)  # Lab: Slipstream
 	ci.draw_set_transform(p, 0.0, Vector2(sx * 0.5 + 0.5, sy * 0.5 + 0.5))
 	# Nucleus leads the turn, with a small highlight.
 	var nc := Vector2.from_angle(_face) * r * 0.28
@@ -1077,6 +1096,10 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 				"vel": Vector2(randf_range(-spread, spread), -float(juice.get("num_rise", 0.0))), "grav": float(juice.get("num_grav", 0.0)), "killed": false}
 			_add_fx(f, max_fx)
 			_num_by_uid[uid] = f
+	if ev.get("crit", false):  # Lab: Toxic Burst big hit
+		for n in 3:
+			var a := randf() * TAU
+			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 340), "color": Color("#ff6b8a"), "r": 3.5, "life": 0.2}, max_fx)
 	if _sparks_left > 0:
 		_sparks_left -= 1
 		for n in 2:

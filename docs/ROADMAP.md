@@ -146,8 +146,12 @@ Yousuf's design (2026-11-04), all numbers in `balance.rift`:
 - Bot: enters open rifts above 45% HP; in the arena it runs out, turns back past the phage and runs at the Carrier, dashing aside on lock (`--nobait` turns that off); uses the power when crowded. Sim reports `rifts` {opened, entered, won, timeout, ejected, missile_hits, power_uses}.
 - **Phase 2:** more bosses (pattern lists in data), a proper power pool, the full feel pass (entry transition, arena backdrop, victory slow-mo polish). **Phase 3:** rift stats/achievements, maybe a "Rift Rush" mode.
 
-## Next: the Lab + Abilities: **design agreed 2026-11-05, NOT started** (wait for Yousuf's go)
-Yousuf will start this in a new session. Everything below is agreed; numbers marked TBD are for the build session to propose.
+## Next: the Lab + Abilities: **phase 1 (the Lab) built 2026-11-05; phase 2 (Abilities) next**
+**Phase 1 done:** `data/lab.json` (4 branches × 3 stat nodes + fork + keystone = 24 nodes, 120 Genes for a full Lab), Profile v5 (`genes`, `lab`, `abilities`, `stats.genes_earned`), Genes on Virulence wins (first clear V1..V10 = 3..12, repeat win 1; "+N GENES" chip on results), LAB tile + screen (columns, lines, fork greying, keystone gold ring, shop-style popup, two-tap RESPEC for 150 gold), all fork/keystone effects in World with tests (`tests/test_lab.gd`), in-run feedback (shield ring, Second Wind toast, Lysis rings, crit sparks, MUTATED card), dev tools "+50 Genes", sim `--lab all|alt`.
+**Phase 1 numbers (proposed, untested by players):** stat nodes Venom +4% dmg ×3, Rapid Secretion +3% speed ×3, Toxic Burst 5% x2-hit ×2; Bulk +10 HP ×3, Lipid Wall +3% resist ×3, Self-Repair +0.15 regen ×2; Glide +3% move ×3, Whiplash +5% dash recharge ×3, Ram +8 dash dmg ×2; Fast Growth +5% XP ×3, Hoarding +8% gold ×3, Long Reach +15% pickup ×2. Costs 1/2/3 (tier 3: 2/3), forks 5, keystones 8. Mutation Lab = one card per level-up gives 2 levels.
+**Phase 2 (next):** the 4 abilities, the ABILITIES screen, ability unlock/level nodes at the end of each branch.
+
+Everything below is the agreed design.
 
 **Why:** Virulence (D-027) is tuned so today's maxed shop clears V3-4 and barely V5. The Lab is the second progression layer that pushes players further. **Target (for a human player, not the bot):** full Lab + full shop = an *easy* clear of V7-8 and a *decent* clear of V9-10. Yousuf: don't make major rebalances from bot numbers alone, since players differ.
 

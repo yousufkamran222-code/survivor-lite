@@ -151,6 +151,15 @@ func _dev_rows() -> void:
 		refund.text = "Refunded %d" % back)
 	row.add_child(refund)
 	add_child(row)
+	var genes_amt := int(GameData.load_json("res://data/lab.json").get("genes", {}).get("dev_grant", 50))
+	var genes := UiKit.button("+%d Genes (Lab)" % genes_amt, func() -> void: pass, 70)
+	genes.add_theme_font_size_override("font_size", 22)
+	genes.pressed.connect(func() -> void:
+		Save.profile.dev_grant_genes(genes_amt, Save.now())
+		Save.write()
+		Sfx.play("upgrade", 0.0)
+		genes.text = "Genes: %d" % Save.profile.genes)
+	add_child(genes)
 	add_child(_choice_row("All Virulence levels", ["Off", "On"], 1 if Save.profile.dev_all_virulence() else 0, func(i: int) -> void:
 		Save.profile.settings["dev_all_virulence"] = i == 1
 		Save.write()))

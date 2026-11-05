@@ -3,7 +3,9 @@ extends RefCounted
 ## Upgrade maths. Each upgrade's "levels" array holds stat deltas; the stats at
 ## level N are the sum of the first N entries.
 
-const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "regen", "xp_gain", "gold_gain", "armor", "convert", "ally_power", "ally_cap", "hive", "convert_heal", "dash_charges", "dash_damage", "dash_decoy", "dash_cd", "dash_reset", "dash_volatile"]
+const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "regen", "xp_gain", "gold_gain", "armor", "convert", "ally_power", "ally_cap", "hive", "convert_heal", "dash_charges", "dash_damage", "dash_decoy", "dash_cd", "dash_reset", "dash_volatile",
+	# The Lab (data/lab.json) forks and keystones
+	"crit", "max_hp_pct", "elite_damage", "lysis", "shield", "iframes_pct", "second_wind", "dash_cd_pen", "dash_phase", "slipstream", "head_start", "extra_offers", "mutation"]
 
 
 static func max_level(def: Dictionary) -> int:

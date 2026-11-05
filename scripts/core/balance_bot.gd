@@ -114,6 +114,8 @@ func move(w: World) -> Vector2:
 
 
 func pick(w: World) -> String:
+	if w.mutated_offer != "" and rng.randf() < 0.7:  # Lab: Mutation Lab (2 levels at once)
+		return w.mutated_offer
 	var weapons := []
 	for id in w.offers:
 		if w.upgrade_defs[id].type == "weapon":

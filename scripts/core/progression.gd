@@ -30,6 +30,16 @@ static func meta_bonus(meta_defs: Array, meta_levels: Dictionary) -> Dictionary:
 	return out
 
 
+## Everything permanent a run starts with: the gold shop plus the Lab
+## (data/lab.json, owned = {node id: level}), as one {stat: bonus}.
+static func run_bonus(d: Dictionary, meta_levels: Dictionary, lab_owned: Dictionary) -> Dictionary:
+	var out := meta_bonus(d.meta, meta_levels)
+	var lb := Lab.bonus(d.get("lab", {}), lab_owned)
+	for k in lb:
+		out[k] = float(out.get(k, 0.0)) + float(lb[k])
+	return out
+
+
 ## Human-readable current total, e.g. "+12%" or "+30" ("" at level 0).
 static func meta_total_text(meta_def: Dictionary, level: int) -> String:
 	if level <= 0:

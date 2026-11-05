@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab"]
 const VIRULENCE_MODS := ["enemy_speed_mult", "knock_resist_add", "budget_mult", "ranged_weight_mult", "shot_speed_mult", "iframes_mult",
 	"final_minute_s", "breather_mult", "boss_time_s", "boss_burst_mult", "damage_taken_mult", "enemy_hp_mult"]
 
@@ -215,6 +215,7 @@ static func validate(d: Dictionary) -> Array:
 				errors.append("achievement %s needs a positive goal" % a.id)
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
+	_validate_lab(d, errors)
 	# Virulence: 10 levels, known modifiers only.
 	var diffd: Dictionary = d.get("difficulty", {})
 	if diffd.get("levels", []).size() != 10:
@@ -349,3 +350,41 @@ static func _validate_hints(d: Dictionary, errors: Array) -> void:
 			seen[id] = true
 			if not hint.has("at") and not hint.has("event"):
 				errors.append("hints: '%s' needs 'at' or 'event'" % id)
+
+
+## The Lab (data/lab.json): known stats, unique ids, rising tiers that start
+## at 1, a fork pair per branch and costs > 0.
+static func _validate_lab(d: Dictionary, errors: Array) -> void:
+	if not d.has("lab") or d.lab.is_empty():
+		return
+	var ids := {}
+	for b in d.lab.branches:
+		var tiers := {}
+		var forks := {}
+		for n in b.nodes:
+			if ids.has(n.id):
+				errors.append("lab node %s is duplicated" % n.id)
+			ids[n.id] = true
+			tiers[int(n.tier)] = true
+			if n.costs.is_empty():
+				errors.append("lab node %s has no costs" % n.id)
+			for c in n.costs:
+				if int(c) <= 0:
+					errors.append("lab node %s has a cost <= 0" % n.id)
+			if n.effects.is_empty():
+				errors.append("lab node %s has no effects" % n.id)
+			for k in n.effects:
+				if not Upgrades.GLOBAL_STATS.has(k):
+					errors.append("lab node %s uses unknown stat '%s'" % [n.id, k])
+			if not n.has("desc") and str(n.get("label", "")) == "":
+				errors.append("lab node %s needs a 'desc' or a 'label'" % n.id)
+			if n.has("fork"):
+				forks[n.fork] = int(forks.get(n.fork, 0)) + 1
+		for t in range(1, tiers.size() + 1):
+			if not tiers.has(t):
+				errors.append("lab branch %s skips tier %d" % [b.id, t])
+		for f in forks:
+			if int(forks[f]) != 2:
+				errors.append("lab fork %s needs exactly 2 nodes" % f)
+	if d.lab.genes.first_clear.size() != Profile.MAX_VIRULENCE:
+		errors.append("lab.genes.first_clear needs one entry per Virulence level")

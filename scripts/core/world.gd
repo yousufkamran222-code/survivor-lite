@@ -78,6 +78,17 @@ var _dash_hits := {}  # enemy uids Lunge already hit during this dash
 var decoy_pos := Vector2.ZERO  # Afterimage decoy (enemies nearby chase it)
 var decoy_t := 0.0
 var decoy_cd := 0.0  # Afterimage has its own cooldown, separate from the dash
+
+# --- The Lab (data/lab.json; stats come in through meta_bonus) ---
+var lab_cfg: Dictionary = {}  # data.lab.tuning
+var shield_cd := 0.0  # Biofilm: time until the shield is back (0 = up)
+var second_wind_used := false
+var slip_t := 0.0  # Slipstream: time left on the post-dash boost
+var _slip_hits := {}  # enemy uids the Slipstream wake already hit
+var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = none)
+var head_start_weapon := ""
+var crits := 0
+var lysis_bursts := 0
 var _volatile := {}  # enemy uid -> chain generation, for germs killed by the dash (Volatile)
 
 # --- Outbreak meter: kills fill it; when full the player triggers a frenzy ---
@@ -327,7 +338,10 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	p_radius = float(bal.player.radius)
 	xp_next = Progression.xp_needed(bal, 1)
 	owned[bal.start_weapon] = 1
+	lab_cfg = data.get("lab", {}).get("tuning", {})
 	_recompute_stats()
+	if float(stats.get("head_start", 0.0)) > 0.0:
+		_head_start()
 	p_hp = p_max_hp
 	p_dash_charges = dash_max_charges()  # permanent extra charges start full
 
@@ -422,8 +436,13 @@ func choose_upgrade(id: String) -> void:
 	if state != "levelup" or not offers.has(id):
 		return
 	_apply_level(id)
+	var mutated := id == mutated_offer and next_level_of(id) <= Upgrades.max_level(upgrade_defs[id])
+	for k in (int(lab_cfg.get("mutation_levels", 2)) - 1 if mutated else 0):
+		if next_level_of(id) <= Upgrades.max_level(upgrade_defs[id]):
+			_apply_level(id)
 	pending_levelups -= 1
 	offers = []
+	mutated_offer = ""
 	state = "playing"
 	_emit({"type": "upgrade", "id": id, "level": owned[id]})
 	if pending_levelups > 0:
@@ -491,7 +510,8 @@ func dash_max_charges() -> int:
 func dash_cooldown() -> float:
 	var meta_cut := float(meta_bonus.get("dash_cd", 0.0))
 	var card_cut := float(stats.get("dash_cd", 0.0)) - meta_cut
-	return float(bal.player.dash_cooldown_s) * maxf(0.3, (1.0 - meta_cut) * (1.0 - card_cut))
+	var pen := 1.0 + float(stats.get("dash_cd_pen", 0.0))  # Lab: Twin Flagella
+	return float(bal.player.dash_cooldown_s) * maxf(0.3, (1.0 - meta_cut) * (1.0 - card_cut)) * pen
 
 
 ## Called when the chest reveal has been shown. Rewards were already applied.
@@ -523,6 +543,7 @@ func is_elite(i: int) -> bool:
 func reroll_offers() -> void:
 	if state == "levelup":
 		offers = _roll()
+		_pick_mutation()
 
 
 func revive() -> void:
@@ -600,7 +621,7 @@ func _emit(ev: Dictionary) -> void:
 
 func _recompute_stats() -> void:
 	stats = Upgrades.global_stats(upgrade_defs, owned, meta_bonus)
-	p_max_hp = float(bal.player.max_hp) + float(stats.max_hp)
+	p_max_hp = (float(bal.player.max_hp) + float(stats.max_hp)) * maxf(0.1, 1.0 + float(stats.get("max_hp_pct", 0.0)))
 	wstats.clear()
 	for id in owned:
 		var def: Dictionary = upgrade_defs[id]
@@ -641,6 +662,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 		p_dash_cd = 0.0
 	if decoy_cd > 0.0:
 		decoy_cd -= dt
+	if shield_cd > 0.0:
+		shield_cd -= dt
 	if decoy_t > 0.0:
 		decoy_t -= dt
 		if decoy_t <= 0.0:
@@ -650,10 +673,20 @@ func _update_player(dt: float, move: Vector2) -> void:
 		p_pos += p_dash_dir * float(bal.player.dash_speed) * dt
 		if float(stats.get("dash_damage", 0.0)) > 0.0:
 			_lunge_hits()
+		if float(stats.get("dash_phase", 0.0)) > 0.0:
+			_block_shots(p_pos, float(lab_cfg.get("phase_radius", 34.0)))  # Lab: Phase
+		if p_dash_t <= 0.0 and float(stats.get("slipstream", 0.0)) > 0.0:
+			slip_t = float(lab_cfg.get("slip_s", 1.5))  # Lab: Slipstream
+			_slip_hits = {}
+			_emit({"type": "slipstream", "pos": p_pos})
 		# Leave the dash still moving that way (eases out instead of a dead stop).
 		p_vel = p_dash_dir * float(bal.player.speed) * (1.0 + float(stats.move))
 	else:
 		var spd := float(bal.player.speed) * (1.0 + float(stats.move))
+		if slip_t > 0.0:
+			slip_t -= dt
+			spd *= 1.0 + float(lab_cfg.get("slip_speed", 0.3))
+			_slip_wake()
 		var target := m * spd
 		var pl: Dictionary = bal.player
 		# A touch of weight: reach full speed in accel_s, stop in decel_s.
@@ -991,6 +1024,16 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
+	var crit := false
+	if amount < 1.0e5 and e_team[i] == 0:
+		var ed := float(stats.get("elite_damage", 0.0))  # Lab: Precision
+		if ed > 0.0 and (e_elite[i] == 1 or d.behavior == "boss" or e_uid[i] == rift_uid):
+			amount *= 1.0 + ed
+		var cc := float(stats.get("crit", 0.0))  # Lab: Toxic Burst
+		if cc > 0.0 and _src != "allies" and rng.randf() < cc:
+			amount *= float(lab_cfg.get("crit_mult", 2.0))
+			crit = true
+			crits += 1
 	var eff := minf(amount, e_hp[i])  # effective damage (no overkill)
 	e_hp[i] -= amount
 	damage_dealt += eff
@@ -1009,7 +1052,7 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		resist = maxf(resist, minf(resist + _v_resist, 0.95))
 	e_knock[i] += knock * (1.0 - resist)
 	if show:
-		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0)})
+		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0), "crit": crit})
 	if e_hp[i] <= 0.0:
 		_dead[i] = true
 
@@ -1254,6 +1297,8 @@ func _process_dead() -> void:
 	_dead = {}
 	var bursts := []  # Volatile explosions from germs the dash killed
 	var spreads := []  # plague jumps from infected germs that died
+	var lysis := float(stats.get("lysis", 0.0))
+	var lysed := []  # Lab: Lysis bursts [pos, damage]
 	for i: int in idx:
 		var d: Dictionary = enemy_defs[e_type[i]]
 		var pos := e_pos[i]
@@ -1274,6 +1319,8 @@ func _process_dead() -> void:
 			rp_kills = minf(rp_kills + 1.0, rift_power_cost())
 		kills += 1
 		_add_streak()
+		if lysis > 0.0:
+			lysed.append([pos, e_maxhp[i] * lysis])
 		kills_by_type[d.id] = int(kills_by_type.get(d.id, 0)) + 1
 		if e_plague[i] > 0.0:
 			spreads.append(pos)
@@ -1324,20 +1371,30 @@ func _process_dead() -> void:
 				e_plague[k] = maxf(e_plague[k], float(o.infect_s))
 	if not bursts.is_empty():
 		_volatile_bursts(bursts)
+	if not lysed.is_empty():
+		_lysis_bursts(lysed)
 
 
 func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	if bal.get("debug", {}).get("invincible", false):
 		return
+	if float(stats.get("shield", 0.0)) > 0.0 and shield_cd <= 0.0:
+		shield_cd = float(stats.shield)  # Lab: Biofilm eats the hit
+		p_iframes = float(lab_cfg.get("shield_iframes_s", 0.6))
+		_emit({"type": "shield_block", "pos": p_pos, "from": from})
+		return
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.get("damage_taken_mult", 1.0))  # frenzy: half damage
 	amount *= float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
 	p_hp -= amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
-	p_iframes = float(bal.player.iframes_s)
+	p_iframes = float(bal.player.iframes_s) * (1.0 + float(stats.get("iframes_pct", 0.0)))  # Lab: Thick Skin
 	_emit({"type": "hurt", "amount": amount, "from": from})  # from: where the hit came from (HUD direction glow)
 	if p_hp <= 0.0 and rift_state == RIFT_ACTIVE:
 		p_hp = 1.0  # a rift can't kill you: thrown out at 1 HP with a frozen head start
 		_rift_exit("eject")
+		return
+	if p_hp <= 0.0 and float(stats.get("second_wind", 0.0)) > 0.0 and not second_wind_used:
+		_second_wind()
 		return
 	if p_hp <= 0.0:
 		p_hp = 0.0
@@ -1465,7 +1522,8 @@ func _levelup_wave() -> void:
 
 func _roll() -> Array:
 	var u: Dictionary = bal.upgrades
-	return Upgrades.roll_offers(_offerable(), owned, rng, int(u.offers_per_level), int(u.max_weapons), float(u.owned_weight_mult))
+	var n := int(u.offers_per_level) + int(stats.get("extra_offers", 0.0))  # Lab: Lucky Strain
+	return Upgrades.roll_offers(_offerable(), owned, rng, n, int(u.max_weapons), float(u.owned_weight_mult))
 
 
 ## Upgrades that make sense right now: a card with "requires_stat" (Volatile
@@ -1481,6 +1539,7 @@ func _offerable() -> Array:
 
 func _open_levelup() -> void:
 	offers = _roll()
+	_pick_mutation()
 	if offers.is_empty():
 		pending_levelups = 0
 		p_hp = minf(p_max_hp, p_hp + p_max_hp * float(bal.upgrades.heal_when_all_maxed))
@@ -1956,6 +2015,78 @@ func _decoy_blast() -> void:
 	for i: int in query(decoy_pos, float(pl.decoy_blast_radius)):
 		_damage(i, dmg, (e_pos[i] - decoy_pos).normalized() * 220.0)
 	_emit({"type": "nova", "pos": decoy_pos, "radius": float(pl.decoy_blast_radius)})
+
+
+# ============================================================== The Lab
+
+## Head Start: a second random weapon (not the starting one) at Lv 2.
+func _head_start() -> void:
+	var pool := []
+	for u in upgrade_list:
+		if u.type == "weapon" and not owned.has(u.id):
+			pool.append(u.id)
+	if pool.is_empty():
+		return
+	head_start_weapon = pool[rng.randi() % pool.size()]
+	for k in mini(int(lab_cfg.get("head_start_level", 2)), Upgrades.max_level(upgrade_defs[head_start_weapon])):
+		_apply_level(head_start_weapon)
+
+
+## Mutation Lab: one offer (that has 2+ levels left) gives 2 levels at once.
+func _pick_mutation() -> void:
+	mutated_offer = ""
+	if float(stats.get("mutation", 0.0)) <= 0.0:
+		return
+	var ok := []
+	for id in offers:
+		if next_level_of(id) + 1 <= Upgrades.max_level(upgrade_defs[id]):
+			ok.append(id)
+	if not ok.is_empty():
+		mutated_offer = ok[rng.randi() % ok.size()]
+
+
+## Lysis: each kill bursts for a share of its max HP on germs nearby. Kills
+## from a burst are processed next step (so chains can happen, one ring per step).
+func _lysis_bursts(lysed: Array) -> void:
+	var r := float(lab_cfg.get("lysis_radius", 70.0))
+	var prev := _src
+	_src = "lysis"
+	for b in lysed:
+		var at: Vector2 = b[0]
+		lysis_bursts += 1
+		for k: int in query(at, r):
+			_damage(k, float(b[1]), (e_pos[k] - at).normalized() * 120.0, false)
+		_emit({"type": "lysis", "pos": at, "radius": r})
+	_src = prev
+
+
+## Second Wind: once per run, a killing blow leaves you at a share of max HP
+## and a shockwave throws back and hurts everything nearby.
+func _second_wind() -> void:
+	second_wind_used = true
+	p_hp = p_max_hp * float(stats.second_wind)
+	p_iframes = float(lab_cfg.get("second_wind_iframes_s", 2.0))
+	var r := float(lab_cfg.get("second_wind_radius", 260.0))
+	var dmg := _dash_power(float(lab_cfg.get("second_wind_damage", 60.0)))
+	var push := float(lab_cfg.get("second_wind_knock", 520.0))
+	var prev := _src
+	_src = "lab"
+	for i: int in query(p_pos, r):
+		_damage(i, dmg, (e_pos[i] - p_pos).normalized() * push)
+	_src = prev
+	s_pos.clear(); s_vel.clear(); s_life.clear(); s_dmg.clear()
+	_emit({"type": "second_wind", "pos": p_pos, "radius": r})
+	_emit({"type": "nova", "pos": p_pos, "radius": r})
+
+
+## Slipstream wake: germs you brush past right after a dash take a hit once.
+func _slip_wake() -> void:
+	var dmg := _dash_power(float(lab_cfg.get("slip_damage", 14.0)))
+	for i: int in query(p_pos, p_radius + float(lab_cfg.get("slip_radius", 26.0))):
+		if _slip_hits.has(e_uid[i]):
+			continue
+		_slip_hits[e_uid[i]] = true
+		_damage(i, dmg, p_vel.normalized() * 160.0)
 
 
 # ============================================================ Nucleus mode
