@@ -51,7 +51,9 @@ static func global_stats(defs_by_id: Dictionary, owned: Dictionary, meta_bonus: 
 ## Picks up to `count` distinct upgrade ids, weighted, skipping maxed ones and
 ## new weapons once the weapon slots are full. Owned items are weighted up so
 ## builds can come together.
-static func roll_offers(defs: Array, owned: Dictionary, rng: RandomNumberGenerator, count: int, max_weapons: int, owned_mult: float) -> Array:
+## `bias`: optional id -> weight multiplier (the shop's evolution upgrades
+## make their weapon, and its evolution partner, show up more often).
+static func roll_offers(defs: Array, owned: Dictionary, rng: RandomNumberGenerator, count: int, max_weapons: int, owned_mult: float, bias: Dictionary = {}) -> Array:
 	var weapons_owned := 0
 	for d in defs:
 		if d.type == "weapon" and owned.has(d.id):
@@ -67,6 +69,7 @@ static func roll_offers(defs: Array, owned: Dictionary, rng: RandomNumberGenerat
 		var w := float(d.get("weight", 1.0))
 		if lv > 0:
 			w *= owned_mult
+		w *= float(bias.get(d.id, 1.0))
 		pool.append(d.id)
 		weights.append(w)
 	var out := []

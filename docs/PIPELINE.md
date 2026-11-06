@@ -316,3 +316,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-05 The Lab + Abilities: design agreed (not started)
 - Discussed with Yousuf and written up in ROADMAP "Next: the Lab + Abilities" (D-028, D-029): Genes from Virulence wins, 4 branches with forks and keystones, cheap gold respec, abilities (Stasis / Engulf / Cloak / Mitosis) with one equipped via an Abilities menu, replacing Strains. Target for players: full Lab + shop clears V7-8 easily, V9-10 decently. He'll start it in a new session.
+
+### 2026-11-06 Evolution tiers bias level-up offers
+- `World.offer_bias()` → `Upgrades.roll_offers(..., bias)`: a weapon's shop evolution tiers raise its offer weight ×(1 + 1.5 × share of tiers), its partner passive ×(1 + 0.75 × share) (`upgrades.evo_offer_bias` / `evo_partner_bias`). Equal tiers = equal odds. Sim V5 maxed shop, 24 runs seed 100, before → after: Classic p10/p50/p90 138/211/300 → 189/250/300, win 13% → 17%, L18 → L22; Infection 122/147/241 → 118/158/261, win 4% → 4%, L21 → L22. 254 tests.

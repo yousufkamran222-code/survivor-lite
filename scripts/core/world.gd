@@ -97,6 +97,7 @@ var lysis_bursts := 0
 
 # --- Elite and boss threats (waves.elites.affixes, enemies.json boss) ---
 var elite_cfg: Dictionary = {}
+var _evo_cap: Dictionary = {}  # weapon -> evo_<weapon> stat when the shop upgrade is maxed
 var boss_def: Dictionary = {}
 var p_pull := Vector2.ZERO  # pull on the player this step (Magnet elites, Mother Cell)
 var boss_phase := 1  # Mother Cell: 1-3 by HP (phase_at)
@@ -387,6 +388,9 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	owned[bal.start_weapon] = 1
 	lab_cfg = data.get("lab", {}).get("tuning", {})
 	elite_cfg = data.waves.get("elites", {})
+	for m in data.get("meta", []):  # max evolution bonus per weapon (offer_bias)
+		if str(m.stat).begins_with("evo_"):
+			_evo_cap[str(m.stat).trim_prefix("evo_")] = float(m.per_level) * m.costs.size()
 	for e in data.enemies:
 		if e.behavior == "boss":
 			boss_def = e
@@ -1718,7 +1722,26 @@ func _levelup_wave() -> void:
 func _roll() -> Array:
 	var u: Dictionary = bal.upgrades
 	var n := int(u.offers_per_level) + int(stats.get("extra_offers", 0.0))  # Lab: Lucky Strain
-	return Upgrades.roll_offers(_offerable(), owned, rng, n, int(u.max_weapons), float(u.owned_weight_mult))
+	return Upgrades.roll_offers(_offerable(), owned, rng, n, int(u.max_weapons), float(u.owned_weight_mult), offer_bias())
+
+
+## Shop evolution upgrades (evo_<weapon>) raise the odds of that weapon being
+## offered, in proportion to the share of its tiers you own: x(1 +
+## evo_offer_bias * share) for the weapon and x(1 + evo_partner_bias * share)
+## for its evolution partner. Equal tiers = equal odds among the four; no
+## tiers = no change.
+func offer_bias() -> Dictionary:
+	var out := {}
+	var u: Dictionary = bal.upgrades
+	for weapon in evolution_defs:
+		var cap := float(_evo_cap.get(weapon, 0.0))
+		var share := clampf(float(stats.get("evo_" + weapon, 0.0)) / cap, 0.0, 1.0) if cap > 0.0 else 0.0
+		if share <= 0.0:
+			continue
+		out[weapon] = float(out.get(weapon, 1.0)) * (1.0 + float(u.get("evo_offer_bias", 0.0)) * share)
+		var partner := str(evolution_defs[weapon].requires)
+		out[partner] = float(out.get(partner, 1.0)) * (1.0 + float(u.get("evo_partner_bias", 0.0)) * share)
+	return out
 
 
 ## Upgrades that make sense right now: a card with "requires_stat" (Volatile

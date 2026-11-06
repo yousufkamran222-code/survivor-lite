@@ -105,6 +105,8 @@
     "bank_levelups": true,
     "max_weapons": 4,
     "owned_weight_mult": 1.6,
+    "evo_offer_bias": 1.5,
+    "evo_partner_bias": 0.75,
     "heal_when_all_maxed": 0.2
   },
   "economy": {

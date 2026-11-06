@@ -94,3 +94,27 @@ func test_evolution_power_scales_damage() -> void:
 	check_near(w0.evolution_power("bolt"), 0.44)
 	check_near(w7.evolution_power("bolt"), 1.0, 0.001, "7 tiers = the old Storm")
 	check_near(float(w0.wstats.bolt.damage) / float(w7.wstats.bolt.damage), 0.44, 0.001)
+
+
+func test_evolution_upgrades_bias_offers() -> void:
+	var d := data()
+	var none := World.new(d, 1)
+	check(none.offer_bias().is_empty(), "no evolution tiers: no bias")
+	var w := World.new(d, 1, Progression.run_bonus(d, {"meta_evo_chain": 12, "meta_evo_bolt": 6}, {}))
+	var b := w.offer_bias()
+	check_near(float(b.chain), 1.0 + float(d.balance.upgrades.evo_offer_bias), 0.001, "maxed: full boost")
+	check_near(float(b.bolt), 1.0 + float(d.balance.upgrades.evo_offer_bias) * 0.5, 0.001, "half the tiers: half the boost")
+	check(float(b.haste) > 1.0, "the evolution partner is boosted too")
+	check(not b.has("orbit"), "no tiers, no boost")
+	var eq := World.new(d, 1, Progression.run_bonus(d, {"meta_evo_bolt": 4, "meta_evo_orbit": 4, "meta_evo_nova": 4, "meta_evo_chain": 4}, {}))
+	var be := eq.offer_bias()
+	check(is_equal_approx(float(be.bolt), float(be.orbit)) and is_equal_approx(float(be.nova), float(be.chain)), "equal tiers: equal odds")
+	# Over many rolls the boosted weapon comes up more often.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var hits := {"chain": 0, "orbit": 0}
+	for k in 600:
+		for o in Upgrades.roll_offers(d.upgrades, {"bolt": 1}, rng, 3, 4, 1.6, b):
+			if hits.has(o):
+				hits[o] += 1
+	check(hits.chain > hits.orbit * 1.5, "chain (maxed) offered more than orbit (none): %s" % str(hits))
