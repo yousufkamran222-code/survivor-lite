@@ -12,8 +12,9 @@ static func _aa(edge: float, d: float, px: float) -> float:
 	return clampf((edge - d) / px + 0.5, 0.0, 1.0)
 
 
-## Enemy body atlas: `dirs` frames side by side, each a white disc with a grey
-## outline and two dark eyes, frame k looking toward angle k * TAU / dirs.
+## Enemy body atlas: `dirs` frames side by side, each a shaded white disc
+## with a dark outline and two dark eyes, frame k looking toward angle
+## k * TAU / dirs. Tinted per germ by SpriteBatch.
 static func blob(size: int = 64, dirs: int = 16) -> ImageTexture:
 	var img := Image.create(size * dirs, size, false, Image.FORMAT_RGBA8)
 	var h := size / 2.0
@@ -31,7 +32,15 @@ static func blob(size: int = 64, dirs: int = 16) -> ImageTexture:
 				if a <= 0.0:
 					img.set_pixel(k * size + x, y, Color(0, 0, 0, 0))
 					continue
-				var c := Color(0.55, 0.55, 0.55).lerp(Color.WHITE, _aa(body, d, px))
+				# Glossy chunky shading (baked, so it costs nothing per frame):
+				# a dark outline ring, a body lit from the top-left, a soft
+				# darker underside and a bright highlight. Same light for
+				# every eye-direction frame (screen space, not rotated).
+				var lit := clampf(0.5 - 0.5 * (p.x * 0.55 + p.y * 0.85) / body, 0.0, 1.0)
+				var shade := lerpf(0.66, 1.0, lit)
+				var hl := _aa(0.2 * body, p.distance_to(Vector2(-0.34, -0.42) * body), px * 3.0)
+				shade = lerpf(shade, 1.0, hl * 0.9)
+				var c := Color(0.22, 0.2, 0.26).lerp(Color(shade, shade, shade), _aa(body, d, px))
 				for e: Vector2 in eyes:
 					c = c.lerp(Color(0.08, 0.05, 0.12), _aa(eye_r, p.distance_to(e), px))
 				c.a = a
@@ -67,6 +76,19 @@ static func disc(size: int = 32) -> ImageTexture:
 		for x in size:
 			var d := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h).length()
 			img.set_pixel(x, y, Color(1, 1, 1, _aa(1.0, d, 1.0 / h)))
+	return ImageTexture.create_from_image(img)
+
+
+## Soft radial glow (alpha falls off smoothly to the edge): under elites,
+## the boss and the player, and the menu's out-of-focus germs.
+static func glow(size: int = 64) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	for y in size:
+		for x in size:
+			var d := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h).length()
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a * a))
 	return ImageTexture.create_from_image(img)
 
 

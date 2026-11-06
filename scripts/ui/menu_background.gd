@@ -7,6 +7,9 @@ extends Control
 ## which made the menu heavier than a full fight).
 
 static var _disc: Texture2D
+static var _glow: Texture2D
+static var _blob: Texture2D  # shaded germ atlas (8 eye directions)
+const BLOB_DIRS := 8
 
 var pal: Dictionary
 var germ_colors: Array = []
@@ -24,15 +27,20 @@ func setup(palette: Dictionary, enemy_defs: Array) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	for k in 22:
+		# depth 0 = far (small, slow, out of focus) .. 1 = near (big, faster, sharp).
+		var depth := rng.randf()
 		_germs.append({
-			"p": Vector2(rng.randf(), rng.randf()), "v": Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * rng.randf_range(0.006, 0.02),
-			"r": rng.randf_range(8, 26), "c": germ_colors[k % germ_colors.size()], "phase": rng.randf() * TAU,
+			"p": Vector2(rng.randf(), rng.randf()), "v": Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized() * lerpf(0.004, 0.02, depth),
+			"r": lerpf(10.0, 30.0, depth), "c": germ_colors[k % germ_colors.size()], "phase": rng.randf() * TAU, "depth": depth,
 		})
+	_germs.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.depth < b.depth)  # far first
 
 
 func _ready() -> void:
 	if _disc == null:
 		_disc = ShapeTextures.disc(128)
+		_glow = ShapeTextures.glow(64)
+		_blob = ShapeTextures.blob(48, BLOB_DIRS)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
@@ -59,13 +67,22 @@ func _draw() -> void:
 	var dc := Vector2(s.x / 2.0, s.y * 0.5)
 	var dr := s.x * 0.62
 	_disc_at(dc, dr, Color(pal.background_cells, 0.55))
-	# Drifting germs (dimmed so the UI stays readable).
+	# Drifting germs at different depths (dimmed so the UI stays readable):
+	# far ones are soft out-of-focus glows, near ones shaded germs whose eyes
+	# look where they drift. One quad each.
 	for g in _germs:
 		var p := Vector2(g.p.x * s.x, g.p.y * s.y)
 		var wob := 1.0 + 0.06 * sin(_t * 2.0 + g.phase)
 		var c: Color = g.c
-		_disc_at(p, g.r * wob + 2.0, Color(c.darkened(0.5), 0.35))
-		_disc_at(p, g.r * wob, Color(c, 0.35))
+		var r: float = g.r * wob
+		if g.depth < 0.45:
+			var gr := r * 2.2
+			draw_texture_rect(_glow, Rect2(p - Vector2(gr, gr), Vector2(gr, gr) * 2.0), false, Color(c, 0.22))
+		else:
+			var dir: Vector2 = g.v
+			var frame := posmod(roundi(dir.angle() / TAU * BLOB_DIRS), BLOB_DIRS)
+			var fw := float(_blob.get_height())
+			draw_texture_rect_region(_blob, Rect2(p - Vector2(r, r), Vector2(r, r) * 2.0), Rect2(frame * fw, 0, fw, fw), Color(c, lerpf(0.35, 0.6, g.depth)))
 	if show_hero:
 		_draw_hero()
 	# Rim last: lines break the texture batch, so draw them once at the end.
@@ -81,6 +98,8 @@ func _draw_hero() -> void:
 	# Hero cell with orbiting antibodies.
 	var hc := Vector2(s.x / 2.0, s.y * hero_y)
 	var hr := 46.0 * (1.0 + 0.04 * sin(_t * 2.2))
+	var sl := 230.0 * (1.0 + 0.05 * sin(_t * 1.3))  # soft spotlight behind the hero
+	draw_texture_rect(_glow, Rect2(hc - Vector2(sl, sl), Vector2(sl, sl) * 2.0), false, Color(pal.player_nucleus, 0.16))
 	_disc_at(hc, hr + 22.0, Color(pal.player_nucleus, 0.08))
 	_disc_at(hc, hr + 6.0, Color(pal.player, 0.25))
 	_disc_at(hc, hr, pal.player)

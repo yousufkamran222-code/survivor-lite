@@ -72,6 +72,7 @@ var _shake_t := 0.0
 var shake_setting := 1.0  # Settings → Screen shake (0, 0.5, 1, 1.5)
 var _cell_tex: Texture2D
 var _disc_tex: Texture2D
+var _glow_tex: Texture2D  # soft radial glow (under elites, the boss and the player)
 var _face := 0.0  # smoothed facing angle (visual only; World's aim snaps)
 var _squash := 0.0  # current stretch along the movement direction
 var _move_ang := 0.0
@@ -122,6 +123,7 @@ func setup(game_data: Dictionary) -> void:
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
 	_cell_tex = ShapeTextures.player_cell()
 	_disc_tex = disc
+	_glow_tex = ShapeTextures.glow(64)
 	_top = Node2D.new()
 	_top.draw.connect(_draw_top)
 	add_child(_top)
@@ -663,6 +665,23 @@ func _draw_world() -> void:
 		draw_arc(World.RIFT_CENTER, ar + 700.0, 0, TAU, 96, Color(0.04, 0.02, 0.08, 0.92), 1400.0)
 		draw_arc(World.RIFT_CENTER, ar, 0, TAU, 128, Color(rc, 0.5 + 0.2 * sin(_view_t * 3.0)), 12.0)
 		draw_arc(World.RIFT_CENTER, ar - 18.0, 0, TAU, 128, Color(rc, 0.15), 22.0)
+	_draw_glows()
+
+
+## Soft glows on the floor under the player, elites and the boss (drawn by
+## this node, so under the sprite batches). A handful of quads per frame.
+func _draw_glows() -> void:
+	if world.p_down <= 0.0:
+		var pr := world.p_radius * 3.2
+		draw_texture_rect(_glow_tex, Rect2(world.p_pos - Vector2(pr, pr), Vector2(pr, pr) * 2.0), false, Color(pal.player_nucleus, 0.22))
+	for i in world.e_pos.size():
+		if world.e_elite[i] == 1 and world.e_team[i] == 0:
+			var r := world.e_rad[i] * 2.6
+			draw_texture_rect(_glow_tex, Rect2(world.e_pos[i] - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(elite_color, 0.3))
+	var bi := world.boss_index
+	if bi >= 0 and bi < world.e_pos.size():
+		var r := world.e_rad[bi] * 2.4
+		draw_texture_rect(_glow_tex, Rect2(world.e_pos[bi] - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(pal.player_hurt, 0.35))
 
 
 func _draw_territory() -> void:

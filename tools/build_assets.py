@@ -116,24 +116,37 @@ def build_sfx() -> None:
     write("heartbeat", seq(env(osc(95, 48, 0.13, "sine"), attack=0.004, decay_pow=2.4), np.zeros(int(0.08 * RATE)), env(osc(85, 42, 0.11, "sine"), attack=0.004, decay_pow=2.6) * 0.7, np.zeros(int(0.05 * RATE))), 0.9)
 
 
-def build_background(size: int = 512, bg="#1d1433", dots="#2a1e48", cells="#251a40") -> None:
-    """Seamless 512px tile of faint dots and cells (drawn tiled under the world)."""
+def build_background(size: int = 512, bg="#150e2b", dots="#231845", cells="#1d1439", rims="#2b2056") -> None:
+    """Seamless 512px tile drawn under the world: an agar floor with soft
+    cells (a lighter rim, a darker inside), faint dots and fine speckle."""
+    from PIL import ImageFilter
     rng = np.random.default_rng(99)
     scale = 4  # supersample for smooth edges
     img = Image.new("RGB", (size * scale, size * scale), bg)
     d = ImageDraw.Draw(img)
 
-    def blob(x, y, r, col):
+    def blob(x, y, r, col, width=0):
         for ox in (-size, 0, size):  # wrap so the tile is seamless
             for oy in (-size, 0, size):
                 cx, cy = (x + ox) * scale, (y + oy) * scale
-                d.ellipse([cx - r * scale, cy - r * scale, cx + r * scale, cy + r * scale], fill=col)
+                box = [cx - r * scale, cy - r * scale, cx + r * scale, cy + r * scale]
+                if width:
+                    d.ellipse(box, outline=col, width=int(width * scale))
+                else:
+                    d.ellipse(box, fill=col)
 
-    for _ in range(6):
-        blob(rng.uniform(0, size), rng.uniform(0, size), rng.uniform(18, 44), cells)
-    for _ in range(26):
+    for _ in range(7):
+        x, y, r = rng.uniform(0, size), rng.uniform(0, size), rng.uniform(20, 48)
+        blob(x, y, r, cells)
+        blob(x, y, r, rims, width=2.2)
+        blob(x + r * 0.25, y - r * 0.2, r * 0.22, rims)  # a nucleus
+    for _ in range(30):
         blob(rng.uniform(0, size), rng.uniform(0, size), rng.uniform(2.0, 4.5), dots)
-    img = img.resize((size, size), Image.LANCZOS)
+    img = img.resize((size, size), Image.LANCZOS).filter(ImageFilter.GaussianBlur(0.6))
+    # Fine agar speckle (low contrast, seamless by construction).
+    arr = np.asarray(img).astype(np.int16)
+    arr += rng.integers(-3, 4, size=(size, size, 1)).astype(np.int16)
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     out = ROOT / "assets" / "processed" / "bg_tile.png"
     img.save(out, optimize=True)
     print(f"wrote {out.name}")
