@@ -221,7 +221,7 @@ func notice(text: String) -> void:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	font = ThemeDB.fallback_font
+	font = UiKit.display_font()  # chunky HUD text (Lilita One)
 	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
 	_bars_layer = _layer(func() -> void: _draw_bars(_bars_layer))
 	_edge_tex = _make_edge_texs()
@@ -300,7 +300,7 @@ func _draw_hud() -> void:
 	_draw_rift_hud(w)
 	_draw_orders()
 	# Toasts.
-	var ty := 240.0
+	var ty := 290.0
 	for t in toasts:
 		var k: float = t.t / t.life
 		var pop := 1.0 + 0.25 * maxf(0.0, 1.0 - t.t * 6.0)
@@ -407,19 +407,17 @@ func _draw_ability_button() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if world.ab_t > 0.0:
 		var left := clampf(world.ab_t / float(world.ab.duration_s), 0.0, 1.0)
-		draw_circle(c, POWER_R + 6.0, Color(col, 0.25))
-		draw_circle(c, POWER_R, Color(col, 0.55))
-		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
+		draw_circle(c, POWER_R + 7.0, Color(col, 0.3))
+		_gloss_disc(self, c, POWER_R, col)
+		draw_arc(c, POWER_R - 5.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
 	elif world.ability_ready():
 		var pulse := 0.5 + 0.5 * sin(t * 7.0)
 		draw_circle(c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
-		draw_circle(c, POWER_R, Color(col, 0.5 + 0.2 * pulse))
-		draw_arc(c, POWER_R, 0, TAU, 40, Color.WHITE, 3.0)
+		_gloss_disc(self, c, POWER_R, col)
 	else:
 		var f := clampf(world.ab_kills / world.ability_cost(), 0.0, 1.0)
-		draw_circle(c, POWER_R, Color(1, 1, 1, 0.06))
-		draw_arc(c, POWER_R, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
-		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.85), 6.0)
+		_gloss_disc(self, c, POWER_R, Color(0.24, 0.2, 0.38, 0.6))
+		draw_arc(c, POWER_R - 5.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.95), 6.0)
 	IconArt.draw(self, world.ability, c, POWER_R * 1.1, Color.WHITE if world.ab_t > 0.0 or world.ability_ready() else col)
 	for k in world.ability_lv:
 		draw_circle(c + Vector2((k - (world.ability_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
@@ -563,79 +561,142 @@ static func _make_blob_tex() -> Texture2D:
 ## The animated part of the XP bar (every frame; the bar itself is cached):
 ## a bright tip at the fill edge, a glow that pulses faster as the bar nears
 ## full, and a white flash + sweep when it fills.
-func _draw_xp_live(w: float) -> void:
+func _draw_xp_live(_w: float) -> void:
+	var r := XP_RECT
 	var f := clampf(world.xp / world.xp_next, 0.0, 1.0)
 	var t := Time.get_ticks_msec() / 1000.0
-	var x := w * f
+	var x := r.size.x * f
 	if f > 0.0:
-		draw_rect(Rect2(maxf(x - 10.0, 0.0), 0, minf(10.0, x), XP_H), Color(1, 1, 1, 0.45))
+		draw_rect(Rect2(r.position.x + maxf(x - 8.0, 0.0), r.position.y, minf(8.0, x), r.size.y), Color(1, 1, 1, 0.45))
 	if f >= 0.75:
 		var near := (f - 0.75) / 0.25
 		var pulse := 0.5 + 0.5 * sin(t * (6.0 + 10.0 * near))
-		draw_rect(Rect2(0, XP_H, x, 6), Color(pal.xp_bar, (0.15 + 0.35 * near) * pulse))
-		draw_rect(Rect2(0, 0, x, XP_H), Color(1, 1, 1, 0.12 * near * pulse))
+		draw_rect(Rect2(r.position, Vector2(x, r.size.y)), Color(1, 1, 1, 0.18 * near * pulse))
 	if _xp_flash > 0.0:
 		var k := _xp_flash / 0.4
-		draw_rect(Rect2(0, 0, w, XP_H), Color(1, 1, 1, 0.7 * k))
-		draw_rect(Rect2(0, XP_H, w, 10), Color(pal.xp_bar, 0.5 * k))
-		var sx := w * (1.0 - k)
-		draw_rect(Rect2(sx - 40.0, 0, 80.0, XP_H), Color(1, 1, 1, 0.8 * k))
+		draw_rect(r.grow(3.0), Color(1, 1, 1, 0.6 * k))
+		var sx := r.position.x + r.size.x * (1.0 - k)
+		draw_rect(Rect2(sx - 30.0, r.position.y, 60.0, r.size.y), Color(1, 1, 1, 0.8 * k))
 
 
 ## Top bars and readouts (bars layer): XP, level, timer, kills, mode readout,
 ## Nucleus bars, boss bar. Redrawn only when one of them changes.
+## Top panel (bars layer): level badge, HP and XP bars, timer, kills and run
+## gold; the mode readout on the second row (right); Nucleus and boss bars
+## below. Redrawn only when one of them changes.
 func _draw_bars(ci: CanvasItem) -> void:
 	var w := size.x
-	var xp_f := clampf(world.xp / world.xp_next, 0.0, 1.0)
-	ci.draw_rect(Rect2(0, 0, w, XP_H), Color(0, 0, 0, 0.5))
-	ci.draw_rect(Rect2(0, 0, w * xp_f, XP_H), pal.xp_bar)
-	ci.draw_rect(Rect2(0, 0, w * xp_f, 4), Color(1, 1, 1, 0.35))  # top highlight
-	ci.draw_string(font, Vector2(16, 58), "LV %d" % world.level, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, pal.text)
-	ci.draw_string(font, Vector2(0, 62), UiKit.fmt_time(world.time), HORIZONTAL_ALIGNMENT_CENTER, w, 40, pal.player_hurt if world.final_minute else pal.text)
+	var o := UiKit.OUTLINE
+	# Panel.
+	_rrect(ci, TOP_PANEL, 22.0, Color(0.06, 0.03, 0.13, 0.72))
+	# Level badge: a glossy gold disc with the level.
+	var bc := Vector2(58, 58)
+	_gloss_disc(ci, bc, 34.0, pal.ui_accent)
+	var lt := str(world.level)
+	var lfs := 36 if world.level < 100 else 28
+	_text(ci, bc + Vector2(-34, 13), lt, 68.0, lfs, Color("#3a2200"), 0, HORIZONTAL_ALIGNMENT_CENTER)
+	# HP bar (with the number) and XP bar.
+	var hp_f := clampf(world.p_hp / maxf(world.p_max_hp, 1.0), 0.0, 1.0)
+	_bar(ci, HP_RECT, hp_f, pal.hp_bar if hp_f > 0.3 else Color("#ff2e4d"))
+	_text(ci, HP_RECT.position + Vector2(10, 19), "%d / %d" % [ceili(world.p_hp), roundi(world.p_max_hp)], HP_RECT.size.x - 20.0, 18, Color.WHITE, 5, HORIZONTAL_ALIGNMENT_LEFT)
+	_bar(ci, XP_RECT, clampf(world.xp / world.xp_next, 0.0, 1.0), pal.xp_bar)
+	# Timer (red in the final minute) and the Virulence level under it.
+	_text(ci, Vector2(372, 74), UiKit.fmt_time(world.time), 156.0, 46, pal.player_hurt if world.final_minute else Color.WHITE, 9, HORIZONTAL_ALIGNMENT_CENTER)
 	var vlev := int(world.bal.get("virulence", 1))
-	if vlev > 1:  # Virulence level, small, next to the timer
-		ci.draw_string(font, Vector2(w / 2.0 + 64.0, 50), "V%d" % vlev, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#ff5a7a"))
-	var kills_txt := "%d kills" % world.kills
-	ci.draw_string(font, Vector2(16, 96), kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(pal.text, 0.7))
-	# Live run gold: coin + amount after the kills (gold-tinted in a frenzy).
-	var gx := 16.0 + font.get_string_size(kills_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x + 18.0
-	IconArt.draw(ci, "gold", Vector2(gx + 10.0, 89.0), 20.0, pal.ui_accent)
+	if vlev > 1:
+		_text(ci, Vector2(372, 98), "VIRULENCE %d" % vlev, 156.0, 16, Color("#ff5a7a"), 4, HORIZONTAL_ALIGNMENT_CENTER)
+	# Kills and run gold (gold brightens in a frenzy).
+	_text(ci, Vector2(530, 50), str(world.kills), 72.0, 24, Color.WHITE, 5, HORIZONTAL_ALIGNMENT_RIGHT)
+	_text(ci, Vector2(530, 66), "KILLS", 72.0, 13, Color(1, 1, 1, 0.6), 0, HORIZONTAL_ALIGNMENT_RIGHT)
 	var gcol: Color = pal.ui_accent if world.outbreak_t <= 0.0 else Color(1, 0.95, 0.6)
-	ci.draw_string(font, Vector2(gx + 24.0, 96), str(world.run_gold_now()), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, gcol)
+	var gtxt := str(world.run_gold_now())
+	var gw := font.get_string_size(gtxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	IconArt.draw(ci, "gold", Vector2(602.0 - gw - 14.0, 87.0), 20.0, pal.ui_accent)
+	_text(ci, Vector2(530, 95), gtxt, 72.0, 22, gcol, 5, HORIZONTAL_ALIGNMENT_RIGHT)
+	# Second row, right: the mode's readout.
+	var readout := ""
 	if world.conv_on:
-		var txt := "SWARM %d/%d" % [world.ally_count, world._ally_cap()]
+		readout = "SWARM %d/%d" % [world.ally_count, world._ally_cap()]
 		if world.swarm_power > 0.0:
-			txt += "  +%d%%" % roundi(world.swarm_power * 100.0)
-		ci.draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
-	if world.terr != null:
-		var pct := roundi(world.terr.infected_fraction() * 100.0)
-		ci.draw_string(font, Vector2(0, 96), "INFECTED %d%%" % pct, HORIZONTAL_ALIGNMENT_CENTER, w, 24, pal.player_nucleus)
+			readout += "  +%d%%" % roundi(world.swarm_power * 100.0)
+	elif world.terr != null:
+		readout = "INFECTED %d%%" % roundi(world.terr.infected_fraction() * 100.0)
+	if readout != "":
+		_text(ci, Vector2(w - 330.0, 154), readout, 314.0, 24, pal.player_nucleus, 6, HORIZONTAL_ALIGNMENT_RIGHT)
+	var by := 214.0
 	if world.def_on:
 		_draw_defense_bars(ci, w)
+		by = 248.0
 	if world.boss_index >= 0 and world.boss_index < world.e_hp.size():
 		var f := world.e_hp[world.boss_index] / world.e_maxhp[world.boss_index]
-		# Below the SWARM / INFECTED readout when there is one.
-		var dy := 26.0 if (world.conv_on or world.terr != null) else 0.0
-		var r := Rect2(60, 120 + dy, w - 120, 18)
-		ci.draw_rect(r, Color(0, 0, 0, 0.55))
-		ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.hp_bar)
+		var r := Rect2(60, by, w - 120, 20)
 		var bname := str(world.bal.rift.boss.name) if world.rift_state == World.RIFT_ACTIVE else str(world.enemy_defs[world.e_type[world.boss_index]].name)
-		ci.draw_string(font, Vector2(0, 112 + dy), bname.to_upper(), HORIZONTAL_ALIGNMENT_CENTER, w, 22, pal.text)
+		_text(ci, Vector2(0, by - 8.0), bname.to_upper(), w, 22, Color.WHITE, 6, HORIZONTAL_ALIGNMENT_CENTER)
+		_bar(ci, r, f, pal.hp_bar)
+
+
+# ---- HUD drawing helpers (glossy chunky look, no textures)
+
+const TOP_PANEL := Rect2(10, 8, 604, 102)
+const HP_RECT := Rect2(102, 24, 262, 26)
+const XP_RECT := Rect2(102, 60, 262, 16)
+
+
+## A rounded rectangle (a few rects + 4 circles: cheap, batched).
+func _rrect(ci: CanvasItem, r: Rect2, rad: float, col: Color) -> void:
+	rad = minf(rad, minf(r.size.x, r.size.y) / 2.0)
+	ci.draw_rect(Rect2(r.position.x + rad, r.position.y, r.size.x - rad * 2.0, r.size.y), col)
+	ci.draw_rect(Rect2(r.position.x, r.position.y + rad, rad, r.size.y - rad * 2.0), col)
+	ci.draw_rect(Rect2(r.end.x - rad, r.position.y + rad, rad, r.size.y - rad * 2.0), col)
+	for p in [r.position + Vector2(rad, rad), Vector2(r.end.x - rad, r.position.y + rad), Vector2(r.position.x + rad, r.end.y - rad), r.end - Vector2(rad, rad)]:
+		ci.draw_circle(p, rad, col)
+
+
+## A chunky bar: dark outline, dark track, coloured fill with a light band.
+func _bar(ci: CanvasItem, r: Rect2, f: float, col: Color) -> void:
+	var rad := r.size.y / 2.0
+	_rrect(ci, r.grow(3.0), rad + 3.0, UiKit.OUTLINE)
+	_rrect(ci, r, rad, Color(0.16, 0.11, 0.27))
+	if f > 0.0:
+		var fw := maxf(r.size.x * f, r.size.y)
+		_rrect(ci, Rect2(r.position, Vector2(fw, r.size.y)), rad, col)
+		_rrect(ci, Rect2(r.position + Vector2(rad * 0.5, 3.0), Vector2(maxf(fw - rad, 2.0), r.size.y * 0.3)), r.size.y * 0.15, Color(1, 1, 1, 0.3))
+
+
+## Text with an optional dark outline (outline 0 = none).
+func _text(ci: CanvasItem, pos: Vector2, txt: String, width: float, fs: int, col: Color, outline: int, align: HorizontalAlignment) -> void:
+	if outline > 0:
+		ci.draw_string_outline(font, pos, txt, align, width, fs, outline, UiKit.OUTLINE)
+	ci.draw_string(font, pos, txt, align, width, fs, col)
+
+
+## A glossy disc button face: dark outline, a darker lower edge (3D), the
+## face, and a soft highlight on top.
+func _gloss_disc(ci: CanvasItem, c: Vector2, r: float, face: Color) -> void:
+	ci.draw_circle(c + Vector2(0, 3), r + 4.0, Color(0, 0, 0, 0.35 * face.a))
+	ci.draw_circle(c, r + 3.0, Color(UiKit.OUTLINE, face.a))
+	ci.draw_circle(c, r, Color(face.darkened(0.35), face.a))
+	ci.draw_circle(c - Vector2(0, r * 0.1), r * 0.9, face)
+	ci.draw_set_transform(c - Vector2(0, r * 0.42), 0.0, Vector2(1.0, 0.5))
+	ci.draw_circle(Vector2.ZERO, r * 0.62, Color(1, 1, 1, 0.3 * face.a))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## Owned-upgrade strip and the DASH / UPGRADE labels (strip layer).
 func _draw_strip(ci: CanvasItem) -> void:
 	_draw_owned(ci)
 	var dc := dash_center()
-	ci.draw_string(font, dc + Vector2(-dash_radius, 9), "DASH", HORIZONTAL_ALIGNMENT_CENTER, dash_radius * 2.0, 24, Color(1, 1, 1, 0.9 if world.can_dash() else 0.35))
+	_text(ci, dc + Vector2(-dash_radius, 10), "DASH", dash_radius * 2.0, 28, Color(1, 1, 1, 1.0 if world.can_dash() else 0.45), 7 if world.can_dash() else 0, HORIZONTAL_ALIGNMENT_CENTER)
 	var uc := upgrade_center()
 	var n := world.pending_levelups
 	var on := n > 0
 	var accent: Color = pal.ui_accent
-	ci.draw_string(font, uc + Vector2(-UPGRADE_R, 8.0), "UPGRADE", HORIZONTAL_ALIGNMENT_CENTER, UPGRADE_R * 2.0, 20, Color(1, 1, 1, 0.95 if on else 0.35))
-	var b := uc + Vector2(UPGRADE_R * 0.72, -UPGRADE_R * 0.72)
-	ci.draw_circle(b, 20.0, accent if on else Color(1, 1, 1, 0.15))
-	ci.draw_string(font, b + Vector2(-20, 8), str(n), HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(0.1, 0.06, 0.15) if on else Color(1, 1, 1, 0.5))
+	_text(ci, uc + Vector2(-UPGRADE_R, 8.0), "UPGRADE", UPGRADE_R * 2.0, 18, Color("#3a2200") if on else Color(1, 1, 1, 0.45), 0, HORIZONTAL_ALIGNMENT_CENTER)
+	if on:
+		var b := uc + Vector2(UPGRADE_R * 0.72, -UPGRADE_R * 0.72)
+		ci.draw_circle(b, 21.0, UiKit.OUTLINE)
+		ci.draw_circle(b, 18.0, pal.player_hurt)
+		_text(ci, b + Vector2(-20, 8), str(n), 40.0, 22, Color.WHITE, 0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 ## Decides which cached layers need a redraw this frame.
@@ -661,6 +722,8 @@ func _update_layers(delta: float) -> void:
 	_sig_bars[4] = world.kills
 	_sig_bars[13] = world.run_gold_now()
 	_sig_bars[14] = 1 if world.outbreak_t > 0.0 else 0
+	_sig_bars[15] = ceili(world.p_hp)
+	_sig_bars[16] = roundi(world.p_max_hp)
 	_sig_bars[5] = world.ally_count * 1000 + roundi(world.swarm_power * 100.0)
 	_sig_bars[6] = roundi(world.terr.infected_fraction() * 100.0) if world.terr != null else 0
 	var bi := world.boss_index
@@ -720,8 +783,7 @@ func _draw_dash_button() -> void:
 	var c := dash_center()
 	var ready := world.can_dash()
 	var max_c := world.dash_max_charges()
-	draw_circle(c, dash_radius, Color(1, 1, 1, 0.16 if ready else 0.07))
-	draw_arc(c, dash_radius, 0, TAU, 48, Color(1, 1, 1, 0.45 if ready else 0.15), 3.0)
+	_gloss_disc(self, c, dash_radius, Color(IconArt.COLORS.dash, 0.82) if ready else Color(0.24, 0.2, 0.38, 0.6))
 	if world.p_dash_charges < max_c:
 		var f := 1.0 - world.p_dash_cd / world.dash_cooldown()
 		draw_arc(c, dash_radius - 6.0, -PI / 2.0, -PI / 2.0 + TAU * clampf(f, 0.0, 1.0), 48, Color(pal.xp_bar, 0.8), 6.0)
@@ -739,9 +801,8 @@ func _draw_upgrade_button() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if on else 0.0
 	var accent: Color = pal.ui_accent
 	if on:
-		draw_circle(c, UPGRADE_R + 6.0 + 5.0 * pulse, Color(accent, 0.12 + 0.12 * pulse))
-	draw_circle(c, UPGRADE_R, Color(accent, 0.22 + 0.14 * pulse) if on else Color(1, 1, 1, 0.06))
-	draw_arc(c, UPGRADE_R, 0, TAU, 44, Color(accent, 0.7 + 0.3 * pulse) if on else Color(1, 1, 1, 0.16), 3.0)
+		draw_circle(c, UPGRADE_R + 8.0 + 6.0 * pulse, Color(accent, 0.14 + 0.14 * pulse))
+	_gloss_disc(self, c, UPGRADE_R, Color(accent, 0.95) if on else Color(0.24, 0.2, 0.38, 0.5))
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
 		draw_string(font, Vector2(c.x - UPGRADE_R - 372.0, c.y + 8.0), _notice_text, HORIZONTAL_ALIGNMENT_RIGHT, 360.0, 24, Color(accent, a))
@@ -758,19 +819,17 @@ func _draw_outbreak_button() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if world.outbreak_t > 0.0:
 		var left := world.outbreak_t / float(world.bal.outbreak.duration_s)
-		draw_circle(c, r + 6.0 + 4.0 * sin(t * 12.0), Color(col, 0.25))
-		draw_circle(c, r, Color(col, 0.45))
-		draw_arc(c, r - 4.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
+		draw_circle(c, r + 8.0 + 4.0 * sin(t * 12.0), Color(col, 0.3))
+		_gloss_disc(self, c, r, col)
+		draw_arc(c, r - 5.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
 	elif world.outbreak_ready():
 		var pulse := 0.5 + 0.5 * sin(t * 7.0)
 		draw_circle(c, r + 8.0 + 6.0 * pulse, Color(col, 0.18 + 0.15 * pulse))
-		draw_circle(c, r, Color(col, 0.55 + 0.25 * pulse))
-		draw_arc(c, r, 0, TAU, 40, Color.WHITE, 3.0)
+		_gloss_disc(self, c, r, col)
 	else:
-		draw_circle(c, r, Color(1, 1, 1, 0.06))
-		draw_arc(c, r, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
+		_gloss_disc(self, c, r, Color(0.24, 0.2, 0.38, 0.6))
 		if world.outbreak > 0.0:
-			draw_arc(c, r - 4.0, -PI / 2.0, -PI / 2.0 + TAU * world.outbreak, 40, Color(col, 0.85), 6.0)
+			draw_arc(c, r - 5.0, -PI / 2.0, -PI / 2.0 + TAU * world.outbreak, 40, Color(col, 0.95), 6.0)
 	var ready := world.outbreak_ready() or world.outbreak_t > 0.0
 	if icon_atlas != null and icon_atlas.has_icon("outbreak", false):
 		icon_atlas.draw_icon(self, "outbreak", c, r * 1.1)
@@ -781,13 +840,14 @@ func _draw_outbreak_button() -> void:
 ## Left-edge column of owned upgrades: icon plus level number (weapons
 ## first, evolved ones starred).
 func _draw_owned(ci: CanvasItem) -> void:
-	# BUILD button (top-left): your weapons' icons and how many upgrades you
-	# own; tapping it opens the paused build overlay (Main / BuildScreen).
+	# Weapon strip (second row, left): each weapon as an icon chip with its
+	# level as pips (a gold star when evolved), then a "+N" chip for passives.
+	# Tapping it opens the paused build overlay (Main / BuildScreen).
 	var r := build_rect()
-	ci.draw_rect(r, Color(0.08, 0.05, 0.14, 0.7))
-	ci.draw_rect(r, Color(pal.ui_accent, 0.55), false, 2.0)
-	var px := 30.0
+	_rrect(ci, r, 18.0, Color(0.06, 0.03, 0.13, 0.62))
+	var px := 40.0
 	var x := r.position.x + 8.0 + px / 2.0
+	var cy := r.position.y + 24.0
 	var passives := 0
 	for u in world.upgrade_list:
 		if not world.owned.has(u.id):
@@ -796,21 +856,40 @@ func _draw_owned(ci: CanvasItem) -> void:
 			passives += 1
 			continue
 		var evo: bool = world.evolved.has(u.id)
-		var c := Vector2(x, r.position.y + 6.0 + px / 2.0)
+		var c := Vector2(x, cy)
 		if icon_atlas != null and icon_atlas.has_icon(u.id, evo):
 			icon_atlas.draw_icon(ci, u.id, c, px, evo)
 		else:
 			IconArt.draw(ci, u.id, c, px, IconArt.color_for(u), evo)
-		x += px + 5.0
-	var label := "BUILD" + ("  +%d" % passives if passives > 0 else "")
-	ci.draw_string(font, Vector2(r.position.x, r.end.y - 9.0), label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 17, Color(1, 1, 1, 0.9))
+		var lv := int(world.owned[u.id])
+		var tot := Upgrades.max_level(u)
+		for k in tot:
+			var pp := c + Vector2((k - (tot - 1) / 2.0) * 7.0, px / 2.0 + 6.0)
+			ci.draw_circle(pp, 2.6, IconArt.color_for(u) if k < lv else Color(1, 1, 1, 0.22))
+		x += px + 10.0
+	if passives > 0:
+		var c := Vector2(x, cy)
+		ci.draw_circle(c, px / 2.0, Color(0.18, 0.12, 0.3, 0.95))
+		ci.draw_arc(c, px / 2.0 - 1.0, 0, TAU, 24, Color(pal.ui_accent, 0.8), 2.0)
+		_text(ci, c + Vector2(-px / 2.0, 7.0), "+%d" % passives, px, 18, Color.WHITE, 4, HORIZONTAL_ALIGNMENT_CENTER)
 
 
-const BUILD_RECT := Rect2(14, 182, 154, 66)  # below the boss / Nucleus bars
+const BUILD_RECT := Rect2(12, 116, 284, 60)  # second row, left (tap: build overlay)
 
 
+## The weapon strip's rect, as wide as its chips (weapons + the passives chip).
 func build_rect() -> Rect2:
-	return BUILD_RECT
+	if world == null:
+		return BUILD_RECT
+	var n := 0
+	var passives := false
+	for id in world.owned:
+		if world.upgrade_defs[id].type == "weapon":
+			n += 1
+		else:
+			passives = true
+	n += 1 if passives else 0
+	return Rect2(BUILD_RECT.position, Vector2(maxf(16.0 + n * 50.0 - 10.0, 60.0), BUILD_RECT.size.y))
 
 
 func in_build_button(p: Vector2) -> bool:
@@ -828,14 +907,13 @@ func _draw_defense_bars(ci: CanvasItem, w: float) -> void:
 		txt = "FREE MODE  WAVE %d" % wd.wave
 	else:
 		txt = "FINAL WAVE" if wd.wave >= wd.wave_count else "WAVE %d / %d" % [wd.wave, wd.wave_count]
-	ci.draw_string(font, Vector2(0, 96), txt, HORIZONTAL_ALIGNMENT_CENTER, w, 26, pal.core)
-	ci.draw_string(font, Vector2(16, 128), "BIOMASS %d" % floori(wd.biomass), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, pal.pad)
+	_text(ci, Vector2(w - 330.0, 142), txt, 314.0, 24, pal.core, 6, HORIZONTAL_ALIGNMENT_RIGHT)
+	_text(ci, Vector2(w - 330.0, 168), "BIOMASS %d" % floori(wd.biomass), 314.0, 20, pal.pad, 5, HORIZONTAL_ALIGNMENT_RIGHT)
 	var f := wd.core_hp / maxf(wd.core_max, 1.0)
-	var r := Rect2(60, 150, w - 120, 16)
-	ci.draw_rect(r, Color(0, 0, 0, 0.55))
+	var r := Rect2(60, 204, w - 120, 18)
 	var low := f < 0.3 and fmod(Time.get_ticks_msec() / 1000.0, 0.5) < 0.25
-	ci.draw_rect(Rect2(r.position, Vector2(r.size.x * f, r.size.y)), pal.player_hurt if low else pal.core)
-	ci.draw_string(font, Vector2(0, 145), "NUCLEUS", HORIZONTAL_ALIGNMENT_CENTER, w, 18, Color(pal.text, 0.8))
+	_text(ci, Vector2(0, 197), "NUCLEUS", w, 18, Color.WHITE, 5, HORIZONTAL_ALIGNMENT_CENTER)
+	_bar(ci, r, f, pal.player_hurt if low else pal.core)
 
 
 ## Nucleus mode parts that animate every frame.
