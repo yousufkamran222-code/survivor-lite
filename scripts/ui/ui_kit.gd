@@ -27,6 +27,8 @@ static var _gloss := {}
 static func display_font() -> Font:
 	if _display == null:
 		var f: FontFile = load(DISPLAY_FONT)
+		if f != null:
+			f.fallbacks = [ThemeDB.fallback_font]  # any glyph Lilita lacks (arrows etc.)
 		_display = f if f != null else ThemeDB.fallback_font
 	return _display
 

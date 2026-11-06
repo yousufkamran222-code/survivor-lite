@@ -31,6 +31,8 @@ var _bench_perf := false
 var _bench_taps := 0
 var _bench_tap_ms := 0
 var bench_result := ""  # last benchmark line (also read by tools/sim/bench_render.gd)
+var _picking := false  # a level-up pick is animating
+var _cards: Array[Button] = []  # the level-up cards on screen
 var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
@@ -956,35 +958,46 @@ func _show_levelup() -> void:
 	_set_screen("levelup")
 	var col: VBoxContainer = _levelup[1]
 	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 14)
-	col.add_child(UiKit.label("LEVEL %d" % world.level, 58, pal.ui_accent))
+	col.add_theme_constant_override("separation", 16)
+	var title := UiKit.label("LEVEL UP!", 66, pal.ui_accent)
+	col.add_child(title)
 	var sub := HBoxContainer.new()
 	sub.alignment = BoxContainer.ALIGNMENT_CENTER
 	sub.add_theme_constant_override("separation", 10)
-	sub.add_child(UiKit.chip("%d %s" % [world.pending_levelups, "pick" if world.pending_levelups == 1 else "picks"], pal.ui_accent, Color(0.1, 0.06, 0.15), 20))
-	var choose := UiKit.label("Choose one upgrade", 24, Color(pal.text, 0.75))
-	choose.autowrap_mode = TextServer.AUTOWRAP_OFF
-	sub.add_child(choose)
+	var lv := UiKit.display(UiKit.label("Level %d" % world.level, 26, Color.WHITE))
+	lv.autowrap_mode = TextServer.AUTOWRAP_OFF
+	sub.add_child(lv)
+	if world.pending_levelups > 1:
+		sub.add_child(UiKit.chip("%d picks" % world.pending_levelups, pal.ui_accent, Color(0.1, 0.06, 0.15), 20))
 	col.add_child(sub)
 	var buttons: Array[Button] = []
+	_cards = []
 	var k := 0
 	for id in world.offers:
 		var b := _upgrade_card(id)
-		col.add_child(b)
+		col.add_child(_card_slot(b))
 		buttons.append(b)
-		_pop_in(b, k * 0.07)
+		_cards.append(b)
+		_slide_in(b, 0.06 + k * 0.08)
 		k += 1
-	var reroll := UiKit.button("Reroll  (%d free)" % world.free_rerolls if world.free_rerolls > 0 else "Reroll  (watch ad)", _reroll, 80)
-	reroll.add_theme_font_size_override("font_size", 24)
+	# Reroll / Later: small text buttons, so the cards stay the focus.
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 40)
+	var reroll := _text_button("Reroll (%d free)" % world.free_rerolls if world.free_rerolls > 0 else "Reroll (ad)", _reroll)
 	reroll.visible = world.free_rerolls > 0 or Ads.is_rewarded_available()
-	col.add_child(reroll)
+	row.add_child(reroll)
 	buttons.append(reroll)
-	var later := UiKit.button("Later  (keep %d banked)" % world.pending_levelups, _later, 72)
-	later.add_theme_font_size_override("font_size", 22)
-	col.add_child(later)
+	var later := _text_button("Later (keep %d)" % world.pending_levelups, _later)
+	row.add_child(later)
 	buttons.append(later)
+	col.add_child(row)
 	if not _levelup[0].visible:
-		UiKit.reveal(_levelup)
+		var root: Control = _levelup[0]
+		root.visible = true
+		root.modulate.a = 0.0
+		root.create_tween().tween_property(root, "modulate:a", 1.0, 0.16)
+	UiKit._pop(title, 0.0, 0.7)
 	# Ignore taps for a moment so a finger still dragging can't mis-pick.
 	for b in buttons:
 		b.disabled = true
@@ -994,42 +1007,159 @@ func _show_levelup() -> void:
 			b.disabled = false
 
 
-## One level-up offer: glowing icon, name with a NEW/level chip, a tier bar
-## whose next segment pulses, the effect text, and an evolution chip.
+## A flat text-only button (secondary actions under the level-up cards).
+func _text_button(text: String, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 64)
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, empty)
+	b.add_theme_font_override("font", UiKit.display_font())
+	b.add_theme_font_size_override("font_size", 26)
+	b.add_theme_constant_override("outline_size", 6)
+	b.add_theme_color_override("font_outline_color", UiKit.OUTLINE)
+	for c in ["font_color", "font_hover_color", "font_focus_color"]:
+		b.add_theme_color_override(c, Color(pal.text, 0.8))
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_disabled_color", Color(pal.text, 0.35))
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		on_press.call())
+	UiKit.press_feedback(b)
+	return b
+
+
+## A plain slot in the column holding one card: the column lays out the
+## slot, and the card can move inside it (slide-in, drop-away) without the
+## container snapping it back. The slot is as tall as the card needs.
+func _card_slot(card: Control) -> Control:
+	var slot := Control.new()
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(card)
+	card.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	# Keep the card exactly as wide as the slot (moving it while the slot was
+	# still 0 wide baked its min width into the offsets: 24 px too wide).
+	var span := func() -> void:
+		card.offset_left = 0.0
+		card.offset_right = 0.0
+	slot.resized.connect(span)
+	span.call()
+	var fit := func() -> void: slot.custom_minimum_size.y = card.get_combined_minimum_size().y
+	card.minimum_size_changed.connect(fit)
+	fit.call()
+	return slot
+
+
+## Cards slide up into place (inside their slot), one after another.
+func _slide_in(c: Control, delay: float) -> void:
+	c.modulate.a = 0.0
+	c.position.y = 140.0
+	var tw := c.create_tween().set_parallel(true)
+	tw.tween_property(c, "modulate:a", 1.0, 0.16).set_delay(delay)
+	tw.tween_property(c, "position:y", 0.0, 0.38).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Category of a card: [tag, colour].
+func _card_kind(def: Dictionary) -> Array:
+	var id := str(def.id)
+	if def.type == "weapon":
+		return ["WEAPON", IconArt.color_for(def)]
+	if def.has("modes"):
+		return ["SWARM", IconArt.COLORS.swarm]
+	if id in ["flagella2", "lunge", "afterimage", "adrenaline", "volatile"]:
+		return ["DASH", IconArt.COLORS.dash]
+	return ["PASSIVE", IconArt.COLORS.passive]
+
+
+## True if picking this card makes an evolution ready (max weapon + its partner).
+func _completes_evolution(id: String, nl: int) -> bool:
+	if _evo_by_weapon.has(id):
+		var ev: Dictionary = _evo_by_weapon[id]
+		return nl == Upgrades.max_level(world.upgrade_defs[id]) and world.owned.has(ev.requires) and not world.evolved.has(id)
+	if _evo_by_passive.has(id):
+		var ev: Dictionary = _evo_by_passive[id]
+		var w := str(ev.weapon)
+		return nl == 1 and int(world.owned.get(w, 0)) >= Upgrades.max_level(world.upgrade_defs[w]) and not world.evolved.has(w)
+	return false
+
+
+const STAT_NAMES := {"damage": "Damage", "cooldown": "Cooldown", "count": "Count", "pierce": "Pierce", "area": "Area",
+	"jumps": "Jumps", "size": "Size", "range": "Range", "orbit_radius": "Radius", "spin": "Spin", "speed": "Speed",
+	"knockback": "Knockback", "jump_range": "Jump range", "hit_interval": "Hit rate", "might": "Damage", "haste": "Weapon speed",
+	"move": "Move speed", "max_hp": "Max HP", "magnet": "Pickup range", "amount": "Extra shots", "regen": "Regen/s",
+	"xp_gain": "XP", "gold_gain": "Gold", "armor": "Resist", "dash_charges": "Dash charges", "dash_damage": "Dash damage",
+	"dash_cd": "Dash recharge", "dash_decoy": "Decoy burst", "convert": "Convert", "ally_power": "Ally power", "ally_cap": "Ally cap",
+	"hive": "Hive", "convert_heal": "Convert heal", "dash_reset": "Dash reset", "dash_volatile": "Volatile"}
+const PCT_STATS := ["might", "haste", "move", "magnet", "xp_gain", "gold_gain", "armor", "dash_cd", "dash_decoy", "convert", "ally_power", "hive"]
+
+
+## Up to two "Damage 18 → 26" lines for a card you already own.
+func _stat_lines(def: Dictionary, nl: int) -> Array:
+	var out := []
+	if nl <= 1:
+		return out
+	var cur := Upgrades.stats_at(def, nl - 1)
+	var nxt := Upgrades.stats_at(def, nl)
+	var row: Dictionary = def.levels[mini(nl - 1, def.levels.size() - 1)]
+	for key in row:
+		if out.size() >= 2 or not STAT_NAMES.has(key):
+			continue
+		out.append("%s  %s → %s" % [STAT_NAMES[key], _fmt_stat(key, float(cur.get(key, 0.0))), _fmt_stat(key, float(nxt.get(key, 0.0)))])
+	return out
+
+
+func _fmt_stat(key: String, v: float) -> String:
+	if PCT_STATS.has(key):
+		return "+%d%%" % roundi(v * 100.0)
+	if key in ["cooldown", "hit_interval"]:
+		return "%ss" % str(snappedf(v, 0.01))
+	return str(roundi(v)) if is_equal_approx(v, roundf(v)) else str(snappedf(v, 0.1))
+
+
+## One level-up offer: a chunky card framed in its category colour with a
+## glowing icon, name + tags, a level bar, "now → next" stats (or the
+## description for a new card) and evolution hints. Picking animates.
 func _upgrade_card(id: String) -> Button:
 	var def: Dictionary = world.upgrade_defs[id]
 	var nl := world.next_level_of(id)
 	var total := Upgrades.max_level(def)
-	var accent := IconArt.color_for(def)
+	var kind := _card_kind(def)
+	var accent: Color = kind[1]
+	var evo_ready := _completes_evolution(id, nl)
+	var mutated: bool = id == world.mutated_offer
+	var frame: Color = pal.ui_accent if evo_ready else (LabScreen.GENE if mutated else accent)
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 172)
+	b.custom_minimum_size = Vector2(0, 176)
 	b.focus_mode = Control.FOCUS_NONE
-	var sb := UiKit._box(Color("#2f2357"), 20, 12)
-	sb.set_border_width_all(2)
-	sb.border_width_left = 8
-	sb.border_color = Color(accent, 0.85)
+	var sb := UiKit.card(Color("#2b2158"), frame, 22, 12)
+	sb.set_border_width_all(5 if (evo_ready or mutated) else 4)
+	sb.border_width_left = 12
 	var sbp := sb.duplicate()
-	sbp.bg_color = Color("#46368a")
+	sbp.bg_color = Color("#3c2f7a")
 	b.add_theme_stylebox_override("normal", sb)
 	b.add_theme_stylebox_override("hover", sb)
 	b.add_theme_stylebox_override("pressed", sbp)
 	b.add_theme_stylebox_override("disabled", sb)
 	b.pressed.connect(func() -> void:
 		Sfx.play("click", 0.0)
-		_pick(id))
+		_pick_animated(id, b))
 	UiKit.press_feedback(b)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right", "top", "bottom"]:
 		m.add_theme_constant_override("margin_" + side, 14)
-	m.add_theme_constant_override("margin_left", 20)
+	m.add_theme_constant_override("margin_left", 22)
 	b.add_child(m)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_theme_constant_override("separation", 16)
 	m.add_child(h)
-	var ic := UiKit.glow_icon(id, accent, 104)
+	var ic := UiKit.glow_icon(id, accent, 100)
+	ic.name = "Icon"
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(ic)
 	var v := VBoxContainer.new()
@@ -1040,25 +1170,31 @@ func _upgrade_card(id: String) -> Button:
 	h.add_child(v)
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_theme_constant_override("separation", 10)
-	var name := UiKit.label(def.name, 27, Color.WHITE)
+	top.add_theme_constant_override("separation", 8)
+	var name := UiKit.display(UiKit.label(def.name, 30, Color.WHITE))
 	name.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(name)
 	var boosts := false  # a permanent upgrade already gives this card's effect
-	for k in def.levels[0]:
-		boosts = boosts or float(world.meta_bonus.get(k, 0.0)) > 0.0
-	if id == world.mutated_offer:
-		top.add_child(UiKit.chip("MUTATED  +2 LV", LabScreen.GENE))
-		sb.border_color = LabScreen.GENE
-		sb.set_border_width_all(4)
-		sb.border_width_left = 8
+	for key in def.levels[0]:
+		boosts = boosts or float(world.meta_bonus.get(key, 0.0)) > 0.0
+	if mutated:
+		top.add_child(UiKit.chip("MUTATED +2 LV", LabScreen.GENE))
 	elif nl == 1 and boosts and def.type != "weapon":
 		top.add_child(UiKit.chip("BOOST", Color(1, 1, 1, 0.85)))
 	elif nl == 1:
-		top.add_child(UiKit.chip("NEW " + ("WEAPON" if def.type == "weapon" else ""), accent))
+		top.add_child(UiKit.chip("NEW", accent))
 	else:
-		top.add_child(UiKit.chip("LV %d" % nl, Color(1, 1, 1, 0.85)))
+		top.add_child(UiKit.chip("LV %d" % nl, Color(1, 1, 1, 0.9)))
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(sp)
+	var tag := UiKit.label(kind[0], 14, Color(accent, 0.85))
+	tag.add_theme_font_override("font", UiKit.display_font())
+	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(tag)
 	v.add_child(top)
 	if total > 1:
 		var bar := MetaShop.TierBar.new()
@@ -1069,14 +1205,79 @@ func _upgrade_card(id: String) -> Button:
 		bar.custom_minimum_size = Vector2(0, 10)
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(bar)
-	var body := UiKit.label(Upgrades.describe(def, nl), 21, Color(1, 1, 1, 0.85))
-	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(body)
-	var hint := _evolution_hint(id, nl)
-	if hint != "":
-		v.add_child(UiKit.chip(hint.replace("* ", ""), Color(pal.ui_accent, 0.9), Color(0.1, 0.06, 0.15), 16))
+	var lines := _stat_lines(def, nl)
+	if lines.is_empty():
+		var body := UiKit.label(Upgrades.describe(def, nl), 20, Color(1, 1, 1, 0.85))
+		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(body)
+	else:
+		for line in lines:
+			var l := UiKit.label(line, 22, Color("#9dffc4"))
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			v.add_child(l)
+	if evo_ready:
+		var ev: Dictionary = _evo_by_weapon.get(id, _evo_by_passive.get(id, {}))
+		var chip := UiKit.chip("EVOLUTION READY: %s" % str(ev.get("name", "")).to_upper(), pal.ui_accent, Color(0.1, 0.06, 0.15), 17)
+		v.add_child(chip)
+		chip.resized.connect(func() -> void: chip.pivot_offset = chip.size / 2.0)
+		var pulse := chip.create_tween().set_loops()
+		pulse.tween_property(chip, "scale", Vector2(1.06, 1.06), 0.45).set_trans(Tween.TRANS_SINE)
+		pulse.tween_property(chip, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
+	else:
+		var hint := _evolution_hint(id, nl)
+		if hint != "":
+			v.add_child(UiKit.chip(hint.replace("* ", ""), Color(pal.ui_accent, 0.75), Color(0.1, 0.06, 0.15), 15))
+	# The Button doesn't size itself to its content: grow with it.
+	m.minimum_size_changed.connect(func() -> void: b.custom_minimum_size.y = maxf(176.0, m.get_combined_minimum_size().y))
+	b.custom_minimum_size.y = maxf(176.0, m.get_combined_minimum_size().y)
 	return b
+
+
+## The pick: the chosen card pops, the others drop away, and its icon flies
+## into the BUILD box before the next picker (or the run) continues.
+func _pick_animated(id: String, card: Button) -> void:
+	if _picking:
+		return
+	_picking = true
+	var col: VBoxContainer = _levelup[1]
+	for c in col.get_children():
+		if c is HBoxContainer:
+			for cc in c.get_children():
+				if cc is Button:
+					cc.disabled = true
+	for c in _cards:
+		if not is_instance_valid(c):
+			continue
+		c.disabled = true
+		if c != card:
+			var tw := c.create_tween().set_parallel(true)
+			tw.tween_property(c, "modulate:a", 0.0, 0.16)
+			tw.tween_property(c, "position:y", 60.0, 0.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	card.pivot_offset = card.size / 2.0
+	var pop := card.create_tween()
+	pop.tween_property(card, "scale", Vector2(1.06, 1.06), 0.1).set_trans(Tween.TRANS_SINE)
+	pop.tween_property(card, "scale", Vector2.ONE, 0.12)
+	Sfx.play("upgrade", 0.0, 1.05)
+	Sfx.vibrate(25)
+	# Icon flies to the BUILD box (HUD space = screen space).
+	var icon_node: Control = card.find_child("Icon", true, false)
+	var layer: Node = _levelup[0].get_parent()
+	if icon_node != null and layer != null:
+		var def: Dictionary = world.upgrade_defs[id]
+		var fly := UpgradeIcon.make(id, _card_kind(def)[1], 108)
+		fly.position = icon_node.get_global_rect().position
+		fly.z_index = 10
+		layer.add_child(fly)
+		var dst := hud.build_rect().get_center() - Vector2(27, 27)
+		var tw := fly.create_tween().set_parallel(true)
+		tw.tween_property(fly, "position", dst, 0.34).set_delay(0.08).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(fly, "scale", Vector2(0.5, 0.5), 0.34).set_delay(0.08)
+		tw.chain().tween_callback(fly.queue_free)
+	await get_tree().create_timer(0.24).timeout
+	_picking = false
+	_pick(id)
 
 
 ## "Evolves with X" style hint for a level-up card, or "".
