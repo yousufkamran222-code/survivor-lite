@@ -189,6 +189,24 @@ def build_pop_sfx() -> None:
     # Confetti: a party-popper snap with a short rising whistle.
     rms_write("pop_party", mix(env(noise(0.05, 0.6), attack=0.001, decay_pow=3.0),
                                np.pad(env(osc(900, 2200, 0.1, "sine"), attack=0.005, decay_pow=1.2) * 0.5, (int(0.02 * RATE), 0))))
+    # --- Second batch (2026-11-06, appended so everything above is unchanged).
+    # Shatter: a glassy crack (bright noise) with three high pings ringing out.
+    rms_write("pop_glass", mix(env(noise(0.05, 0.95), attack=0.0005, decay_pow=3.0) * 0.8,
+                               *[env(osc(f, f * 0.98, 0.22, "sine"), attack=0.001, decay_pow=3.0) * a for f, a in ((3150, 0.5), (4420, 0.35), (5230, 0.25))]))
+    # Melody: one soft bell note (sine + inharmonic partials); the game plays
+    # it at the notes of a scale, so kills turn into a tune.
+    rms_write("pop_chime", mix(*[env(osc(880 * r, 880 * r, 0.32, "sine"), attack=0.002, decay_pow=a) * g
+                                 for r, a, g in ((1.0, 2.2, 1.0), (2.0, 3.0, 0.35), (2.76, 4.0, 0.2), (5.4, 6.0, 0.08))]))
+    # Zap: an electric crackle diving down.
+    rms_write("pop_zap", mix(env(osc(3200, 180, 0.11, "saw"), attack=0.001, decay_pow=1.4) * 0.6,
+                             env(noise(0.09, 0.85), attack=0.001, decay_pow=2.0) * 0.5))
+    # Slime: a slow, low, sloppy squelch.
+    rms_write("pop_slime", mix(sample("ezduzziteh_squish/squish_03.wav", 0.3, pitch=0.62), body(120, 45, 0.22, 0.7)))
+    # Kaboom: a tiny explosion with a sub kick.
+    rms_write("pop_boom", mix(sample("joth_chunky_explosion/chunky_explosion.wav", 0.32, pitch=1.7, fade=0.14), body(110, 38, 0.2, 0.9)))
+    # Squeaky: a rubber-toy squeak (rise, wobble, fall).
+    sq = osc(1100, 1700, 0.07, "sine")
+    rms_write("pop_squeak", env(mix(seq(sq, osc(1700, 1150, 0.08, "sine")), seq(osc(1100, 1700, 0.07, "tri"), osc(1700, 1150, 0.08, "tri")) * 0.3), attack=0.004, decay_pow=0.8))
 
 
 def build_background(size: int = 512, bg="#150e2b", dots="#231845", cells="#1d1439", rims="#2b2056") -> None:

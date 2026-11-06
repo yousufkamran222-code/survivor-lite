@@ -11,10 +11,10 @@ func test_data_is_valid_and_v1_sized() -> void:
 	var errors := GameData.validate(data())
 	check(errors.is_empty(), str(errors))
 	var c := cfg()
-	check_eq(c.categories.size(), 3)
-	for cat in ["skin", "weapon", "pop"]:
+	check_eq(c.categories.size(), 4)
+	for cat in ["skin", "weapon", "pop", "trail"]:
 		var n := Cosmetics.items(c, cat).size()
-		check(n >= 6 and n <= 12, "%s has %d items" % [cat, n])
+		check(n >= 6 and n <= 16, "%s has %d items" % [cat, n])
 		check_eq(Cosmetics.unlock_type(Cosmetics.find(c, str(c.defaults[cat]))), "free")
 	for it in c.items:
 		check(not it.has("stats") and not it.get("look", {}).has("damage"), "cosmetics never carry stats")
@@ -35,8 +35,9 @@ func test_defaults_are_equipped_on_a_new_profile() -> void:
 	check_eq(Cosmetics.equipped(cfg(), p, "skin"), "white")
 	check_eq(Cosmetics.equipped(cfg(), p, "weapon"), "standard")
 	check_eq(Cosmetics.equipped(cfg(), p, "pop"), "goo")
+	check_eq(Cosmetics.equipped(cfg(), p, "trail"), "afterimage")
 	var look := Cosmetics.look(cfg(), p)
-	check(look.has("skin") and look.has("weapon") and look.has("pop"))
+	check(look.has("skin") and look.has("weapon") and look.has("pop") and look.has("trail"))
 
 
 func test_buy_with_gold() -> void:
@@ -165,3 +166,41 @@ func test_pop_burst_follows_the_style() -> void:
 			check(f.has("flutter"))
 	check_eq(n, int(pop.count))
 	check(CosmeticArt.splat_color(pop, Color.RED) == null, "confetti leaves no splat")
+
+
+func test_melody_plays_its_scale_in_order() -> void:
+	var pop: Dictionary = Cosmetics.find(cfg(), "melody").look
+	var scale: Array = pop.scale
+	for n in scale.size() + 2:
+		var ps := CosmeticArt.pop_sound(pop, n)
+		check_eq(str(ps[0]), "pop_chime")
+		check_near(float(ps[1]), float(scale[n % scale.size()]))
+		check(not ps[2], "no streak pitch on top of the tune")
+	var goo := CosmeticArt.pop_sound(Cosmetics.find(cfg(), "goo").look, 5)
+	check_eq(str(goo[0]), "kill")
+	check(goo[2], "squelches keep the streak/size pitch")
+
+
+func test_trails_emit_per_time_not_per_frame() -> void:
+	seed(3)
+	var flame: Dictionary = Cosmetics.find(cfg(), "flame").look
+	var n60 := 0
+	for k in 60:
+		n60 += CosmeticArt.trail_burst(flame, Vector2.ZERO, Color.WHITE, 0.0, 1.0 / 60.0).size()
+	var n120 := 0
+	for k in 120:
+		n120 += CosmeticArt.trail_burst(flame, Vector2.ZERO, Color.WHITE, 0.0, 1.0 / 120.0).size()
+	check_eq(n60, 60 * int(flame.per_frame))
+	check(absi(n120 - n60) <= 20, "same trail at 60 and 120 fps (%d vs %d)" % [n60, n120])
+	check(CosmeticArt.trail_burst(Cosmetics.find(cfg(), "afterimage").look, Vector2.ZERO, Color.WHITE, 0.0, 0.016).is_empty(), "afterimage = no particles")
+	for f in CosmeticArt.trail_burst(Cosmetics.find(cfg(), "sparkle").look, Vector2.ZERO, Color.WHITE, 0.0, 0.1):
+		check_eq(str(f.kind), "tdot")
+
+
+func test_rainbow_skin_changes_colour_over_time() -> void:
+	var skin: Dictionary = Cosmetics.find(cfg(), "rainbow").look
+	var a := CosmeticArt.body_color(skin, Color.WHITE, 0.0)
+	var b := CosmeticArt.body_color(skin, Color.WHITE, 3.0)
+	check(not a.is_equal_approx(b))
+	var plain := CosmeticArt.body_color(Cosmetics.find(cfg(), "mint").look, Color.WHITE, 3.0)
+	check(plain.is_equal_approx(CosmeticArt.body_color(Cosmetics.find(cfg(), "mint").look, Color.WHITE, 0.0)))

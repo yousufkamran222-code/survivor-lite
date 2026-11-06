@@ -658,9 +658,14 @@ func _on_kill_streak(radius: float = 18.0) -> void:
 	var j: Dictionary = bal.juice
 	var pitch := 1.0 + minf(n * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
 	pitch *= clampf(sqrt(float(j.get("kill_pitch_radius", 18.0)) / maxf(radius, 1.0)), 0.75, 1.25)
-	var snd := str(_pop_sound.get("sound", "kill"))  # Cosmetics: the pop style's sound
-	pitch *= float(_pop_sound.get("pitch", 1.0))
-	Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()] if snd == "kill" else snd, 0.05, pitch)
+	# Cosmetics: the pop style's sound. Melody plays the streak as a tune
+	# (note n of its scale, no streak/size pitch, no random detune).
+	var ps := CosmeticArt.pop_sound(_pop_sound, maxi(n - 1, 0))
+	if not ps[2]:
+		pitch = 1.0
+	pitch *= float(ps[1])
+	var snd := str(ps[0])
+	Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()] if snd == "kill" else snd, 0.05 if ps[2] else 0.0, pitch)
 	if not _streak_best_called and _life_best_streak >= 25 and n > _life_best_streak:
 		_streak_best_called = true
 		Sfx.play("level_up", 0.0, 1.2)

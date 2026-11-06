@@ -101,7 +101,7 @@ func _draw_hero() -> void:
 	var hr := 46.0 * (1.0 + 0.04 * sin(_t * 2.2))
 	var sl := 230.0 * (1.0 + 0.05 * sin(_t * 1.3))  # soft spotlight behind the hero
 	var skin: Dictionary = look.get("skin", {})
-	var body := CosmeticArt.body_color(skin, pal.player)
+	var body := CosmeticArt.body_color(skin, pal.player, _t)
 	var nuc := CosmeticArt.nucleus_color(skin, pal.player_nucleus)
 	var halo: Color = GameData.color(str(skin.glow)) if skin.has("glow") else pal.player_nucleus
 	var orb := CosmeticArt.weapon_color(look.get("weapon", {}), "orbit", pal.orbit, false)

@@ -46,10 +46,17 @@ const SOUNDS := {
 	"pop_coin": preload("res://assets/processed/sfx/pop_coin.wav"),
 	"pop_spark": preload("res://assets/processed/sfx/pop_spark.wav"),
 	"pop_party": preload("res://assets/processed/sfx/pop_party.wav"),
+	"pop_glass": preload("res://assets/processed/sfx/pop_glass.wav"),
+	"pop_chime": preload("res://assets/processed/sfx/pop_chime.wav"),
+	"pop_zap": preload("res://assets/processed/sfx/pop_zap.wav"),
+	"pop_slime": preload("res://assets/processed/sfx/pop_slime.wav"),
+	"pop_boom": preload("res://assets/processed/sfx/pop_boom.wav"),
+	"pop_squeak": preload("res://assets/processed/sfx/pop_squeak.wav"),
 }
 ## Variants that share one rate limit and volume (the six germ pops).
 const GROUP := {"kill1": "kill", "kill2": "kill", "kill3": "kill", "kill4": "kill", "kill5": "kill", "kill6": "kill",
-	"pop_bubble": "kill", "pop_blip": "kill", "pop_coin": "kill", "pop_spark": "kill", "pop_party": "kill"}
+	"pop_bubble": "kill", "pop_blip": "kill", "pop_coin": "kill", "pop_spark": "kill", "pop_party": "kill",
+	"pop_glass": "kill", "pop_chime": "kill", "pop_zap": "kill", "pop_slime": "kill", "pop_boom": "kill", "pop_squeak": "kill"}
 const KILLS := ["kill1", "kill2", "kill3", "kill4", "kill5", "kill6"]
 const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90, "nova": 60,
 	"thump": 120, "crit": 60, "crunch": 60, "mega": 500}

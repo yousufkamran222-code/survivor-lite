@@ -91,6 +91,8 @@ var cpu_ms := 0.0
 var _skin := {}
 var _wstyle := {}
 var _pop := {}
+var _trail := {}  # dash trail look
+var _trails: SpriteBatch  # dash-trail particles (the trail's shape texture)
 var _pops: SpriteBatch  # pop-style particles (the style's shape texture)
 var _bolt_heads: SpriteBatch  # weapon-style bolt shapes (stars, hearts, ...)
 var _shaped := false  # the weapon style has its own bolt/orbit shape
@@ -129,6 +131,7 @@ func setup(game_data: Dictionary) -> void:
 	_bolt_heads = _batch(disc, int(perf.max_projectiles))
 	_dots = _batch(disc, int(perf.max_effects) + 40)
 	_pops = _batch(disc, int(perf.max_effects) + 40)
+	_trails = _batch(disc, 120)
 	_rings = _batch(ShapeTextures.ring(), 48)
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
 	_cell_tex = ShapeTextures.player_cell()
@@ -184,6 +187,8 @@ func set_look(look: Dictionary) -> void:
 	_skin = look.get("skin", {})
 	_wstyle = look.get("weapon", {})
 	_pop = look.get("pop", {})
+	_trail = look.get("trail", {})
+	_trails.setup(CosmeticArt.tex(str(_trail.get("shape", "disc"))), 120)
 	_shaped = CosmeticArt.weapon_shape(_wstyle) != "disc"
 	var cap := int(bal.perf.max_effects) + 40
 	_pops.setup(CosmeticArt.tex(str(_pop.get("shape", "disc"))), cap)
@@ -653,8 +658,12 @@ func _process_view(delta: float) -> void:
 		_spark_ang = randf() * TAU
 	_update_cell_pose(delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
-	if world.p_dash_t > 0.0:
-		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(CosmeticArt.body_color(_skin, pal.player), 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
+	if world.p_dash_t > 0.0:  # dash trail (Cosmetics: afterimage and/or particles)
+		var bc := CosmeticArt.body_color(_skin, pal.player, _cell_t)
+		if _trail.is_empty() or _trail.get("afterimage", false):
+			_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(bc, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
+		for f in CosmeticArt.trail_burst(_trail, world.p_pos, bc, _cell_t, delta):
+			_add_fx(f, int(bal.perf.max_effects) + 30)
 	_sparks_left = int(juice.get("hit_sparks_per_frame", 6))
 	_age_splats(delta)
 	# Smooth shake: layered sines instead of a new random offset every frame
@@ -956,6 +965,12 @@ func _fill_dots() -> void:
 			var lk := CosmeticArt.pdot_look(f)
 			_pops.add(f.pos, lk[0], lk[1], 0.0, lk[2])
 	_pops.commit()
+	_trails.begin()
+	for f in fx:
+		if f.kind == "tdot":
+			var lk := CosmeticArt.pdot_look(f)
+			_trails.add(f.pos, lk[0], lk[1])
+	_trails.commit()
 	_rings.begin()
 	for f in fx:
 		if f.kind == "kring":
@@ -1107,7 +1122,7 @@ func _draw_player(ci: CanvasItem) -> void:
 		return  # reforming at the nucleus
 	var p := world.p_pos
 	var r := world.p_radius
-	var body: Color = CosmeticArt.body_color(_skin, pal.player)
+	var body: Color = CosmeticArt.body_color(_skin, pal.player, _cell_t)
 	if _hurt_t > 0.0 and fmod(_hurt_t, 0.12) < 0.06:
 		body = pal.player_hurt
 	if world.ability == "cloak" and world.ab_t > 0.0:

@@ -303,6 +303,21 @@ class Swatch extends Control:
 					var at := c + Vector2.from_angle(k * 2.4) * (12.0 + 4.0 * k)
 					var s := 20.0 - k
 					draw_texture_rect(tx, Rect2(at - Vector2(s, s) / 2.0, Vector2(s, s)), false, col)
+			"trail":
+				# A streak of the trail's particles behind a small cell.
+				var tx := CosmeticArt.tex(str(lk.get("shape", "disc")))
+				var cols: Array = lk.get("colors", ["body"])
+				var head := c + Vector2(42, -14)
+				for k in 8:
+					var at := head - Vector2(12.0 + 11.0 * k, -4.0 * k + 3.0 * sin(k * 1.7))
+					var col: Color = Color.from_hsv(k / 8.0, 0.75, 1.0) if lk.get("rainbow", false) else (pal.get("player", Color.WHITE) if str(cols[k % cols.size()]) == "body" else GameData.color(str(cols[k % cols.size()])))
+					var s := (18.0 - k * 1.5) if lk.has("per_frame") else 0.0
+					col.a = 1.0 - k * 0.1
+					if lk.get("afterimage", false) and k < 4:
+						draw_texture_rect(_disc, Rect2(at - Vector2(13, 13), Vector2(26, 26)), false, Color(pal.get("player", Color.WHITE), 0.35 - k * 0.08))
+					if s > 0.0:
+						draw_texture_rect(tx, Rect2(at - Vector2(s, s) / 2.0, Vector2(s, s)), false, col)
+				draw_texture_rect(_disc, Rect2(head - Vector2(14, 14), Vector2(28, 28)), false, pal.get("player", Color.WHITE))
 		if locked:
 			draw_rect(Rect2(Vector2.ZERO, size), Color(0.08, 0.05, 0.14, 0.45))
 			# Padlock.

@@ -35,8 +35,11 @@ static func _c(v: Variant, fallback: Color) -> Color:
 
 # ------------------------------------------------------------------ skins
 
-static func body_color(skin: Dictionary, fallback: Color) -> Color:
+## `t` (seconds) animates the Rainbow skin's colour.
+static func body_color(skin: Dictionary, fallback: Color, t: float = 0.0) -> Color:
 	var c := _c(skin.get("body"), fallback)
+	if skin.get("rainbow", false):
+		c = Color.from_hsv(fposmod(t * 0.12, 1.0), 0.42, 1.0)
 	c.a = float(skin.get("alpha", 1.0))
 	return c
 
@@ -99,6 +102,19 @@ static func draw_pattern(ci: CanvasItem, disc: Texture2D, r: float, skin: Dictio
 				var c := Color(pc, sin(ph * PI))
 				ci.draw_line(at - Vector2(s, 0), at + Vector2(s, 0), c, 2.0)
 				ci.draw_line(at - Vector2(0, s), at + Vector2(0, s), c, 2.0)
+		"stripes":
+			# Tiger stripes: wavy dark bands across the body (chords).
+			for k in 5:
+				var x := (-0.64 + 0.32 * k) * r
+				var h := sqrt(maxf(r * r - x * x, 0.0)) * 0.92
+				var bend := r * 0.1 * (1.0 if k % 2 == 0 else -1.0)
+				ci.draw_polyline(PackedVector2Array([Vector2(x, -h), Vector2(x + bend, 0.0), Vector2(x, h)]), Color(pc, 0.75), r * 0.12)
+		"shine":
+			# Chrome: a bright highlight sweeping round the rim, plus a glint.
+			var a := fmod(t * 1.4, TAU)
+			ci.draw_arc(Vector2.ZERO, r * 0.78, a, a + 0.9, 10, Color(pc, 0.75), r * 0.1)
+			ci.draw_arc(Vector2.ZERO, r * 0.55, a + PI, a + PI + 0.5, 8, Color(pc, 0.4), r * 0.06)
+			_disc(ci, disc, Vector2(-0.38, -0.4) * r, r * 0.12, Color(pc, 0.7))
 		"bubbles":
 			for k in 4:
 				var ph := fmod(t * 0.35 + k * 0.25, 1.0)
@@ -134,7 +150,7 @@ static func _disc(ci: CanvasItem, disc: Texture2D, at: Vector2, rr: float, c: Co
 ## A whole cell in one call (Style screen preview, menu hero, swatches):
 ## glow, cilia, body, pattern, nucleus. No weapons or HUD bits.
 static func draw_cell(ci: CanvasItem, p: Vector2, r: float, skin: Dictionary, t: float, pal: Dictionary, cell_tex: Texture2D, disc: Texture2D, glow_tex: Texture2D, face: float = 0.0) -> void:
-	var body := body_color(skin, pal.get("player", Color.WHITE))
+	var body := body_color(skin, pal.get("player", Color.WHITE), t)
 	var breathe := 0.03 * float(skin.get("breathe", 1.0)) * sin(t * 2.4)
 	var q := r / ShapeTextures.CELL_BODY
 	draw_glow(ci, glow_tex, p, r, skin, t)
@@ -218,6 +234,53 @@ static func pdot_look(f: Dictionary) -> Array:
 	if f.has("flutter"):  # confetti: flips as it falls
 		aspect = 0.35 + 0.65 * absf(sin(f.t * 14.0 + float(f.seed)))
 	return [size, c, aspect]
+
+
+## The kill sound for a pop style: [sound name ("kill" = the six
+## squelches), pitch multiplier, whether the streak/size pitch applies].
+## A "scale" (Melody) plays note `n` of it, so a streak of kills is a tune.
+static func pop_sound(pop: Dictionary, n: int) -> Array:
+	var snd := str(pop.get("sound", "kill"))
+	var scale: Array = pop.get("scale", [])
+	if not scale.is_empty():
+		return [snd, float(scale[posmod(n, scale.size())]) * float(pop.get("pitch", 1.0)), false]
+	return [snd, float(pop.get("pitch", 1.0)), true]
+
+
+# ------------------------------------------------------------------ trails
+
+## Particles a dash trail emits this frame (as "tdot" fx, drawn with the
+## trail's shape texture), or [] for a plain afterimage. `body` is the cell
+## colour; `dt` scales the spawn count so the trail is the same at any fps.
+static func trail_burst(trail: Dictionary, pos: Vector2, body: Color, t: float, dt: float) -> Array:
+	var out := []
+	if not trail.has("per_frame"):
+		return out
+	var want := float(trail.per_frame) * dt * 60.0
+	var n := int(want) + (1 if randf() < want - floorf(want) else 0)
+	var cols: Array = trail.get("colors", ["body"])
+	var sz: Array = trail.get("size", [8, 12])
+	var sp: Array = trail.get("speed", [0, 0])
+	var spread := float(trail.get("spread", 8.0))
+	for k in n:
+		var c := body
+		if trail.get("rainbow", false):
+			c = Color.from_hsv(fposmod(t * 1.5 + k * 0.05, 1.0), 0.75, 1.0)
+		else:
+			var ck := str(cols[randi() % cols.size()])
+			c = body if ck == "body" else GameData.color(ck)
+		var a := randf() * TAU
+		var f := {"kind": "tdot", "pos": pos + Vector2(randf_range(-spread, spread), randf_range(-spread, spread)),
+			"vel": Vector2(cos(a), sin(a)) * randf_range(float(sp[0]), float(sp[1])), "color": c,
+			"r": randf_range(float(sz[0]), float(sz[1])) / 2.0, "life": float(trail.get("life", 0.4)) * randf_range(0.85, 1.15), "seed": randf() * TAU}
+		if trail.has("grav"):
+			f["grav"] = float(trail.grav)
+		if trail.has("drag"):
+			f["drag"] = float(trail.drag)
+		if str(trail.get("shape", "")) == "ring":
+			f["grow"] = true
+		out.append(f)
+	return out
 
 
 ## The splat colour for a pop style ("none" = no splat).

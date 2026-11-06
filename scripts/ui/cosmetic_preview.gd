@@ -23,6 +23,11 @@ var _bullets: Array = []  # {pos, vel, target}
 var _fx: Array = []
 var _splats: Array = []  # {pos, r, c, t}
 var _fire_t := 0.3
+var _path := 0.0  # where the cell is on its little loop
+var _dash_t := 1.0  # time to the next dash
+var _dashing := 0.0  # > 0 while dashing (trail on)
+var _pos := Vector2.ZERO
+var _note := 0  # Melody: next note of the scale
 var _nova_t := 1.2
 var _nova := -1.0
 var _chain_t := 2.0
@@ -47,8 +52,31 @@ func set_look(l: Dictionary) -> void:
 	_splats.clear()
 
 
+## The cell drifts on a small figure-eight and dashes every couple of
+## seconds (so trails show), always in the left part of the dish.
 func _cell_pos() -> Vector2:
-	return Vector2(size.x * 0.3, size.y * 0.52)
+	return _pos
+
+
+func _move(delta: float) -> void:
+	_dash_t -= delta
+	if _dash_t <= 0.0:
+		_dash_t = 2.2
+		_dashing = 0.28
+	var speed := 0.6
+	if _dashing > 0.0:
+		_dashing -= delta
+		speed = 6.5
+	_path += delta * speed
+	_pos = Vector2(size.x * 0.3 + cos(_path) * size.x * 0.13, size.y * 0.52 + sin(_path * 2.0) * size.y * 0.2)
+	if _dashing > 0.0:
+		var trail: Dictionary = look.get("trail", {})
+		var body := CosmeticArt.body_color(look.get("skin", {}), pal.get("player", Color.WHITE), _t)
+		if trail.is_empty() or trail.get("afterimage", false):
+			_fx.append({"kind": "dot", "pos": _pos, "vel": Vector2.ZERO, "color": Color(body, 0.6), "r": 30.0, "life": 0.22, "t": 0.0})
+		for f in CosmeticArt.trail_burst(trail, _pos, body, _t, delta):
+			f["t"] = 0.0
+			_fx.append(f)
 
 
 func _spawn(g: Dictionary) -> void:
@@ -62,6 +90,7 @@ func _process(delta: float) -> void:
 	if not is_visible_in_tree() or size.x <= 0.0:
 		return
 	_t += delta
+	_move(delta)
 	var cp := _cell_pos()
 	for g in _germs:
 		if g.dead_t > 0.0:
@@ -156,7 +185,10 @@ func _pop(g: Dictionary) -> void:
 	g.dead_t = 0.7
 	if sound:
 		var snd := str(pop.get("sound", "kill"))
-		Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()] if snd == "kill" else snd, 0.05, float(pop.get("pitch", 1.0)))
+		var ps := CosmeticArt.pop_sound(pop, _note)
+		_note += 1
+		snd = str(ps[0])
+		Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()] if snd == "kill" else snd, 0.05 if ps[2] else 0.0, float(ps[1]))
 
 
 func _draw() -> void:
@@ -194,6 +226,12 @@ func _draw() -> void:
 		if g.dead_t <= 0.0 and g.pos.distance_to(cp) < best:
 			best = g.pos.distance_to(cp)
 			face = (g.pos - cp).angle()
+	var ttex := CosmeticArt.tex(str(look.get("trail", {}).get("shape", "disc")))
+	for f in _fx:  # dash trail, under the cell
+		if f.kind == "tdot":
+			var lk := CosmeticArt.pdot_look(f)
+			var hs: float = lk[0] / 2.0
+			draw_texture_rect(ttex, Rect2(f.pos - Vector2(hs, hs), Vector2(hs, hs) * 2.0), false, lk[1])
 	CosmeticArt.draw_cell(self, cp, r, look.get("skin", {}), _t, pal, _cell_tex, _disc, _glow, face)
 	var oc := CosmeticArt.weapon_color(w, "orbit", pal.get("orbit", Color.LIGHT_BLUE), false)
 	for k in 3:
