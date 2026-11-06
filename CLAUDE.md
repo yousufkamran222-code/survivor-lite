@@ -27,16 +27,19 @@ The cloud sandbox can download Godot and the templates from GitHub releases and 
 data/*.json          ALL tunable numbers: balance (incl. dash, chests, pickups, territory, conversion), enemies,
                      upgrades, evolutions, waves (incl. elites + the Nucleus wave table), meta, modes,
                      towers (Nucleus mode), online (leaderboards, achievements, score formula),
-                     difficulty (the Virulence 1-10 ladder), lab (the Lab: Genes, branches, nodes, forks, keystones).
+                     difficulty (the Virulence 1-10 ladder), lab (the Lab: Genes, branches, nodes, forks, keystones),
+                     cosmetics (skins, weapon styles, pop styles: visual only).
                      Tune here, not in code.
 scripts/core/        Pure logic, no Nodes: World (the whole simulation), Territory (dish, tiles,
-                     trail/claim flood fill, erosion), SpawnDirector, Upgrades, Lab (skill-tree rules), Progression
+                     trail/claim flood fill, erosion), SpawnDirector, Upgrades, Lab (skill-tree rules), Cosmetics (unlock/equip rules), Progression
                      (XP, gold, run summary + score), Profile (persistent progress: stats, records,
                      achievements, merge), GameData (load + validate), BalanceBot. Deterministic.
-scripts/game/        main.gd (screen flow + UI wiring), world_view.gd (draws World, effects, camera shake)
+scripts/game/        main.gd (screen flow + UI wiring), world_view.gd (draws World, effects, camera shake),
+                     cosmetic_art.gd (CosmeticArt: draws skins, pop bursts, weapon-style colours/shapes)
 scripts/ui/          UiKit (theme, widgets, icon cards), HudOverlay (HUD, joystick, buttons),
                      IconArt (vector icons), UpgradeIcon, MenuBackground, MetaShop (upgrades shop
-                     + popup), LabScreen (the Lab tree + popup), AbilitiesScreen (equip a Lab ability), DragScroll (drag-anywhere scrolling lists), BuildScreen (in-run paused build overlay)
+                     + popup), LabScreen (the Lab tree + popup), AbilitiesScreen (equip a Lab ability), DragScroll (drag-anywhere scrolling lists), BuildScreen (in-run paused build overlay),
+                     StyleScreen + CosmeticPreview (cosmetics: live preview, buy, equip)
 scripts/autoload/    Save (Profile as versioned JSON), Analytics, Sfx, Ads (AdService + stub),
                      Online (accounts/leaderboards/achievements/cloud facade + StubOnlineBackend)
 scenes/main.tscn     A single node. Everything else is built in code (hand-editing .tscn is fragile).
@@ -66,7 +69,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 - Caps: `perf.max_projectiles` 220, `max_enemy_shots` 120, `max_effects` 140, `max_damage_numbers` 40, `xp.max_gems` 120.
 - Frame budget: 16.6 ms at 60 fps on the cheap test phone. Measure with `godot --headless --path . -s res://tools/sim/bench.gd` (per-subsystem ms/step during a kiting run): about 0.7 ms per step at 150+ enemies on a desktop CPU. Enemy separation runs for each enemy every `World.SEP_EVERY` (3) frames.
 - The game steps once per rendered frame with dt clamped to 1/30 (`main.gd`), with no physics catch-up steps, so slow frames can't snowball.
-- `balance.json` `debug.show_perf` shows FPS, enemy count and sim ms at the bottom of the screen. Turn it off before release. `debug.invincible` is for perf testing only and must stay `false` in commits. `debug.dev_tools` (Settings → Developer, behind the keypad code `debug.dev_password`: +10,000 gold, refund upgrades, all Virulence levels unlocked) is ON for playtest builds and **must be turned off for release**.
+- `balance.json` `debug.show_perf` shows FPS, enemy count and sim ms at the bottom of the screen. Turn it off before release. `debug.invincible` is for perf testing only and must stay `false` in commits. `debug.dev_tools` (Settings → Developer, behind the keypad code `debug.dev_password`: +10,000 gold, refund upgrades, all Virulence levels unlocked, all cosmetics unlocked) is ON for playtest builds and **must be turned off for release**.
 - To check rendering in the cloud, run the game under `xvfb-run -a godot --path . --rendering-driver opengl3` (real GL, screenshots via `get_viewport().get_texture().get_image()`), or export to web and drive Chromium with Playwright.
 - No shaders, no textures larger than 512 px (exception: the 1024x64 generated enemy atlas), no per-frame allocations in hot loops where avoidable.
 
@@ -84,3 +87,5 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 
 ## Where things stand
 See `docs/PIPELINE.md` "Milestones" for the current milestone, and `docs/SESSION_HANDOFF.md` §10 for the prioritised backlog and open questions. Update both when you finish something.
+
+**Cosmetics** (built 2026-11-06, D-038; `data/cosmetics.json`, `Cosmetics`, `CosmeticArt`, `StyleScreen`, Profile v7): 3 categories (Cell skins, Weapon styles, Pop styles = kill particles + kill sound), 24 items. **Visual only, never stats** (World and the sims never see them). Unlocks: `free` defaults, `gold` (bought, `Profile.cosmetics`), `challenge`/`prestige` (a `Profile.flat()` stat reaching a goal, so past play counts and nothing extra is saved). Equipped ids live in `settings.cosmetics`; `settings.dev_all_cosmetics` (Settings → Developer → "All cosmetics") unlocks everything without saving ownership, and Off restores the real collection. Main passes `Cosmetics.look()` to `WorldView.set_look()` at run start; the menu hero wears the skin colours; results show "NEW STYLE" chips. Paid items (`"paid": true`) wait for Play Billing in M3. New pop sounds are synthesised in `build_assets.build_pop_sfx()` and share the squelch rate limit (`Sfx.GROUP`).

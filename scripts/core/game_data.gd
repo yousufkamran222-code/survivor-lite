@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab", "cosmetics"]
 const VIRULENCE_MODS := ["enemy_speed_mult", "knock_resist_add", "budget_mult", "ranged_weight_mult", "shot_speed_mult", "iframes_mult",
 	"final_minute_s", "breather_mult", "boss_time_s", "boss_burst_mult", "damage_taken_mult", "enemy_hp_mult"]
 
@@ -220,6 +220,7 @@ static func validate(d: Dictionary) -> Array:
 	_validate_defense(d, enemy_ids, errors)
 	_validate_hints(d, errors)
 	_validate_lab(d, errors)
+	_validate_cosmetics(d, errors)
 	# Virulence: 10 levels, known modifiers only.
 	var diffd: Dictionary = d.get("difficulty", {})
 	if diffd.get("levels", []).size() != 10:
@@ -405,3 +406,37 @@ static func _validate_lab(d: Dictionary, errors: Array) -> void:
 				errors.append("ability %s levels need duration_s and kills > 0" % id)
 	if d.lab.genes.first_clear.size() != Profile.MAX_VIRULENCE:
 		errors.append("lab.genes.first_clear needs one entry per Virulence level")
+
+
+## Cosmetics (data/cosmetics.json): unique ids, known categories and unlock
+## types, a free default per category, gold costs > 0, stat goals > 0.
+static func _validate_cosmetics(d: Dictionary, errors: Array) -> void:
+	var cfg: Dictionary = d.get("cosmetics", {})
+	if cfg.is_empty():
+		return
+	var cats := {}
+	for c in cfg.get("categories", []):
+		cats[c.id] = true
+	var ids := {}
+	for it in cfg.get("items", []):
+		if ids.has(it.id):
+			errors.append("cosmetic %s is duplicated" % it.id)
+		ids[it.id] = true
+		if not cats.has(it.get("cat", "")):
+			errors.append("cosmetic %s has unknown category '%s'" % [it.id, it.get("cat", "")])
+		var u: Dictionary = it.get("unlock", {})
+		match str(u.get("type", "")):
+			"free":
+				pass
+			"gold":
+				if int(u.get("cost", 0)) <= 0:
+					errors.append("cosmetic %s needs a gold cost > 0" % it.id)
+			"challenge", "prestige":
+				if str(u.get("stat", "")) == "" or float(u.get("goal", 0)) <= 0.0 or str(u.get("text", "")) == "":
+					errors.append("cosmetic %s needs stat, goal > 0 and text" % it.id)
+			_:
+				errors.append("cosmetic %s has unknown unlock type '%s'" % [it.id, u.get("type", "")])
+	for c in cats:
+		var def := Cosmetics.find(cfg, str(cfg.get("defaults", {}).get(c, "")))
+		if def.is_empty() or def.cat != c or Cosmetics.unlock_type(def) != "free":
+			errors.append("cosmetics: category %s needs a free default item" % c)

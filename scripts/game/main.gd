@@ -40,6 +40,8 @@ var _results_doubled := false
 var _summary := {}
 var _menu_bg: MenuBackground
 var _new_achievements: Array = []
+var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results screen)
+var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
 var _new_best := false
 var _virulence_cleared := 0  # results: the Virulence level this win cleared for the first time (0 = none)
 var _touch_index := -1
@@ -656,7 +658,9 @@ func _on_kill_streak(radius: float = 18.0) -> void:
 	var j: Dictionary = bal.juice
 	var pitch := 1.0 + minf(n * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
 	pitch *= clampf(sqrt(float(j.get("kill_pitch_radius", 18.0)) / maxf(radius, 1.0)), 0.75, 1.25)
-	Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()], 0.05, pitch)
+	var snd := str(_pop_sound.get("sound", "kill"))  # Cosmetics: the pop style's sound
+	pitch *= float(_pop_sound.get("pitch", 1.0))
+	Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()] if snd == "kill" else snd, 0.05, pitch)
 	if not _streak_best_called and _life_best_streak >= 25 and n > _life_best_streak:
 		_streak_best_called = true
 		Sfx.play("level_up", 0.0, 1.2)
@@ -682,6 +686,8 @@ func _start_run() -> void:
 	var ab_id := Save.profile.equipped_ability(data.lab)
 	world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
 	view.set_world(world)
+	view.set_look(Cosmetics.look(data.cosmetics, Save.profile))
+	_pop_sound = Cosmetics.look(data.cosmetics, Save.profile).get("pop", {})
 	hud.world = world
 	hitstop = 0.0
 	_slowmo = 0.0
@@ -745,6 +751,7 @@ func _show_menu() -> void:
 	_set_screen("menu")
 	_menu_bg.visible = true
 	_menu_bg.show_hero = true
+	_menu_bg.look = Cosmetics.look(data.cosmetics, Save.profile)
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	col.add_theme_constant_override("separation", 16)
@@ -791,6 +798,7 @@ func _show_menu() -> void:
 	bottom.add_theme_constant_override("separation", 12)
 	bottom.add_child(_tile_button("gold", pal.ui_accent, "UPGRADES", _show_shop))
 	bottom.add_child(_tile_button("lab", LabScreen.GENE, "LAB", _show_lab))
+	bottom.add_child(_tile_button("style", Color("#ff7ac8"), "STYLE", _show_style))
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
 	bottom.add_child(_tile_button("settings", pal.player_nucleus, "SETTINGS", _show_settings))
 	col.add_child(bottom)
@@ -984,6 +992,17 @@ func _show_lab() -> void:
 	lab.setup(data.lab, pal, _menu[0], _show_menu, _show_abilities)
 	col.add_child(lab)
 	UiKit.fade_in(lab)
+
+
+## Cosmetics: preview, buy and equip skins, weapon styles and pops (StyleScreen).
+func _show_style() -> void:
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	var scr := StyleScreen.new()
+	scr.setup(data.cosmetics, pal, _show_menu)
+	col.add_child(scr)
+	UiKit.fade_in(scr)
 
 
 ## Lab abilities: pick the one to equip (AbilitiesScreen).
@@ -1640,7 +1659,9 @@ func _show_results(won: bool) -> void:
 	var prev_best := int(Save.profile.record(mid).get("best_score", 0))
 	var prev_cleared := Save.profile.virulence_cleared(mid)
 	_summary = Progression.run_summary(world, won, mid, data.online.score)
+	var had_cosmetics := Cosmetics.earned_ids(data.cosmetics, Save.profile)
 	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now(), data.lab.genes)
+	_new_cosmetics = Cosmetics.newly_earned(data.cosmetics, had_cosmetics, Cosmetics.earned_ids(data.cosmetics, Save.profile))
 	_virulence_cleared = 0
 	if won and Save.profile.virulence_cleared(mid) > prev_cleared:
 		_virulence_cleared = Save.profile.virulence_cleared(mid)
@@ -1776,6 +1797,20 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 				UiKit.fade_in(ach, t + 1.3 + 0.2 * k)
 			k += 1
 		rv.add_child(flow)
+	# New cosmetics (challenge/prestige unlocks): equip them in STYLE.
+	if not _new_cosmetics.is_empty():
+		var cflow := HFlowContainer.new()
+		cflow.alignment = FlowContainer.ALIGNMENT_CENTER
+		cflow.add_theme_constant_override("h_separation", 8)
+		cflow.add_theme_constant_override("v_separation", 8)
+		var ck := 0
+		for it in _new_cosmetics:
+			var chip := UiKit.chip("NEW STYLE: %s" % it.name, Color("#ff7ac8"), Color(0.1, 0.04, 0.1), 19)
+			cflow.add_child(chip)
+			if animate:
+				UiKit.fade_in(chip, t + 1.5 + 0.2 * ck)
+			ck += 1
+		rv.add_child(cflow)
 	rewards.add_child(rv)
 	col.add_child(rewards)
 	_results_gold_icon = gold_icon

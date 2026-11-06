@@ -17,6 +17,7 @@ var _germs: Array = []  # {p, v, r, c, phase}
 var _t := 0.0
 var hero_y := 0.36  # hero cell centre, as a fraction of height
 var show_hero := true
+var look := {}  # equipped cosmetics (Cosmetics.look): the hero wears your skin colours and weapon style
 
 
 func setup(palette: Dictionary, enemy_defs: Array) -> void:
@@ -99,13 +100,18 @@ func _draw_hero() -> void:
 	var hc := Vector2(s.x / 2.0, s.y * hero_y)
 	var hr := 46.0 * (1.0 + 0.04 * sin(_t * 2.2))
 	var sl := 230.0 * (1.0 + 0.05 * sin(_t * 1.3))  # soft spotlight behind the hero
-	draw_texture_rect(_glow, Rect2(hc - Vector2(sl, sl), Vector2(sl, sl) * 2.0), false, Color(pal.player_nucleus, 0.16))
-	_disc_at(hc, hr + 22.0, Color(pal.player_nucleus, 0.08))
-	_disc_at(hc, hr + 6.0, Color(pal.player, 0.25))
-	_disc_at(hc, hr, pal.player)
-	_disc_at(hc + Vector2(cos(_t * 0.7), sin(_t * 0.9)) * 6.0, hr * 0.42, pal.player_nucleus)
+	var skin: Dictionary = look.get("skin", {})
+	var body := CosmeticArt.body_color(skin, pal.player)
+	var nuc := CosmeticArt.nucleus_color(skin, pal.player_nucleus)
+	var halo: Color = GameData.color(str(skin.glow)) if skin.has("glow") else pal.player_nucleus
+	var orb := CosmeticArt.weapon_color(look.get("weapon", {}), "orbit", pal.orbit, false)
+	draw_texture_rect(_glow, Rect2(hc - Vector2(sl, sl), Vector2(sl, sl) * 2.0), false, Color(halo, 0.16))
+	_disc_at(hc, hr + 22.0, Color(halo, 0.08))
+	_disc_at(hc, hr + 6.0, Color(body, 0.25 * body.a))
+	_disc_at(hc, hr, body)
+	_disc_at(hc + Vector2(cos(_t * 0.7), sin(_t * 0.9)) * 6.0, hr * 0.42, nuc)
 	for k in 3:
 		var a := _t * 1.6 + TAU * k / 3.0
 		var op := hc + Vector2(cos(a), sin(a)) * (hr + 46.0)
-		_disc_at(op, 15.0, Color(pal.orbit, 0.35))
-		_disc_at(op, 11.0, pal.orbit)
+		_disc_at(op, 15.0, Color(orb, 0.35))
+		_disc_at(op, 11.0, orb)

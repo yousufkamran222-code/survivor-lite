@@ -86,6 +86,14 @@ var _fire_range := PackedFloat32Array()
 ## CPU ms spent in this view since Main last read it (fill + draw recording);
 ## Main resets it each frame (benchmark and perf readout).
 var cpu_ms := 0.0
+## Cosmetics (data/cosmetics.json via Cosmetics.look; set by Main with
+## set_look). Visual only.
+var _skin := {}
+var _wstyle := {}
+var _pop := {}
+var _pops: SpriteBatch  # pop-style particles (the style's shape texture)
+var _bolt_heads: SpriteBatch  # weapon-style bolt shapes (stars, hearts, ...)
+var _shaped := false  # the weapon style has its own bolt/orbit shape
 
 
 func setup(game_data: Dictionary) -> void:
@@ -118,7 +126,9 @@ func setup(game_data: Dictionary) -> void:
 	_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
 	_allies = _batch(ShapeTextures.ally_cell(), 64)
 	_bullets = _batch(disc, int(perf.max_projectiles) * 2)
+	_bolt_heads = _batch(disc, int(perf.max_projectiles))
 	_dots = _batch(disc, int(perf.max_effects) + 40)
+	_pops = _batch(disc, int(perf.max_effects) + 40)
 	_rings = _batch(ShapeTextures.ring(), 48)
 	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
 	_cell_tex = ShapeTextures.player_cell()
@@ -168,6 +178,18 @@ func set_world(w: World) -> void:
 	_damage_numbers = 0
 
 
+## Applies the equipped cosmetics ({skin, weapon, pop} looks, see
+## Cosmetics.look). Call after setup().
+func set_look(look: Dictionary) -> void:
+	_skin = look.get("skin", {})
+	_wstyle = look.get("weapon", {})
+	_pop = look.get("pop", {})
+	_shaped = CosmeticArt.weapon_shape(_wstyle) != "disc"
+	var cap := int(bal.perf.max_effects) + 40
+	_pops.setup(CosmeticArt.tex(str(_pop.get("shape", "disc"))), cap)
+	_bolt_heads.setup(CosmeticArt.tex(CosmeticArt.weapon_shape(_wstyle)), int(bal.perf.max_projectiles))
+
+
 func add_shake(amount: float) -> void:
 	shake = maxf(shake, amount)
 
@@ -185,6 +207,9 @@ func consume(events: Array) -> void:
 				var c := GameData.color(ev.color)
 				_kills_this_frame += 1
 				_kill_sum += ev.pos
+				if not CosmeticArt.is_default_pop(_pop):
+					_styled_pop(ev, c, max_fx)
+					continue
 				# White flash where it died, then a fast burst that slows down
 				# (drag), a couple of white sparks among the coloured bits.
 				_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2.ZERO, "color": Color(1, 1, 1, 0.95), "r": ev.radius * float(juice.get("kill_flash_scale", 1.3)), "life": 0.08}, max_fx + 10)
@@ -555,9 +580,26 @@ func add_zoom_punch(amount: float) -> void:
 
 ## Weapon colour, switched to its evolution colour once evolved.
 func _wcolor(weapon: String, base: Color) -> Color:
-	if world != null and world.evolved.has(weapon) and evo_colors.has(weapon):
-		return evo_colors[weapon]
-	return base
+	var evolved := world != null and world.evolved.has(weapon)
+	return CosmeticArt.weapon_color(_wstyle, weapon, base, evolved, evo_colors.get(weapon))
+
+
+## A kill under a non-default pop style (Cosmetics): the style's burst, ring
+## and splat; the killing-blow mark and gold sparkle stay the same.
+func _styled_pop(ev: Dictionary, c: Color, max_fx: int) -> void:
+	var sp := float(juice.get("kill_burst_speed", 1.0))
+	var k := 0
+	for f in CosmeticArt.pop_burst(_pop, ev.pos, ev.radius, c, sp):
+		_add_fx(f, max_fx + (10 if k == 0 or f.kind == "kring" else 0))
+		k += 1
+	_mark_killing_blow(int(ev.get("uid", -1)))
+	var sc: Variant = CosmeticArt.splat_color(_pop, c)
+	if sc != null:
+		_add_splat(ev.pos, ev.radius * (3.4 if ev.elite else 2.6) * float(_pop.get("splat_scale", 1.0)), sc)
+	if ev.get("gilded", false):
+		for n in 6:
+			var a := -PI / 2.0 + randf_range(-1.2, 1.2)
+			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 
 
 func _add_fx(f: Dictionary, cap: int) -> void:
@@ -612,7 +654,7 @@ func _process_view(delta: float) -> void:
 	_update_cell_pose(delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
 	if world.p_dash_t > 0.0:
-		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(pal.player, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
+		_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(CosmeticArt.body_color(_skin, pal.player), 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
 	_sparks_left = int(juice.get("hit_sparks_per_frame", 6))
 	_age_splats(delta)
 	# Smooth shake: layered sines instead of a new random offset every frame
@@ -873,6 +915,7 @@ func _fill_enemies(view: Rect2) -> void:
 
 func _fill_bullets() -> void:
 	_bullets.begin()
+	_bolt_heads.begin()
 	var bc: Color = _wcolor("bolt", pal.bolt)
 	var trail := Color(bc, 0.35)
 	var evo := _evo("bolt")
@@ -888,10 +931,14 @@ func _fill_bullets() -> void:
 			_bullets.add(p, r * 4.2, glow)
 			_bullets.add(p - back * 3.2, r * 1.6, faint)
 		_bullets.add(p - back * 1.6, r * 2.2, trail)
-		_bullets.add(p, r * 2.0, bc)
+		if _shaped and world.b_ally[i] == 0:  # weapon style: star/heart/... heads
+			_bolt_heads.add(p, r * 3.0, bc)
+		else:
+			_bullets.add(p, r * 2.0, bc)
 		if evo and world.b_ally[i] == 0:
 			_bullets.add(p, r * 0.9, white)
 	_bullets.commit()
+	_bolt_heads.commit()
 
 
 func _fill_dots() -> void:
@@ -903,6 +950,12 @@ func _fill_dots() -> void:
 		elif f.kind == "pop":
 			_dots.add(f.pos, f.r * 2.0 * (1.0 + k), Color(f.color, 0.45 * (1.0 - k)))
 	_dots.commit()
+	_pops.begin()
+	for f in fx:
+		if f.kind == "pdot":
+			var lk := CosmeticArt.pdot_look(f)
+			_pops.add(f.pos, lk[0], lk[1], 0.0, lk[2])
+	_pops.commit()
 	_rings.begin()
 	for f in fx:
 		if f.kind == "kring":
@@ -942,11 +995,16 @@ func _draw_top_layer() -> void:
 		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j], tc)
 	var oc: Color = _wcolor("orbit", pal.orbit)
 	var orbit_evo := _evo("orbit")
+	var orb_tex := CosmeticArt.tex(CosmeticArt.weapon_shape(_wstyle)) if _shaped else null
 	for p in world.orbit_points:
 		if orbit_evo:  # evolved: a wide soft halo and a white core
 			ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2.ONE * (world.orbit_size + 12.0), Vector2.ONE * (world.orbit_size + 12.0) * 2.0), false, Color(oc, 0.3))
 		ci.draw_circle(p, world.orbit_size + 3.0, Color(oc, 0.35))
-		ci.draw_circle(p, world.orbit_size, oc)
+		if orb_tex != null:  # weapon style shape
+			var os := world.orbit_size * 1.5
+			ci.draw_texture_rect(orb_tex, Rect2(p - Vector2(os, os), Vector2(os, os) * 2.0), false, oc)
+		else:
+			ci.draw_circle(p, world.orbit_size, oc)
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	_draw_rift(ci, now)
@@ -1049,42 +1107,38 @@ func _draw_player(ci: CanvasItem) -> void:
 		return  # reforming at the nucleus
 	var p := world.p_pos
 	var r := world.p_radius
-	var body: Color = pal.player
+	var body: Color = CosmeticArt.body_color(_skin, pal.player)
 	if _hurt_t > 0.0 and fmod(_hurt_t, 0.12) < 0.06:
 		body = pal.player_hurt
 	if world.ability == "cloak" and world.ab_t > 0.0:
 		body = Color(body, 0.3 + 0.08 * sin(_cell_t * 9.0))  # Lab ability: Cloak
-	var breathe := float(juice.get("cell_breathe", 0.03)) * sin(_cell_t * 2.4) * (1.0 - clampf(_squash * 8.0, 0.0, 1.0))
+	var breathe := float(juice.get("cell_breathe", 0.03)) * float(_skin.get("breathe", 1.0)) * sin(_cell_t * 2.4) * (1.0 - clampf(_squash * 8.0, 0.0, 1.0))
 	var squish := 0.18 * _hurt_squish
 	var sx := 1.0 + _squash + breathe - squish
 	var sy := 1.0 - _squash * 0.6 + breathe * 0.5 + squish * 0.6
 	# Cilia: short hairs around the membrane that wave faster with speed.
 	var speed_k := clampf(world.p_vel.length() / float(bal.player.speed), 0.0, 1.0)
-	var n := int(juice.get("cilia", 12))
-	var cc := Color(body, 0.55)
+	CosmeticArt.draw_glow(ci, _glow_tex, p, r, _skin, _cell_t)
 	_draw_weapon_auras_back(ci, p, r)
+	CosmeticArt.draw_glitch(ci, _cell_tex, p, r / ShapeTextures.CELL_BODY, _skin, _cell_t)
 	ci.draw_set_transform(p, _move_ang, Vector2(sx, sy))
-	for k in n:
-		var a := TAU * k / n
-		var wave := sin(_cell_t * (6.0 + 10.0 * speed_k) + k * 1.7) * 0.35
-		var base := Vector2.from_angle(a) * r * 1.0
-		var tip := Vector2.from_angle(a + wave * 0.5) * r * (1.32 + 0.08 * speed_k)
-		ci.draw_line(base, tip, cc, 2.0)
+	CosmeticArt.draw_cilia(ci, r, _skin, body, _cell_t, speed_k, int(juice.get("cilia", 12)))
 	if world.outbreak_t > 0.0:
 		# Frenzy aura: a pulsing glow behind the cell.
 		var gr := r * (1.9 + 0.15 * sin(_cell_t * 14.0))
 		ci.draw_texture_rect(_disc_tex, Rect2(-gr, -gr, gr * 2.0, gr * 2.0), false, Color(pal.outbreak, 0.35))
 	var q := r / ShapeTextures.CELL_BODY
 	ci.draw_texture_rect(_cell_tex, Rect2(-q, -q, q * 2.0, q * 2.0), false, body)
+	CosmeticArt.draw_pattern(ci, _disc_tex, r, _skin, _cell_t)
 	if float(world.stats.get("shield", 0.0)) > 0.0 and world.shield_cd <= 0.0:
 		ci.draw_arc(Vector2.ZERO, r * 1.45, 0, TAU, 28, Color("#7cc6ff", 0.55 + 0.2 * sin(_cell_t * 3.0)), 3.0)  # Lab: Biofilm is up
 	if world.slip_t > 0.0:
 		ci.draw_arc(Vector2.ZERO, r * 1.3, 0, TAU, 24, Color(IconArt.COLORS.dash, 0.6), 2.0)  # Lab: Slipstream
 	ci.draw_set_transform(p, 0.0, Vector2(sx * 0.5 + 0.5, sy * 0.5 + 0.5))
 	# Nucleus leads the turn, with a small highlight.
-	var nc := Vector2.from_angle(_face) * r * 0.28
+	var nc := Vector2.from_angle(_face) * r * 0.28 + CosmeticArt.nucleus_jitter(_skin, _cell_t, r)
 	var nr := r * 0.44
-	ci.draw_texture_rect(_disc_tex, Rect2(nc - Vector2(nr, nr), Vector2(nr, nr) * 2.0), false, pal.player_nucleus)
+	ci.draw_texture_rect(_disc_tex, Rect2(nc - Vector2(nr, nr), Vector2(nr, nr) * 2.0), false, CosmeticArt.nucleus_color(_skin, pal.player_nucleus))
 	var hl := nc + Vector2(-0.35, -0.35) * nr
 	ci.draw_texture_rect(_disc_tex, Rect2(hl - Vector2(nr, nr) * 0.3, Vector2(nr, nr) * 0.6), false, Color(1, 1, 1, 0.55))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

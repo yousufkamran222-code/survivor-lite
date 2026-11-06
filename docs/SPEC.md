@@ -109,6 +109,11 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 ## Analytics events (via `Analytics.event`)
 `session_start`, `run_start`, `upgrade_pick`, `chest_open`, `evolution`, `pickup` (kind), `boss_spawn`, `boss_killed`, `death` (time, level, cause), `run_end` (won, time, level, kills, gold, elites, chests, evolutions, dashes), `meta_buy`, `ad_rewarded_start/end` (placement, rewarded), `ad_interstitial`. These are enough for D1/D7 retention, session length, ads per user and the quit point.
 
+## Cosmetics (`data/cosmetics.json`), visual only
+- 3 categories: **Cell** (body, nucleus, cilia, pattern, glow), **Weapons** (colours of all four weapons + evolved colours, bolt/orbit shape), **Pops** (kill particles, splat, ring and kill sound). One equipped per category; the menu hero wears your skin.
+- Unlocks: free defaults; **gold** (1,200-4,000, a sink once the shop is full); **challenges** (lifetime/best stats, e.g. 5,000 kills, a x250 streak, win every mode); **prestige** (Virulence 5 / 8 / 10 cleared in any mode). Past play counts. Paid packs later (Play Billing, M3).
+- STYLE screen (menu): live preview of the selected item (even locked ones), BUY / EQUIP / challenge progress. Results show newly unlocked styles. No cosmetic changes a stat.
+
 ## Later (not v1)
 - **Co-op multiplayer (post-launch):** 2-4 players, V1 Classic/Infection, down/revive, abilities as roles, a Tethered mode. Design and feasibility: `docs/COOP_DESIGN.md`.
 More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.

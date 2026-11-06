@@ -126,8 +126,9 @@ func check_code(code: String) -> bool:
 	return dev_unlocked
 
 
-## Playtest-only tools: free gold to test permanent upgrades, a refund, and
-## every Virulence level unlocked in every mode (records stay untouched).
+## Playtest-only tools: free gold to test permanent upgrades, a refund,
+## every Virulence level unlocked in every mode (records stay untouched) and
+## every cosmetic usable (nothing is saved as bought).
 func _dev_rows() -> void:
 	add_child(UiKit.label("DEVELOPER (playtest builds only)", 22, Color("#ff7a6b")))
 	var row := HBoxContainer.new()
@@ -162,6 +163,9 @@ func _dev_rows() -> void:
 	add_child(genes)
 	add_child(_choice_row("All Virulence levels", ["Off", "On"], 1 if Save.profile.dev_all_virulence() else 0, func(i: int) -> void:
 		Save.profile.settings["dev_all_virulence"] = i == 1
+		Save.write()))
+	add_child(_choice_row("All cosmetics", ["Off", "On"], 1 if Save.profile.dev_all_cosmetics() else 0, func(i: int) -> void:
+		Save.profile.settings["dev_all_cosmetics"] = i == 1  # Off puts back what you really own
 		Save.write()))
 
 

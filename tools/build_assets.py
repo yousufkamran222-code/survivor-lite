@@ -143,6 +143,7 @@ def build_sfx() -> None:
     # Low-HP heartbeat: "lub-dub", two soft low thumps (sine only).
     write("heartbeat", seq(env(osc(95, 48, 0.13, "sine"), attack=0.004, decay_pow=2.4), np.zeros(int(0.08 * RATE)), env(osc(85, 42, 0.11, "sine"), attack=0.004, decay_pow=2.6) * 0.7, np.zeros(int(0.05 * RATE))), 0.9)
     build_cc0_sfx()
+    build_pop_sfx()
 
 
 def build_cc0_sfx() -> None:
@@ -166,6 +167,28 @@ def build_cc0_sfx() -> None:
     # Mega kill and bomb: the explosion with an added sub boom.
     write("mega", mix(sample("joth_chunky_explosion/chunky_explosion.wav", 1.6, fade=0.6), body(70, 28, 0.9, 0.8)), 0.9)
     write("bomb", mix(sample("joth_chunky_explosion/chunky_explosion.wav", 1.0, pitch=1.15, fade=0.45), body(90, 32, 0.6, 0.7)), 0.9)
+
+
+def build_pop_sfx() -> None:
+    """Cosmetic pop styles (2026-11-06, data/cosmetics.json "sound"): short
+    synth kill sounds, loudness matched to the squelches (RMS). Built after
+    everything else so the shared noise RNG leaves older sounds unchanged."""
+    def rms_write(name: str, x: np.ndarray) -> None:
+        x = x / max(np.abs(x).max(), 1e-6)
+        write(name, x, min(0.85, 0.12 / float(np.sqrt((x ** 2).mean()))))
+    # Bubbles: a round "bloop" that rises, then a tiny second pop.
+    rms_write("pop_bubble", seq(env(osc(320, 1100, 0.06, "sine"), attack=0.002, decay_pow=1.4),
+                                env(osc(900, 1500, 0.035, "sine"), attack=0.001, decay_pow=2.0) * 0.5))
+    # Pixels: an 8-bit square blip falling an octave.
+    rms_write("pop_blip", seq(env(osc(1320, 1320, 0.03, "square"), decay_pow=0.5), env(osc(660, 440, 0.06, "square"), decay_pow=1.5)))
+    # Jackpot: the classic two-note coin.
+    rms_write("pop_coin", seq(env(osc(988, 988, 0.05, "square"), decay_pow=0.4), env(osc(1319, 1319, 0.16, "square"), decay_pow=1.3)))
+    # Fireworks / Supernova: a bright crackle over a falling chirp.
+    rms_write("pop_spark", mix(env(noise(0.16, 0.9), attack=0.001, decay_pow=2.5) * 0.7,
+                               env(osc(2400, 700, 0.14, "tri"), attack=0.002, decay_pow=1.6) * 0.6, body(160, 60, 0.08, 0.5)))
+    # Confetti: a party-popper snap with a short rising whistle.
+    rms_write("pop_party", mix(env(noise(0.05, 0.6), attack=0.001, decay_pow=3.0),
+                               np.pad(env(osc(900, 2200, 0.1, "sine"), attack=0.005, decay_pow=1.2) * 0.5, (int(0.02 * RATE), 0))))
 
 
 def build_background(size: int = 512, bg="#150e2b", dots="#231845", cells="#1d1439", rims="#2b2056") -> None:

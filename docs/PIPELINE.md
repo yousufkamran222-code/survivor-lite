@@ -325,3 +325,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Germs squash along their knockback, hit sparks fly along the shot, crit numbers are big and gold.
 - MEGA KILL: 25 kills within 0.3 s → 0.7 s slow motion (×0.35), white + gold shockwave rings, boom, toast; 8 s cooldown. Bot: ~0-1 per run (fresh), ~5 (maxed shop).
 - Render bench A/B with the squash on/off: 66-69 fps both (noise). 256 tests.
+
+### 2026-11-06 Cosmetics v1 (D-038)
+- `data/cosmetics.json` (24 items: 9 cell skins, 7 weapon styles, 8 pop styles; validated), `Cosmetics` (pure rules: unlocked/equipped/buy/look, retroactive challenge + prestige unlocks from `Profile.flat()`), Profile v7 (`cosmetics` = bought; equipped in `settings.cosmetics`; v6 saves load with defaults; merge keeps purchases from both copies).
+- Drawing: `CosmeticArt` shared by the run (`WorldView.set_look`), the STYLE screen preview and swatches, and the menu hero. Skins: body/nucleus/cilia/glow + patterns (spots, stars, sparkle, bubbles, flame, glitch). Weapon styles recolour the 4 weapons (and their evolved look) and can swap bolt/orbit shapes (star, heart, diamond). Pop styles: particle shape (square/star/ring/coin/disc), colours, motion (gravity, drag, flutter, upward), splat, ring, flash and sound. New textures in `ShapeTextures` (star, square, heart, coin) and 5 synth pop sounds (`build_pop_sfx`, existing sounds byte-identical).
+- STYLE tile on the menu (`StyleScreen`): live preview (your cell shooting germs that pop with the selected style and sound), tabs, item grid with price / challenge %, BUY (auto-equips) / EQUIP / progress bar. Results: "NEW STYLE" chips. Settings → Developer → "All cosmetics" On/Off. Analytics `cosmetic_buy`, `cosmetic_equip`.
+- Render bench A/B (default vs Golden + Starlight + Fireworks): 66.5-69.9 vs 65.6-66.6 fps, +3-6 draw calls (noise level). Balance untouched (visual only). 269 tests.

@@ -242,6 +242,13 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 				star.append(c + Vector2(cos(a), sin(a)) * k * (0.95 if t % 2 == 0 else 0.42))
 			ci.draw_colored_polygon(star, col)
 			ci.draw_circle(c, k * 0.2, w)
+		"style":
+			# A paintbrush over a splash of colour (cosmetics).
+			ci.draw_circle(c + Vector2(-k * 0.35, k * 0.35), k * 0.42, col)
+			ci.draw_circle(c + Vector2(-k * 0.75, k * 0.0), k * 0.16, Color("#5ce1e6"))
+			ci.draw_circle(c + Vector2(-k * 0.05, k * 0.82), k * 0.14, Color("#ffd166"))
+			ci.draw_line(c + Vector2(k * 0.85, -k * 0.85), c + Vector2(-k * 0.1, k * 0.1), w, lw * 1.6)
+			ci.draw_circle(c + Vector2(-k * 0.15, k * 0.15), k * 0.2, w)
 		"trophy":
 			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.6, -k * 0.75), c + Vector2(k * 0.6, -k * 0.75), c + Vector2(k * 0.4, -k * 0.05), c + Vector2(-k * 0.4, -k * 0.05)]), col)
 			ci.draw_circle(c + Vector2(0, -k * 0.1), k * 0.4, col)

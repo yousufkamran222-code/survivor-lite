@@ -161,7 +161,7 @@ func test_lab_roundtrips() -> void:
 	check_eq(q.lab_level("tox_burst"), 2)
 	check_eq(int(q.abilities.stasis), 1)
 	check_eq(int(q.to_dict().version), Profile.VERSION)
-	check_eq(Profile.VERSION, 6)
+	check(Profile.VERSION >= 6)
 
 
 func test_merge_keeps_max_and_newer_fork() -> void:

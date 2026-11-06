@@ -8,7 +8,7 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 6  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned); 6: shop tiers split in two. Older saves load 0 / empty
+const VERSION := 7  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned); 6: shop tiers split in two; 7: cosmetics (bought) + settings.cosmetics (equipped). Older saves load 0 / empty
 ## v6 split these shop upgrades into twice as many tiers of half the bonus
 ## (same cap): a v5 level N becomes 2N, so nobody loses a bonus.
 const META_SPLIT_V6 := ["meta_hp", "meta_might", "meta_haste", "meta_armor", "meta_regen", "meta_move", "meta_magnet", "meta_growth", "meta_greed", "meta_dash_cd", "meta_dash_dmg", "meta_dash_decoy", "meta_convert"]
@@ -28,6 +28,7 @@ var achievements := {}  # achievement id -> unix time
 var genes := 0  # Lab currency, earned on Virulence wins (data/lab.json genes)
 var lab := {}  # Lab node id -> level
 var abilities := {}  # reserved: ability levels live in `lab` (their unlock nodes); equipped one in settings.equipped_ability
+var cosmetics := {}  # cosmetic id -> unix time bought with gold (challenge unlocks come from stats; see Cosmetics)
 var last_genes := 0  # Genes the last record_run() granted (results screen)
 var updated_at := 0  # unix time of the last change (cloud conflict resolution)
 
@@ -47,7 +48,7 @@ func to_dict() -> Dictionary:
 	return {
 		"version": version, "gold": gold, "meta_levels": meta_levels, "settings": settings,
 		"stats": stats, "records": records, "achievements": achievements, "updated_at": updated_at,
-		"genes": genes, "lab": lab, "abilities": abilities,
+		"genes": genes, "lab": lab, "abilities": abilities, "cosmetics": cosmetics,
 	}
 
 
@@ -79,6 +80,7 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.genes = int(d.get("genes", 0))  # v4 saves: no Lab yet
 	p.lab = _int_values(d.get("lab", {}))
 	p.abilities = _int_values(d.get("abilities", {}))
+	p.cosmetics = _int_values(d.get("cosmetics", {}))  # v6 saves: none bought yet
 	return p
 
 
@@ -376,6 +378,12 @@ func dev_all_virulence() -> bool:
 	return bool(settings.get("dev_all_virulence", false))
 
 
+## Developer toggle: every cosmetic usable (nothing is bought or saved as
+## owned, so turning it off restores the real collection).
+func dev_all_cosmetics() -> bool:
+	return bool(settings.get("dev_all_cosmetics", false))
+
+
 ## The level picked on the mode card (defaults to the highest unlocked; any
 ## unlocked level can be replayed).
 func virulence_selected(mode: String) -> int:
@@ -445,6 +453,9 @@ static func merge(a: Profile, b: Profile, lab_cfg: Dictionary = {}) -> Profile:
 			m.lab[id] = maxi(m.lab_level(id), int(older.lab[id]))
 	for id in older.abilities:
 		m.abilities[id] = maxi(int(m.abilities.get(id, 0)), int(older.abilities[id]))
+	for id in older.cosmetics:  # bought cosmetics are never lost
+		if not m.cosmetics.has(id):
+			m.cosmetics[id] = older.cosmetics[id]
 	for id in older.achievements:
 		if not m.achievements.has(id):
 			m.achievements[id] = older.achievements[id]

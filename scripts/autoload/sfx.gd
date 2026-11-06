@@ -40,9 +40,16 @@ const SOUNDS := {
 	"upgrade": preload("res://assets/processed/sfx/upgrade.wav"),
 	"deny": preload("res://assets/processed/sfx/deny.wav"),
 	"heartbeat": preload("res://assets/processed/sfx/heartbeat.wav"),
+	# Cosmetic pop styles (data/cosmetics.json "sound"); same group as the squelches.
+	"pop_bubble": preload("res://assets/processed/sfx/pop_bubble.wav"),
+	"pop_blip": preload("res://assets/processed/sfx/pop_blip.wav"),
+	"pop_coin": preload("res://assets/processed/sfx/pop_coin.wav"),
+	"pop_spark": preload("res://assets/processed/sfx/pop_spark.wav"),
+	"pop_party": preload("res://assets/processed/sfx/pop_party.wav"),
 }
 ## Variants that share one rate limit and volume (the six germ pops).
-const GROUP := {"kill1": "kill", "kill2": "kill", "kill3": "kill", "kill4": "kill", "kill5": "kill", "kill6": "kill"}
+const GROUP := {"kill1": "kill", "kill2": "kill", "kill3": "kill", "kill4": "kill", "kill5": "kill", "kill6": "kill",
+	"pop_bubble": "kill", "pop_blip": "kill", "pop_coin": "kill", "pop_spark": "kill", "pop_party": "kill"}
 const KILLS := ["kill1", "kill2", "kill3", "kill4", "kill5", "kill6"]
 const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90, "nova": 60,
 	"thump": 120, "crit": 60, "crunch": 60, "mega": 500}

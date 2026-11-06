@@ -159,3 +159,67 @@ static func player_cell(size: int = 128) -> ImageTexture:
 				v = 1.0
 			img.set_pixel(x, y, Color(v, v, v, a))
 	return ImageTexture.create_from_image(img)
+
+
+## Cosmetic particle shapes (pop styles, weapon styles). All white, tinted
+## per sprite like the disc.
+
+## Five-point star.
+static func star(size: int = 32) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.5 / h
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h)
+			var a := atan2(p.y, p.x) + PI / 2.0
+			# Distance to the star's edge: radius swings between the inner
+			# and outer points five times around.
+			var k := absf(fposmod(a, TAU / 5.0) - TAU / 10.0) / (TAU / 10.0)
+			var edge := lerpf(0.42, 0.98, k * k)
+			img.set_pixel(x, y, Color(1, 1, 1, _aa(edge, p.length(), px)))
+	return ImageTexture.create_from_image(img)
+
+
+## Rounded square (confetti, pixels).
+static func square(size: int = 32) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h)
+			var d := maxf(absf(p.x), absf(p.y))
+			img.set_pixel(x, y, Color(1, 1, 1, _aa(0.82, d, 1.5 / h)))
+	return ImageTexture.create_from_image(img)
+
+
+## Heart.
+static func heart(size: int = 32) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h) * 1.25
+			p.y = -p.y + 0.15
+			# Classic implicit heart: (x² + y² - 1)³ - x²y³ <= 0.
+			var q := p.x * p.x + p.y * p.y - 1.0
+			var f := q * q * q - p.x * p.x * p.y * p.y * p.y
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(0.5 - f * 6.0, 0.0, 1.0)))
+	return ImageTexture.create_from_image(img)
+
+
+## Coin: a disc with a darker inner ring (reads as gold when tinted).
+static func coin(size: int = 32) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var h := size / 2.0
+	var px := 1.0 / h
+	for y in size:
+		for x in size:
+			var p := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h)
+			var d := p.length()
+			var band := _aa(0.72, d, px) * (1.0 - _aa(0.58, d, px))
+			var v := 1.0 - 0.3 * band
+			if p.x < -0.1 and p.y < -0.1 and d < 0.5 and d > 0.25:
+				v = 1.0  # small shine
+			img.set_pixel(x, y, Color(v, v * 0.97, v * 0.9, _aa(1.0, d, px)))
+	return ImageTexture.create_from_image(img)
