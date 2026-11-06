@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bpeiro30pyovc"
-path="res://.godot/imported/Kenney Rocket.ttf-a3963c98448453ded70be0f3844064b3.fontdata"
+uid="uid://cy7r3wu7d1np8"
+path="res://.godot/imported/LilitaOne-Regular.ttf-cb70ffb3ad05a059d269fc78591b7467.fontdata"
 
 [deps]
 
-source_file="res://assets/raw/kenney_fonts/Kenney Rocket.ttf"
-dest_files=["res://.godot/imported/Kenney Rocket.ttf-a3963c98448453ded70be0f3844064b3.fontdata"]
+source_file="res://assets/raw/lilita_one/LilitaOne-Regular.ttf"
+dest_files=["res://.godot/imported/LilitaOne-Regular.ttf-cb70ffb3ad05a059d269fc78591b7467.fontdata"]
 
 [params]
 

@@ -824,7 +824,6 @@ func _virulence_row(mode_id: String) -> Control:
 		Sfx.play("click", 0.0, 1.0 + 0.04 * (sel + dl))
 		_show_menu()
 	var left := UiKit.button("<", step.bind(-1), 64)
-	left.add_theme_font_override("font", ThemeDB.fallback_font)  # the display font has no < >
 	left.custom_minimum_size = Vector2(72, 64)
 	left.disabled = sel <= 1
 	h.add_child(left)
@@ -833,7 +832,6 @@ func _virulence_row(mode_id: String) -> Control:
 	lab.custom_minimum_size = Vector2(300, 0)
 	h.add_child(lab)
 	var right := UiKit.button(">", step.bind(1), 64)
-	right.add_theme_font_override("font", ThemeDB.fallback_font)
 	right.custom_minimum_size = Vector2(72, 64)
 	right.disabled = sel >= top
 	h.add_child(right)
@@ -1492,7 +1490,10 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	gold_row.add_child(gold_icon)
 	var gold := UiKit.label("", 52, pal.gem_large)
 	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
-	gold.custom_minimum_size = Vector2(300, 0)  # fixed width: the row doesn't reflow as the number changes
+	# Fixed width = the widest the count-up gets, so the row stays centred and
+	# never reflows while the number changes.
+	var gw := gold.get_theme_font("font").get_string_size("+%d gold" % maxi(_results_gold * 2, 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 52).x
+	gold.custom_minimum_size = Vector2(gw + 8.0, 0)
 	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	gold_row.add_child(gold)
 	_results_gold_icon = gold_icon

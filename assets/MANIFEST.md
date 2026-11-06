@@ -1,6 +1,6 @@
 # Asset manifest
 
-Every asset file must be listed here with its source and licence. **CC0 or self-generated only.**
+Every asset file must be listed here with its source and licence. **CC0 or self-generated only; fonts may also be SIL OFL (Yousuf, 2026-11-06).**
 
 | Path | Source | Licence |
 |---|---|---|
@@ -10,5 +10,4 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 | `icon.svg` | Hand-written SVG in this repo | Original work (project-owned) |
 
 Raw third-party inputs (e.g. Kenney CC0 packs) go in `assets/raw/<pack-name>/`, together with the pack's licence file and a row in this table.
-| `assets/raw/kenney_fonts/*.ttf` (Kenney Future, Future Narrow, Rocket, Blocks) + `License.txt` | Kenney "Kenney Fonts" pack (www.kenney.nl), via the public mirror github.com/ereborstudios/kenney-fonts (kenney.nl blocks scripted downloads) | CC0 |
-| `assets/raw/kenney_fonts/Kenney Future Narrow KX.ttf` | Kenney Future Narrow with K, X, k, x redrawn by `tools/patch_font.py` (the originals read as H). The UI display font | CC0 (derived) |
+| `assets/raw/lilita_one/LilitaOne-Regular.ttf` + `OFL.txt` | Lilita One by Juan Montoreano, from the Google Fonts repository (github.com/google/fonts, `ofl/lilitaone`); unmodified (the name "Lilita" is a Reserved Font Name, so the file must not be altered) | SIL Open Font License 1.1 |

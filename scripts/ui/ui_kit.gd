@@ -6,10 +6,10 @@ extends RefCounted
 ## Look (2026-11-06, "glossy chunky"): buttons are generated glossy 9-slice
 ## textures (dark outline, lighter top with a gloss band, a thick darker 3D
 ## bottom edge that sinks when pressed); titles, buttons, numbers and chips
-## use the CC0 Kenney Future Narrow font with a thick dark outline; cards are
+## use Lilita One (OFL) with a thick dark outline; cards are
 ## lighter than the deep background, with a border and a soft shadow.
 
-const DISPLAY_FONT := "res://assets/raw/kenney_fonts/Kenney Future Narrow KX.ttf"  # K and X redrawn by tools/patch_font.py
+const DISPLAY_FONT := "res://assets/raw/lilita_one/LilitaOne-Regular.ttf"  # OFL (Yousuf allowed OFL fonts, 2026-11-06)
 const OUTLINE := Color("#140a24")  # outline around display text and buttons
 ## Button kinds: [face colour, text colour].
 const KINDS := {
@@ -82,6 +82,7 @@ static func style_button(b: Button, kind: String = "secondary", font_size: int =
 	b.add_theme_constant_override("outline_size", 8 if fc.v > 0.5 else 0)
 	if font_size > 0:
 		b.add_theme_font_size_override("font_size", font_size)
+	press_feedback(b)
 	return b
 
 
@@ -212,16 +213,26 @@ static func button(text: String, on_press: Callable, height: float = 96.0, kind:
 
 # ------------------------------------------------- motion and small widgets
 
-## Squashes a button a little while it's held (every button gets this).
+## Squash and spring: a button squeezes while held and bounces back a
+## little past full size on release (every glossy button gets this; safe to
+## call twice).
 static func press_feedback(b: Control) -> void:
+	if b.has_meta("_press_fb"):
+		return
+	b.set_meta("_press_fb", true)
 	b.resized.connect(func() -> void: b.pivot_offset = b.size / 2.0)
 	b.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
-			var tw := b.create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			tw.tween_property(b, "scale", Vector2(0.95, 0.95) if e.pressed else Vector2.ONE, 0.08 if e.pressed else 0.18))
+			var tw := b.create_tween()
+			if e.pressed:
+				tw.tween_property(b, "scale", Vector2(0.93, 0.9), 0.07).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			else:
+				tw.tween_property(b, "scale", Vector2(1.05, 1.05), 0.09).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+				tw.tween_property(b, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
 
-## Shows an overlay with a short fade, its column rising slightly into place.
+## Shows an overlay with a short fade; its column's parts pop in one after
+## another.
 static func reveal(overlay: Array) -> void:
 	var root: Control = overlay[0]
 	var col: Control = overlay[1]
@@ -231,15 +242,39 @@ static func reveal(overlay: Array) -> void:
 	fade_in(col)
 
 
-## Cross-fade for a screen rebuilt in place (menu ↔ shop/profile/settings).
+## Entrance for a screen built in place (menu, shop, Lab, settings ...): a
+## container's children pop in one after another (fade + springy scale);
+## anything else fades and settles as one.
 static func fade_in(c: Control, delay: float = 0.0) -> void:
+	if (c is BoxContainer or c is GridContainer) and c.get_child_count() > 1:
+		stagger(c, delay)
+		return
+	_pop(c, delay, 0.97)
+
+
+## Staggered entrance of a container's children (at most `max_items` get
+## their own delay; the rest arrive with the last).
+static func stagger(c: Control, delay: float = 0.0, step: float = 0.045, max_items: int = 10) -> void:
+	var k := 0
+	for ch in c.get_children():
+		if ch is Control and ch.visible:
+			_pop(ch, delay + step * mini(k, max_items), 0.9)
+			k += 1
+
+
+static func _pop(c: Control, delay: float, from_scale: float) -> void:
 	c.modulate.a = 0.0
-	c.scale = Vector2(0.97, 0.97)
-	c.resized.connect(func() -> void: c.pivot_offset = c.size / 2.0)
+	c.scale = Vector2(from_scale, from_scale)
+	if not c.resized.is_connected(_center_pivot.bind(c)):
+		c.resized.connect(_center_pivot.bind(c))
 	c.pivot_offset = c.size / 2.0
-	var tw := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_property(c, "modulate:a", 1.0, 0.2).set_delay(delay)
-	tw.tween_property(c, "scale", Vector2.ONE, 0.25).set_delay(delay)
+	var tw := c.create_tween().set_parallel(true)
+	tw.tween_property(c, "modulate:a", 1.0, 0.18).set_delay(delay).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.32).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+static func _center_pivot(c: Control) -> void:
+	c.pivot_offset = c.size / 2.0
 
 
 ## Rounded panel with an optional coloured border.
