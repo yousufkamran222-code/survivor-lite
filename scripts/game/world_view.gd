@@ -1079,6 +1079,17 @@ func _draw_threats(ci: CanvasItem) -> void:
 					ci.draw_arc(p, r * (2.2 - 0.9 * k), 0, TAU, 28, Color(1.0, 0.85, 0.3, 0.4 + 0.5 * k), 4.0)
 			"magnet":
 				ci.draw_arc(p, float(aff.magnet.radius), 0, TAU, 48, Color(0.75, 0.55, 1.0, 0.22 + 0.08 * sin(t * 4.0)), 4.0)
+	# Elite health bars (the boss has its own bar and the HUD one).
+	for i in world.e_pos.size():
+		if world.e_elite[i] != 1 or world.e_team[i] != 0:
+			continue
+		var p := world.e_pos[i]
+		var r := world.e_rad[i]
+		var f := clampf(world.e_hp[i] / maxf(world.e_maxhp[i], 1.0), 0.0, 1.0)
+		var bw := maxf(r * 2.0, 44.0)
+		var at := p + Vector2(-bw / 2.0, -r - 16.0)
+		ci.draw_rect(Rect2(at - Vector2(2, 2), Vector2(bw + 4, 10)), Color(0, 0, 0, 0.6))
+		ci.draw_rect(Rect2(at, Vector2(bw * f, 6)), elite_color)
 	if world.boss_slam == 1:
 		var d := world.boss_def
 		var k := 1.0 - world.boss_slam_t / maxf(float(d.slam_windup_s), 0.01)

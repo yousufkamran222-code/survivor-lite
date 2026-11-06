@@ -119,3 +119,22 @@ func test_lulls_then_surge() -> void:
 	w._update_lull()
 	check_eq(w.lull, 0)
 	check_near(w.director.lull_mult, 1.0)
+
+
+func test_strong_builds_cant_melt_elites_and_bosses() -> void:
+	var w := _world()
+	w._add_enemy("grunt", Vector2(500, 0), true)
+	var weak := w.e_maxhp[0]
+	w.wstats[w.bal.start_weapon]["damage"] = 5000.0  # an absurdly strong build
+	var dps := w.player_dps_estimate()
+	w._add_enemy("grunt", Vector2(-500, 0), true)
+	w._add_enemy("boss", Vector2(0, 600))
+	check_near(w.e_maxhp[1], dps * float(w.data.waves.elites.min_life_s), 1.0, "elite HP floor = min_life_s of your damage")
+	check(w.e_maxhp[1] > weak * 10.0)
+	check_near(w.e_maxhp[2], dps * float(w.boss_def.min_life_s), 1.0, "boss HP floor")
+
+
+func test_weak_builds_keep_base_hp() -> void:
+	var w := _world()
+	w._add_enemy("boss", Vector2(0, 600))
+	check_near(w.e_maxhp[0], float(w.boss_def.hp), 1.0, "a weak build fights the base HP")

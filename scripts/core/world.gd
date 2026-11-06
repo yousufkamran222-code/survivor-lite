@@ -857,6 +857,11 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 		hp *= float(el.hp_mult)
 		r *= float(el.radius_mult)
 		spd *= float(el.speed_mult)
+		# Strong builds used to melt elites in ~3 s: they get at least
+		# min_life_s of your estimated damage (weak builds are unaffected).
+		hp = maxf(hp, player_dps_estimate() * float(el.get("min_life_s", 0.0)))
+	elif d.behavior == "boss" and d.has("min_life_s"):
+		hp = maxf(hp, player_dps_estimate() * float(d.min_life_s))  # Mother Cell: a real fight even when evolved
 	e_rad.append(r)
 	e_spd.append(spd)
 	e_elite.append(1 if elite else 0)
@@ -3304,6 +3309,12 @@ func _clear_shots_and_bullets() -> void:
 
 ## Rough single-target damage per second of the current build (weapons only),
 ## so the Carrier lasts about boss.hp_seconds against weapons alone.
+## Rough single-target damage per second of your weapons (no AoE, Lab
+## procs or dash): sizes the Rift boss and the HP floor of elites/bosses.
+func player_dps_estimate() -> float:
+	return rift_boss_dps_estimate()
+
+
 func rift_boss_dps_estimate() -> float:
 	var dps := 0.0
 	for id in wstats:

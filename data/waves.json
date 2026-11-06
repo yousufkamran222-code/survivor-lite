@@ -25,7 +25,7 @@
   "elites": {
     "first_s": 35, "every_s": 40, "final_from_s": 240, "final_every_s": 20,
     "types": ["grunt", "runner", "spitter", "brute", "charger", "splitter"],
-    "hp_mult": 8, "radius_mult": 1.7, "speed_mult": 1.15, "damage_mult": 1.5,
+    "hp_mult": 8, "min_life_s": 6, "radius_mult": 1.7, "speed_mult": 1.15, "damage_mult": 1.5,
     "xp": 12, "knock_resist": 0.85, "color": "#ffd166",
     "hunt_range": 420, "hunt_mult": 1.6,
     "affixes": {
