@@ -5,7 +5,8 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 | Path | Source | Licence |
 |---|---|---|
 | `assets/processed/bg_tile.png` | Drawn by `tools/build_assets.py` | Original work (project-owned) |
-| `assets/processed/sfx/*.wav` | Synthesised by `tools/build_assets.py` (no samples) | Original work (project-owned) |
+| `assets/processed/sfx/*.wav` | Built by `tools/build_assets.py`: most synthesised; kill1-6, thump, crunch, crit, hit, mega, bomb are trimmed/pitched/layered from `assets/raw/sfx_cc0/` | Original work / CC0 |
+| `assets/raw/sfx_cc0/*/*.wav` | CC0 recordings from OpenGameArt (EZduzziteh, Independent.nu, qubodup, StarNinjas, Joth), converted to mono WAV; per-file sources in `assets/raw/sfx_cc0/SOURCES.md` (`.gdignore`: not imported) | CC0 |
 | `assets/raw/juhani_junkala_action_chiptunes/*.ogg` | Juhani Junkala, "5 Chiptunes (Action)" ([OpenGameArt](https://opengameart.org/content/5-chiptunes-action)); the pack's WAVs re-encoded to OGG Vorbis q3 (`ffmpeg -c:a libvorbis -q:a 3`), renamed `title_screen`, `level_1..3`, `ending`; `INFO.txt` is the pack's licence note | CC0 |
 | `icon.svg` | Hand-written SVG in this repo | Original work (project-owned) |
 

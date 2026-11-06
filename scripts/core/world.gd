@@ -1221,7 +1221,7 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		resist = maxf(resist, minf(resist + _v_resist, 0.95))
 	e_knock[i] += knock * (1.0 - resist)
 	if show:
-		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0), "crit": crit})
+		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0), "crit": crit, "dir": knock.normalized()})
 	if e_hp[i] <= 0.0:
 		_dead[i] = true
 

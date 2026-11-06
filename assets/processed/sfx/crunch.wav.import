@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://ilhpxwf8smt"
-path="res://.godot/imported/kill.wav-1f8d9b75f6e15374f260192fa921d5eb.sample"
+uid="uid://c3aaqdmuf008n"
+path="res://.godot/imported/crunch.wav-2139a480983e0f1e43489ea376bcd3ef.sample"
 
 [deps]
 
-source_file="res://assets/processed/sfx/kill.wav"
-dest_files=["res://.godot/imported/kill.wav-1f8d9b75f6e15374f260192fa921d5eb.sample"]
+source_file="res://assets/processed/sfx/crunch.wav"
+dest_files=["res://.godot/imported/crunch.wav-2139a480983e0f1e43489ea376bcd3ef.sample"]
 
 [params]
 

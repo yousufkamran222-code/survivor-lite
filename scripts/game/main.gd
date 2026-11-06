@@ -54,7 +54,10 @@ var _pickup_chain := 0  # gems collected in quick succession (pitch ladder)
 var _pickup_ms := 0
 var _life_best_streak := 0  # lifetime best at run start (for the NEW BEST STREAK call-out)
 var _streak_best_called := false
-var _slowmo := 0.0  # boss-kill slow motion left (real seconds)
+var _slowmo := 0.0  # boss-kill / mega-kill slow motion left (real seconds)
+var _slowmo_scale := 1.0  # time scale while _slowmo runs
+var _mega_kills := PackedFloat32Array()  # world times of recent kills (mega-kill window)
+var _mega_ready_t := 0.0  # world time when the next mega kill may fire
 var _hints: Array = []  # this run's not-yet-seen hints (data/hints.json)
 var _hint_queue: Array = []
 
@@ -315,7 +318,7 @@ func _process(delta: float) -> void:
 	var dt := minf(delta, MAX_STEP_DT)
 	if _slowmo > 0.0:
 		_slowmo -= delta
-		dt *= float(bal.juice.get("slowmo_scale", 1.0))
+		dt *= _slowmo_scale
 	world.step(dt, _move_input())
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	hud.cam_pos = view.cam.position
@@ -352,15 +355,22 @@ func _process(delta: float) -> void:
 
 
 func _handle_events(events: Array) -> void:
+	var kills := 0
+	var kill_sum := Vector2.ZERO
 	for ev in events:
 		_hint_event(ev.type)
 		match ev.type:
 			"shoot":
 				Sfx.play("shoot")
 			"hit":
-				Sfx.play("hit")
+				if ev.get("crit", false):
+					Sfx.play("crit", 0.06)
+				else:
+					Sfx.play("hit")
 			"kill":
-				_on_kill_streak()
+				kills += 1
+				kill_sum += ev.pos
+				_on_kill_streak(float(ev.radius))
 				if ev.get("gilded", false):
 					Sfx.play("pickup", 0.05, 1.6)
 			"pickup":
@@ -425,7 +435,7 @@ func _handle_events(events: Array) -> void:
 			"boss_killed":
 				Sfx.play("boss", 0.0)
 				hitstop = maxf(hitstop, float(bal.juice.hitstop_boss_kill_s))
-				_slowmo = float(bal.juice.get("slowmo_boss_s", 0.0))
+				_start_slowmo(float(bal.juice.get("slowmo_boss_s", 0.0)), float(bal.juice.get("slowmo_scale", 1.0)))
 				Analytics.event("boss_killed", {"t": int(world.time)})
 			"death":
 				Sfx.play("death", 0.0)
@@ -495,7 +505,7 @@ func _handle_events(events: Array) -> void:
 					"won":
 						Sfx.play("evolve", 0.0, 1.0)
 						Sfx.vibrate(160)
-						_slowmo = float(bal.juice.get("slowmo_boss_s", 0.0))
+						_start_slowmo(float(bal.juice.get("slowmo_boss_s", 0.0)), float(bal.juice.get("slowmo_scale", 1.0)))
 					"timeout":
 						Sfx.play("deny", 0.0, 0.8)
 						hud.toast("TIME'S UP", Color(pal.text, 0.9), 1.6)
@@ -530,7 +540,7 @@ func _handle_events(events: Array) -> void:
 				Sfx.vibrate(80)
 				hud.toast("SURGE!", pal.player_hurt, 1.8)
 			"elite_killed":
-				Sfx.play("boss", 0.1)
+				Sfx.play("crunch", 0.06)
 				Sfx.vibrate(60)
 				hitstop = maxf(hitstop, float(bal.juice.get("hitstop_elite_s", 0.0)))
 			"evolution":
@@ -591,15 +601,62 @@ func _handle_events(events: Array) -> void:
 						hud.toast("BOOM!", pal.enemy_shot, 1.2)
 						Sfx.vibrate(120)
 				Analytics.event("pickup", {"kind": ev.kind, "t": int(world.time)})
+	if kills > 0:
+		_on_kills(kills, kill_sum / kills)
 
 
-## Kill sound climbs in pitch while the streak (World.streak) keeps going;
-## beating your lifetime best streak gets a call-out once per run.
-func _on_kill_streak() -> void:
+## Many germs dying in one frame get a deep thump under the pops; a burst of
+## `juice.mega_kill_count` kills within `mega_kill_window_s` is a MEGA KILL:
+## slow motion, a shockwave across the screen and an explosion boom (with a
+## cooldown so it stays special). Presentation only: World doesn't know.
+func _on_kills(n: int, at: Vector2) -> void:
+	var j: Dictionary = bal.juice
+	if n >= int(j.get("multikill_min", 6)):
+		Sfx.play("thump", 0.05, clampf(1.1 - n * 0.01, 0.8, 1.1))
+	var need := int(j.get("mega_kill_count", 0))
+	if need <= 0:
+		return
+	var now := world.time
+	var window := float(j.get("mega_kill_window_s", 0.3))
+	for k in n:
+		_mega_kills.append(now)
+	var cut := 0
+	while cut < _mega_kills.size() and _mega_kills[cut] < now - window:
+		cut += 1
+	if cut > 0:
+		_mega_kills = _mega_kills.slice(cut)
+	if _mega_kills.size() < need or now < _mega_ready_t:
+		return
+	var count := _mega_kills.size()
+	_mega_kills.clear()
+	_mega_ready_t = now + float(j.get("mega_kill_cooldown_s", 8.0))
+	_start_slowmo(float(j.get("mega_slowmo_s", 0.0)), float(j.get("mega_slowmo_scale", 1.0)))
+	hitstop = maxf(hitstop, float(j.get("mega_hitstop_s", 0.0)))
+	Sfx.play("mega", 0.03)
+	Sfx.vibrate(140)
+	view.mega_kill(at)
+	hud.toast("MEGA KILL  x%d" % count, pal.ui_accent, 1.4)
+
+
+## Slow motion for `secs` real seconds at `scale` (the stronger one wins).
+func _start_slowmo(secs: float, scale: float) -> void:
+	if secs <= 0.0:
+		return
+	if _slowmo > 0.0:
+		scale = minf(scale, _slowmo_scale)
+	_slowmo = maxf(_slowmo, secs)
+	_slowmo_scale = scale
+
+
+## Kill pop: one of six squelches, pitched by germ size (small = higher) and
+## climbing while the streak (World.streak) keeps going; beating your
+## lifetime best streak gets a call-out once per run.
+func _on_kill_streak(radius: float = 18.0) -> void:
 	var n := world.streak
 	var j: Dictionary = bal.juice
 	var pitch := 1.0 + minf(n * float(j.get("kill_pitch_step", 0.0)), float(j.get("kill_pitch_max", 0.0)))
-	Sfx.play("kill2" if n % 2 == 0 else "kill", 0.04, pitch)
+	pitch *= clampf(sqrt(float(j.get("kill_pitch_radius", 18.0)) / maxf(radius, 1.0)), 0.75, 1.25)
+	Sfx.play(Sfx.KILLS[randi() % Sfx.KILLS.size()], 0.05, pitch)
 	if not _streak_best_called and _life_best_streak >= 25 and n > _life_best_streak:
 		_streak_best_called = true
 		Sfx.play("level_up", 0.0, 1.2)
@@ -628,6 +685,8 @@ func _start_run() -> void:
 	hud.world = world
 	hitstop = 0.0
 	_slowmo = 0.0
+	_mega_kills.clear()
+	_mega_ready_t = 0.0
 	hud.set_orders_open(false)
 	_evo_moments.clear()
 	_evo_seq = {}

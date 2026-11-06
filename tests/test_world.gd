@@ -425,3 +425,34 @@ func test_weapons_tag_their_damage() -> void:
 	check(float(w.damage_by.get("bolt", 0.0)) > 0.0, "Pulse Bolt damage tracked")
 	check(float(w.damage_by.get("nova", 0.0)) > 0.0, "Fever Pulse damage tracked")
 	check(not w.damage_by.has("other") or float(w.damage_by.other) < 1.0, "nothing unlabelled")
+
+
+func test_hit_events_carry_shot_direction() -> void:
+	# The view sprays hit sparks along the shot and squashes the germ along
+	# its knockback, so hit events carry the push direction (unit length).
+	var w := World.new(data(), 3)
+	var found := 0
+	for s in 600:
+		w.step(DT, Vector2.ZERO)
+		for ev in w.events:
+			if ev.type == "hit" and ev.dir != Vector2.ZERO:
+				found += 1
+				check_near(ev.dir.length(), 1.0, 0.001, "dir is normalised")
+		w.events.clear()
+		if found > 3 or w.state != "playing":
+			break
+	check(found > 0, "bolt hits report a direction")
+
+
+func test_kill_sound_tables() -> void:
+	# Sfx is an autoload (not available here), so read its constants from the script.
+	var sfx: GDScript = load("res://scripts/autoload/sfx.gd")
+	var sounds: Dictionary = sfx.SOUNDS
+	for k in sfx.KILLS:
+		check(sounds.has(k), "kill variant %s is loaded" % k)
+		check_eq(sfx.GROUP.get(k, ""), "kill", "kill variants share one rate limit")
+	for k in ["thump", "crunch", "crit", "mega", "hit", "bomb"]:
+		check(sounds.has(k), "sound %s exists" % k)
+	var j: Dictionary = data().balance.juice
+	check(int(j.mega_kill_count) >= 10 and float(j.mega_kill_window_s) > 0.0, "mega kill needs a real burst")
+	check(float(j.mega_slowmo_scale) > 0.0 and float(j.mega_slowmo_scale) < 1.0, "mega kill slows time, never stops it")

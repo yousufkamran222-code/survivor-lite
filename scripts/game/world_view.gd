@@ -537,6 +537,17 @@ func _draw_claim_wave(ci: CanvasItem) -> void:
 		ci.draw_rect(Rect2(t.center_of(w[0]) - half, half * 2.0), Color(1, 1, 1, 0.55 * (1.0 - k)))
 
 
+## MEGA KILL (Main decides when): a white flash where the crowd died and a
+## shockwave racing out across the screen (outline rings only: no big fills).
+func mega_kill(at: Vector2) -> void:
+	var max_fx := int(bal.perf.max_effects) + 10
+	add_shake(float(juice.get("mega_shake", 12.0)))
+	add_zoom_punch(float(juice.get("cam_punch_mega", 0.0)))
+	_add_fx({"kind": "pop", "pos": at, "color": Color.WHITE, "r": 70.0, "life": 0.3}, max_fx)
+	_add_fx({"kind": "ring", "pos": at, "r": float(juice.get("mega_ring_r", 700.0)), "life": 0.6, "color": Color.WHITE, "w": 14.0}, max_fx)
+	_add_fx({"kind": "ring", "pos": at, "r": float(juice.get("mega_ring_r", 700.0)) * 0.6, "life": 0.5, "color": pal.ui_accent, "w": 8.0}, max_fx)
+
+
 ## Short zoom-in for a big moment (decays at juice.cam_punch_decay per s).
 func add_zoom_punch(amount: float) -> void:
 	_zoom_punch = maxf(_zoom_punch, amount * float(juice.get("cam_punch_mult", 1.0)))
@@ -806,6 +817,10 @@ func _fill_enemies(view: Rect2) -> void:
 	var white := Color.WHITE
 	var pp := world.p_pos
 	var pulse_k := float(juice.get("hit_pulse", 0.0)) / maxf(float(juice.flash_s), 0.001)
+	# Hit squash: a germ being knocked back squashes along the push (axis-
+	# aligned, so it stays one rect) and springs back as the knock decays.
+	var sq_max := float(juice.get("hit_squash", 0.0))
+	var sq_ref := 1.0 / maxf(float(juice.get("hit_squash_ref", 350.0)), 1.0)
 	# Allies wear the current order's colour (Guard = our plain colour) and
 	# shimmer during an Outbreak frenzy (they're boosted too).
 	var ally_base: Color = pal.player_nucleus
@@ -845,7 +860,13 @@ func _fill_enemies(view: Rect2) -> void:
 		elif world.def_on and world.e_slow[i] > 0.0:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
 		var pulse := 1.0 + pulse_k * maxf(world.e_flash[i], 0.0)  # pops a little when hit
-		_enemies.add(p, r * _blob_scale * pulse, c, (pp - p).angle())
+		var asp := 1.0
+		var kn := world.e_knock[i]
+		if sq_max > 0.0 and kn != Vector2.ZERO:
+			var m := minf(kn.length() * sq_ref, 1.0) * sq_max
+			var kl := absf(kn.x) + absf(kn.y)
+			asp = 1.0 - m * (absf(kn.x) - absf(kn.y)) / kl  # pushed sideways = narrower and taller
+		_enemies.add(p, r * _blob_scale * pulse, c, (pp - p).angle(), asp)
 	_enemies.commit()
 	_allies.commit()
 
@@ -975,6 +996,7 @@ func _draw_top_layer() -> void:
 		var pop := float(juice.get("num_pop", 0.0))
 		var big_k := float(juice.get("num_big_scale", 0.0))
 		var kill_k := float(juice.get("num_kill_scale", 0.0))
+		var crit_k := float(juice.get("num_crit_scale", 0.0))
 		for f in fx:
 			if f.kind == "num":
 				var k: float = f.t / f.life
@@ -987,6 +1009,9 @@ func _draw_top_layer() -> void:
 					h *= 1.0 + kill_k
 				h *= 1.0 - 0.6 * maxf(0.0, (k - 0.7) / 0.3)  # shrink away at the end
 				var col := _num_color(big, f.killed)
+				if f.crit:  # Lab crit: a big gold number
+					h *= 1.0 + crit_k
+					col = gold
 				col.a = 1.0 - maxf(0.0, (k - 0.6) / 0.4)
 				digits.draw_number(ci, int(f.value), f.pos, h, col)
 	var bi := world.boss_index
@@ -1186,6 +1211,8 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 		var old: Variant = _num_by_uid.get(uid)
 		if old != null and old.t < float(juice.get("num_merge_s", 0.0)) and not old.killed:
 			old.value += roundi(ev.amount)
+			if ev.get("crit", false):
+				old.crit = true
 			old.frac += float(ev.get("frac", 0.0))
 			old.t = 0.0
 			old.vel = Vector2(old.vel.x * 0.5, -float(juice.get("num_rise", 0.0)) * 0.6)  # hop again
@@ -1196,7 +1223,8 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 			var spread := float(juice.get("num_spread", 0.0))
 			var f := {"kind": "num", "pos": ev.pos + Vector2(randf_range(-8, 8), -14), "text": str(roundi(ev.amount)),
 				"value": roundi(ev.amount), "frac": float(ev.get("frac", 0.0)), "uid": uid, "life": float(juice.get("num_life_s", 0.55)),
-				"vel": Vector2(randf_range(-spread, spread), -float(juice.get("num_rise", 0.0))), "grav": float(juice.get("num_grav", 0.0)), "killed": false}
+				"vel": Vector2(randf_range(-spread, spread), -float(juice.get("num_rise", 0.0))), "grav": float(juice.get("num_grav", 0.0)), "killed": false,
+				"crit": ev.get("crit", false)}
 			_add_fx(f, max_fx)
 			_num_by_uid[uid] = f
 	if ev.get("crit", false):  # Lab: Toxic Burst big hit
@@ -1205,8 +1233,10 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(200, 340), "color": Color("#ff6b8a"), "r": 3.5, "life": 0.2}, max_fx)
 	if _sparks_left > 0:
 		_sparks_left -= 1
+		# Sparks fly on along the shot (a cone around the push), or anywhere.
+		var dir: Vector2 = ev.get("dir", Vector2.ZERO)
 		for n in 2:
-			var a := randf() * TAU
+			var a := dir.angle() + randf_range(-0.7, 0.7) if dir != Vector2.ZERO else randf() * TAU
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(180, 320), "color": Color(1, 0.95, 0.75), "r": 2.5, "life": 0.14}, max_fx + 20)
 
 

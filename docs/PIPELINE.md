@@ -319,3 +319,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-06 Evolution tiers bias level-up offers
 - `World.offer_bias()` → `Upgrades.roll_offers(..., bias)`: a weapon's shop evolution tiers raise its offer weight ×(1 + 1.5 × share of tiers), its partner passive ×(1 + 0.75 × share) (`upgrades.evo_offer_bias` / `evo_partner_bias`). Equal tiers = equal odds. Sim V5 maxed shop, 24 runs seed 100, before → after: Classic p10/p50/p90 138/211/300 → 189/250/300, win 13% → 17%, L18 → L22; Infection 122/147/241 → 118/158/261, win 4% → 4%, L21 → L22. 254 tests.
+
+### 2026-11-06 Kill feel: CC0 sounds, hit squash, crits, MEGA KILL
+- Sounds from CC0 OpenGameArt recordings (Kenney's site blocks automated downloads): 6 squelch kill variants with a synth low pop, a deep thump under 6+ kills in a frame, a crunch on elite kills, a punch on crits, a dry tap for hits, a chunky explosion for MEGA KILL and the bomb pickup. Sources in `assets/raw/sfx_cc0/SOURCES.md`.
+- Germs squash along their knockback, hit sparks fly along the shot, crit numbers are big and gold.
+- MEGA KILL: 25 kills within 0.3 s → 0.7 s slow motion (×0.35), white + gold shockwave rings, boom, toast; 8 s cooldown. Bot: ~0-1 per run (fresh), ~5 (maxed shop).
+- Render bench A/B with the squash on/off: 66-69 fps both (noise). 256 tests.
