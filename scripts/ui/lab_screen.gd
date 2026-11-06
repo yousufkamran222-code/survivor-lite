@@ -336,16 +336,8 @@ func _buy_button(cost: int, can_buy: bool) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	var face := GENE if can_buy else MetaShop.GREY
 	var edge := GENE_DARK if can_buy else MetaShop.GREY_DARK
-	var sb := UiKit._box(face, 26, 14)
-	sb.border_width_bottom = 10
-	sb.border_color = edge
-	var sbp := sb.duplicate()
-	sbp.border_width_bottom = 3
-	sbp.content_margin_top = sb.content_margin_top + 7
-	sbp.bg_color = face.darkened(0.08)
-	for s in ["normal", "hover", "disabled"]:
-		b.add_theme_stylebox_override(s, sb)
-	b.add_theme_stylebox_override("pressed", sbp)
+	UiKit.style_button(b, "positive", 0, face)
+	b.add_theme_stylebox_override("disabled", UiKit.gloss(face))
 	var v := VBoxContainer.new()
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.offset_bottom = -10
@@ -488,7 +480,7 @@ func _genes_pill() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.add_child(UpgradeIcon.make("gene", GENE, 36))
-	var amount := _fixed_label(str(Save.profile.genes), 28, GENE)
+	var amount := UiKit.display(_fixed_label(str(Save.profile.genes), 28, GENE))
 	h.add_child(amount)
 	pill.add_child(h)
 	_genes_labels.append(amount)

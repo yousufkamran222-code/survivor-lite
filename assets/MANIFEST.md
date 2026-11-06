@@ -10,3 +10,5 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 | `icon.svg` | Hand-written SVG in this repo | Original work (project-owned) |
 
 Raw third-party inputs (e.g. Kenney CC0 packs) go in `assets/raw/<pack-name>/`, together with the pack's licence file and a row in this table.
+| `assets/raw/kenney_fonts/*.ttf` (Kenney Future, Future Narrow, Rocket, Blocks) + `License.txt` | Kenney "Kenney Fonts" pack (www.kenney.nl), via the public mirror github.com/ereborstudios/kenney-fonts (kenney.nl blocks scripted downloads) | CC0 |
+| `assets/raw/kenney_fonts/Kenney Future Narrow KX.ttf` | Kenney Future Narrow with K, X, k, x redrawn by `tools/patch_font.py` (the originals read as H). The UI display font | CC0 (derived) |

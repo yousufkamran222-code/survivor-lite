@@ -229,12 +229,7 @@ func _choice_row(text: String, options: Array, selected: int, pick: Callable) ->
 	var paint := func(sel: int) -> void:
 		for k in buttons.size():
 			var on := k == sel
-			var sb := UiKit._box(pal.ui_accent if on else Color("#3d2d6b"), 14, 8)
-			for st in ["normal", "hover", "pressed"]:
-				buttons[k].add_theme_stylebox_override(st, sb)
-			var fc: Color = Color(0.12, 0.07, 0.2) if on else pal.text
-			for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-				buttons[k].add_theme_color_override(c, fc)
+			UiKit.style_button(buttons[k], "primary" if on else "secondary")
 	paint.call(selected)
 	for i in buttons.size():
 		buttons[i].pressed.connect(func() -> void:

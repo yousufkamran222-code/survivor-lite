@@ -2,27 +2,144 @@ class_name UiKit
 extends RefCounted
 ## Builds the UI theme and common widgets in code (no .tscn editing needed).
 ## Sizes are for a 720x1280 portrait canvas; buttons are thumb-sized.
+##
+## Look (2026-11-06, "glossy chunky"): buttons are generated glossy 9-slice
+## textures (dark outline, lighter top with a gloss band, a thick darker 3D
+## bottom edge that sinks when pressed); titles, buttons, numbers and chips
+## use the CC0 Kenney Future Narrow font with a thick dark outline; cards are
+## lighter than the deep background, with a border and a soft shadow.
+
+const DISPLAY_FONT := "res://assets/raw/kenney_fonts/Kenney Future Narrow KX.ttf"  # K and X redrawn by tools/patch_font.py
+const OUTLINE := Color("#140a24")  # outline around display text and buttons
+## Button kinds: [face colour, text colour].
+const KINDS := {
+	"primary": [Color("#ffd166"), Color("#3a2200")],
+	"secondary": [Color("#6a54c8"), Color("#ffffff")],
+	"positive": [Color("#3ddc84"), Color("#ffffff")],
+	"danger": [Color("#ff5d73"), Color("#ffffff")],
+}
+const EDGE := 9  # px of 3D bottom edge (3 when pressed)
+
+static var _display: Font
+static var _gloss := {}
+
+
+static func display_font() -> Font:
+	if _display == null:
+		var f: FontFile = load(DISPLAY_FONT)
+		_display = f if f != null else ThemeDB.fallback_font
+	return _display
 
 
 static func make_theme(pal: Dictionary) -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 30
-	var normal := _box(pal.ui_button, 18)
-	var pressed := _box(pal.ui_button_pressed, 18)
-	var disabled := _box(Color(pal.ui_button, 0.45), 18)
+	var face: Color = KINDS.secondary[0]
 	for s in ["normal", "hover", "focus"]:
-		t.set_stylebox(s, "Button", normal)
-	t.set_stylebox("pressed", "Button", pressed)
-	t.set_stylebox("hover_pressed", "Button", pressed)
-	t.set_stylebox("disabled", "Button", disabled)
+		t.set_stylebox(s, "Button", gloss(face))
+	t.set_stylebox("pressed", "Button", gloss(face, true))
+	t.set_stylebox("hover_pressed", "Button", gloss(face, true))
+	t.set_stylebox("disabled", "Button", gloss(face.lerp(Color("#4a4462"), 0.7)))
+	t.set_font("font", "Button", display_font())
+	t.set_constant("outline_size", "Button", 8)
+	t.set_color("font_outline_color", "Button", OUTLINE)
 	t.set_color("font_color", "Button", pal.text)
 	t.set_color("font_hover_color", "Button", pal.text)
 	t.set_color("font_pressed_color", "Button", pal.text)
 	t.set_color("font_focus_color", "Button", pal.text)
 	t.set_color("font_disabled_color", "Button", Color(pal.text, 0.5))
-	t.set_stylebox("panel", "PanelContainer", _box(pal.ui_panel, 24, 28))
+	t.set_stylebox("panel", "PanelContainer", card(pal.ui_panel))
 	t.set_color("font_color", "Label", pal.text)
 	return t
+
+
+## A card surface: lighter than the background, a thin light border, a soft
+## shadow underneath.
+static func card(bg: Color, border: Color = Color(1, 1, 1, 0.1), radius: int = 24, margin: int = 22) -> StyleBoxFlat:
+	var sb := _box(bg, radius, margin)
+	sb.set_border_width_all(3)
+	sb.border_color = border
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 4)
+	return sb
+
+
+## Gives a button the glossy chunky look: kind = primary | secondary |
+## positive | danger (or pass `face` for any colour), display font + outline.
+static func style_button(b: Button, kind: String = "secondary", font_size: int = 0, face: Color = Color(0, 0, 0, 0)) -> Button:
+	var k: Array = KINDS.get(kind, KINDS.secondary)
+	var c: Color = face if face.a > 0.0 else k[0]
+	var fc: Color = k[1]
+	for s in ["normal", "hover", "focus"]:
+		b.add_theme_stylebox_override(s, gloss(c))
+	b.add_theme_stylebox_override("pressed", gloss(c, true))
+	b.add_theme_stylebox_override("hover_pressed", gloss(c, true))
+	b.add_theme_stylebox_override("disabled", gloss(c.lerp(Color("#4a4462"), 0.7)))
+	for n in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(n, fc)
+	b.add_theme_font_override("font", display_font())
+	b.add_theme_constant_override("outline_size", 8 if fc.v > 0.5 else 0)
+	if font_size > 0:
+		b.add_theme_font_size_override("font_size", font_size)
+	return b
+
+
+## Glossy 9-slice style for a face colour (cached). Pressed = a short 3D edge
+## and the content pushed down, so the button "sinks".
+static func gloss(face: Color, pressed: bool = false) -> StyleBoxTexture:
+	var key := "%s|%s" % [face.to_html(), pressed]
+	if _gloss.has(key):
+		return _gloss[key]
+	var edge := 3 if pressed else EDGE
+	var r := 22
+	var w := 64
+	var h := 64 + edge
+	var body_h := 64
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var out := OUTLINE
+	var side := face.darkened(0.38)
+	var top := face.lightened(0.24)
+	for y in h:
+		for x in w:
+			var d := _rr_dist(Vector2(x + 0.5, y + 0.5), Vector2(w, h), r)
+			if d > 0.5:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var a := clampf(0.5 - d, 0.0, 1.0)
+			var c: Color
+			if d > -3.0:
+				c = out
+			elif y >= body_h - 2:
+				c = side  # the 3D edge
+			else:
+				var t := float(y) / body_h
+				c = top.lerp(face, t)
+				# Gloss: a soft light band in the upper part of the face.
+				var gd := _rr_dist(Vector2(x + 0.5, y + 0.5) - Vector2(7, 6), Vector2(w - 14, body_h * 0.42), r - 8)
+				if gd < 0.0:
+					c = c.lerp(Color.WHITE, 0.36 * clampf(-gd / 3.0, 0.0, 1.0) * (1.0 - t * 1.6))
+			img.set_pixel(x, y, Color(c, c.a * a))
+	var tex := ImageTexture.create_from_image(img)
+	var sb := StyleBoxTexture.new()
+	sb.texture = tex
+	sb.texture_margin_left = r + 2
+	sb.texture_margin_right = r + 2
+	sb.texture_margin_top = r + 2
+	sb.texture_margin_bottom = r + edge + 2
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 10 + (EDGE - edge)
+	sb.content_margin_bottom = 10 + edge
+	_gloss[key] = sb
+	return sb
+
+
+## Signed distance to a rounded rectangle at the origin of size `size`.
+static func _rr_dist(p: Vector2, size: Vector2, r: float) -> float:
+	var c := size / 2.0
+	var q := (p - c).abs() - (c - Vector2(r, r))
+	return Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - r
 
 
 static func _box(c: Color, radius: int, margin: int = 18) -> StyleBoxFlat:
@@ -54,6 +171,9 @@ static func overlay(parent: Node, dim: float = 0.72) -> Array:
 	return [root, col]
 
 
+## Text label. 34 px and up counts as a title/number: display font with a
+## thick dark outline (the chunky look); smaller text stays in the readable
+## body font.
 static func label(text: String, size: int = 30, color: Color = Color.WHITE) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -61,12 +181,26 @@ static func label(text: String, size: int = 30, color: Color = Color.WHITE) -> L
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
+	if size >= 34:
+		l.add_theme_font_override("font", display_font())
+		l.add_theme_constant_override("outline_size", maxi(8, size / 5))
+		l.add_theme_color_override("font_outline_color", OUTLINE)
 	return l
 
 
-static func button(text: String, on_press: Callable, height: float = 96.0) -> Button:
+## Puts any label in the chunky display font with a dark outline.
+static func display(l: Label, outline: int = 6) -> Label:
+	l.add_theme_font_override("font", display_font())
+	l.add_theme_constant_override("outline_size", outline)
+	l.add_theme_color_override("font_outline_color", OUTLINE)
+	return l
+
+
+static func button(text: String, on_press: Callable, height: float = 96.0, kind: String = "") -> Button:
 	var b := Button.new()
 	b.text = text
+	if kind != "":
+		style_button(b, kind)
 	b.custom_minimum_size = Vector2(0, height)
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.pressed.connect(func() -> void:
@@ -114,11 +248,7 @@ static func panel(bg: Color, border: Color = Color(0, 0, 0, 0), radius: int = 20
 	# PASS, not the default STOP: panels inside a DragScroll must let the drag
 	# through, or the list only scrolls from the gaps between them.
 	p.mouse_filter = Control.MOUSE_FILTER_PASS
-	var sb := _box(bg, radius, margin)
-	if border.a > 0.0:
-		sb.set_border_width_all(3)
-		sb.border_color = border
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", card(bg, border if border.a > 0.0 else Color(1, 1, 1, 0.1), radius, margin))
 	return p
 
 
@@ -135,6 +265,7 @@ static func chip(text: String, bg: Color, fg: Color = Color(0.1, 0.06, 0.15), si
 	var l := label(text, size, fg)
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.add_theme_font_override("font", display_font())
 	p.add_child(l)
 	return p
 

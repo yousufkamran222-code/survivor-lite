@@ -715,14 +715,8 @@ func _show_menu() -> void:
 	col.add_child(UiKit.label(current.desc, 22, Color(pal.text, 0.8)))
 	var play := Button.new()
 	play.text = "PLAY"
-	play.custom_minimum_size = Vector2(0, 130)
-	play.add_theme_font_size_override("font_size", 52)
-	var ps := UiKit._box(pal.ui_accent, 26)
-	play.add_theme_stylebox_override("normal", ps)
-	play.add_theme_stylebox_override("hover", ps)
-	play.add_theme_stylebox_override("pressed", UiKit._box(pal.ui_accent.darkened(0.15), 26))
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		play.add_theme_color_override(c, Color(0.12, 0.07, 0.2))
+	play.custom_minimum_size = Vector2(0, 136)
+	UiKit.style_button(play, "primary", 60)
 	play.pressed.connect(func() -> void:
 		Sfx.play("click", 0.0)
 		_start_run())
@@ -757,7 +751,7 @@ func _gold_pill() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.add_child(UpgradeIcon.make("gold", pal.ui_accent, 36))
-	var amount := UiKit.label(str(Save.gold), 28, pal.ui_accent)
+	var amount := UiKit.display(UiKit.label(str(Save.gold), 28, pal.ui_accent))
 	amount.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(amount)
 	pill.add_child(h)
@@ -787,7 +781,7 @@ func _mode_card(m: Dictionary, selected: bool) -> Button:
 	var ic := UpgradeIcon.make(m.get("icon", ""), accent, 72)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
-	var name := UiKit.label(str(m.name).to_upper(), 24, Color.WHITE if selected else Color(1, 1, 1, 0.75))
+	var name := UiKit.display(UiKit.label(str(m.name).to_upper(), 22, Color.WHITE if selected else Color(1, 1, 1, 0.75)))
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(name)
 	var rec := Save.profile.record(m.id)
@@ -830,6 +824,7 @@ func _virulence_row(mode_id: String) -> Control:
 		Sfx.play("click", 0.0, 1.0 + 0.04 * (sel + dl))
 		_show_menu()
 	var left := UiKit.button("<", step.bind(-1), 64)
+	left.add_theme_font_override("font", ThemeDB.fallback_font)  # the display font has no < >
 	left.custom_minimum_size = Vector2(72, 64)
 	left.disabled = sel <= 1
 	h.add_child(left)
@@ -838,6 +833,7 @@ func _virulence_row(mode_id: String) -> Control:
 	lab.custom_minimum_size = Vector2(300, 0)
 	h.add_child(lab)
 	var right := UiKit.button(">", step.bind(1), 64)
+	right.add_theme_font_override("font", ThemeDB.fallback_font)
 	right.custom_minimum_size = Vector2(72, 64)
 	right.disabled = sel >= top
 	h.add_child(right)
@@ -860,8 +856,10 @@ func _virulence_row(mode_id: String) -> Control:
 ## Square-ish button with an icon over a label (menu bottom row).
 func _tile_button(icon_key: String, accent: Color, text: String, on_press: Callable) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 112)
+	b.custom_minimum_size = Vector2(0, 120)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UiKit.style_button(b, "secondary")
+	UiKit.press_feedback(b)
 	b.pressed.connect(func() -> void:
 		Sfx.play("click", 0.0)
 		on_press.call())
@@ -869,10 +867,14 @@ func _tile_button(icon_key: String, accent: Color, text: String, on_press: Calla
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.offset_bottom = -6.0  # sit above the 3D edge
 	var ic := UpgradeIcon.make(icon_key, accent, 52)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	var l := UiKit.label(text, 20, Color.WHITE)
+	l.add_theme_font_override("font", UiKit.display_font())
+	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_outline_color", UiKit.OUTLINE)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(l)
 	b.add_child(v)
@@ -1522,13 +1524,8 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 					_build_results(won, false, before)
 				else:
 					_build_results(won, false)), 120))
-	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 110)
-	var ps := UiKit._box(pal.ui_accent, 22)
-	again.add_theme_stylebox_override("normal", ps)
-	again.add_theme_stylebox_override("hover", ps)
-	again.add_theme_stylebox_override("pressed", UiKit._box(pal.ui_accent.darkened(0.15), 22))
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		again.add_theme_color_override(c, Color(0.12, 0.07, 0.2))
+	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 116, "primary")
+	again.add_theme_font_size_override("font_size", 40)
 	col.add_child(again)
 	col.add_child(UiKit.button("Menu", _collect.bind(false), 80))
 	if not _results[0].visible:

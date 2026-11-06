@@ -348,7 +348,7 @@
     "core_nucleus": "#ff6f59",
     "pad": "#7cff9b",
     "vent": "#ff5d73",
-    "background": "#1d1433",
+    "background": "#150e2b",
     "background_dots": "#2a1e48",
     "background_cells": "#251a40",
     "player": "#f4f1ff",
@@ -365,8 +365,8 @@
     "hp_bar": "#ff5d73",
     "xp_bar": "#5ce1e6",
     "text": "#ffffff",
-    "ui_panel": "#2a1f4a",
-    "ui_button": "#3d2d6b",
+    "ui_panel": "#2a1f52",
+    "ui_button": "#6a54c8",
     "ui_button_pressed": "#5a45a0",
     "ui_accent": "#ffd166"
   }
