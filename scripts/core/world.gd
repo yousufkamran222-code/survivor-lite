@@ -89,6 +89,8 @@ var second_wind_used := false
 var slip_t := 0.0  # Slipstream: time left on the post-dash boost
 var _slip_hits := {}  # enemy uids the Slipstream wake already hit
 var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = none)
+var _kept_offers: Array = []  # offers put aside by "Later", shown again on reopen
+var _kept_mutated := ""
 var head_start_weapon := ""
 var crits := 0
 var lysis_bursts := 0
@@ -529,13 +531,32 @@ func _banking() -> bool:
 func open_banked() -> bool:
 	if state != "playing" or pending_levelups <= 0:
 		return false
+	if not _kept_offers.is_empty() and _kept_still_valid():
+		# "Later" kept these: show the same cards again (no free reroll).
+		offers = _kept_offers
+		mutated_offer = _kept_mutated
+		_kept_offers = []
+		state = "levelup"
+		_emit({"type": "level_up", "level": level})
+		return true
+	_kept_offers = []
 	_open_levelup()
 	return state == "levelup"
+
+
+## Kept offers are still pickable (a chest may have maxed one meanwhile).
+func _kept_still_valid() -> bool:
+	for id in _kept_offers:
+		if next_level_of(id) > Upgrades.max_level(upgrade_defs[id]):
+			return false
+	return true
 
 
 ## Closes the picker keeping the remaining level-ups banked ("Later").
 func close_levelup() -> void:
 	if state == "levelup":
+		_kept_offers = offers
+		_kept_mutated = mutated_offer
 		offers = []
 		state = "playing"
 

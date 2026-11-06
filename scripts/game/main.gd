@@ -1040,17 +1040,30 @@ func _card_slot(card: Control) -> Control:
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.add_child(card)
 	card.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	slot.custom_minimum_size.y = card.custom_minimum_size.y
 	# Keep the card exactly as wide as the slot (moving it while the slot was
-	# still 0 wide baked its min width into the offsets: 24 px too wide).
-	var span := func() -> void:
+	# still 0 wide baked its min width into the offsets: 24 px too wide), and
+	# size its height from its content only once it has its real width: at
+	# 0 width the wrapped text measured one word per line, so a second
+	# level-up in a row got a 3,800 px column (off-centre, too high).
+	slot.resized.connect(func() -> void:
 		card.offset_left = 0.0
 		card.offset_right = 0.0
-	slot.resized.connect(span)
-	span.call()
-	var fit := func() -> void: slot.custom_minimum_size.y = card.get_combined_minimum_size().y
-	card.minimum_size_changed.connect(fit)
-	fit.call()
+		if slot.size.x > 1.0:
+			_fit_card.call_deferred(card, slot))
 	return slot
+
+
+func _fit_card(card: Control, slot: Control) -> void:
+	if not is_instance_valid(card) or not is_instance_valid(slot):
+		return
+	var content: Control = card.get_node_or_null("Content")
+	if content == null:
+		return
+	var h := maxf(176.0, content.get_combined_minimum_size().y)
+	if absf(h - card.custom_minimum_size.y) > 0.5:
+		card.custom_minimum_size.y = h
+		slot.custom_minimum_size.y = h
 
 
 ## Cards slide up into place (inside their slot), one after another.
@@ -1229,9 +1242,7 @@ func _upgrade_card(id: String) -> Button:
 		var hint := _evolution_hint(id, nl)
 		if hint != "":
 			v.add_child(UiKit.chip(hint.replace("* ", ""), Color(pal.ui_accent, 0.75), Color(0.1, 0.06, 0.15), 15))
-	# The Button doesn't size itself to its content: grow with it.
-	m.minimum_size_changed.connect(func() -> void: b.custom_minimum_size.y = maxf(176.0, m.get_combined_minimum_size().y))
-	b.custom_minimum_size.y = maxf(176.0, m.get_combined_minimum_size().y)
+	m.name = "Content"  # _card_slot grows the card to fit this once it knows its width
 	return b
 
 

@@ -87,6 +87,23 @@ func test_levelup_flow_banked() -> void:
 	check_eq(w.level, lv)
 
 
+func test_later_keeps_the_same_offers() -> void:
+	var w := _world()
+	w.pending_levelups = 2
+	check(w.open_banked())
+	var shown := w.offers.duplicate()
+	w.close_levelup()
+	check(w.offers.is_empty(), "no offers while playing")
+	check(w.open_banked())
+	check_eq(w.offers, shown, "reopening shows the same cards (no free reroll)")
+	# If one of them got maxed meanwhile (e.g. by a chest), roll fresh ones.
+	w.close_levelup()
+	var id: String = shown[0]
+	w.owned[id] = Upgrades.max_level(w.upgrade_defs[id])
+	check(w.open_banked())
+	check(not w.offers.has(id), "a maxed card is not offered again")
+
+
 func test_choose_ignores_invalid() -> void:
 	var w := _world()
 	w.choose_upgrade("bolt")  # not in levelup state
