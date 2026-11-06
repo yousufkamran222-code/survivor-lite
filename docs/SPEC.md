@@ -92,6 +92,8 @@ Max the weapon (Lv 5) and own its paired passive, then open a chest. Level-up ca
 - Swarm: Viral Memory (+1% convert ×5).
 Early tiers cost 25-60 gold, so the first purchase comes after the first run. Costs grow ~35% per tier. At ~100-280 gold per run, maxing takes about 100-170 runs, which is the long-tail retention goal.
 
+**Evolution strength upgrades** (2026-11-06): Storm Surge, Wall Reinforcement, Fever Pitch, Synapse Boost: 12 tiers of +8% each for one evolution (damage; Immune Wall also healing). Without them evolutions are weaker than before (Cytotoxic Storm ×0.44, the others ×0.6); Storm matches its old strength at 7/12 tiers, the others at 5/12; maxed ×1.40 / ×1.56. 2,560 gold each.
+
 ## Monetisation and ad placements (all through `Ads`)
 | Placement | Type | When | Rule |
 |---|---|---|---|

@@ -705,6 +705,13 @@ func _recompute_stats() -> void:
 			for k in ["heal_on_hit", "pulses", "forks"]:
 				if ev.has(k):
 					w[k] = float(ev[k])
+			# Evolution strength (shop "evo_<weapon>" tiers): the evolved
+			# weapon's damage (and Immune Wall's healing) x evolution_power().
+			var ep := evolution_power(id)
+			if w.has("damage"):
+				w.damage *= ep
+			if w.has("heal_on_hit"):
+				w.heal_on_hit *= ep
 		var dmg_mult := 1.0 + float(stats.might) + float(stats.get("arsenal", 0.0)) * _weapons_owned()  # Lab: Arsenal
 		var cd_mult := maxf(0.35, 1.0 - float(stats.haste))
 		if w.has("damage"):
@@ -3307,14 +3314,20 @@ func _clear_shots_and_bullets() -> void:
 	b_ally.clear()
 
 
-## Rough single-target damage per second of the current build (weapons only),
-## so the Carrier lasts about boss.hp_seconds against weapons alone.
 ## Rough single-target damage per second of your weapons (no AoE, Lab
 ## procs or dash): sizes the Rift boss and the HP floor of elites/bosses.
 func player_dps_estimate() -> float:
 	return rift_boss_dps_estimate()
 
 
+## Strength of a weapon's evolution: base_power (evolutions.json) plus the
+## shop's evo_<weapon> tiers. 1.0 = the evolution as originally tuned.
+func evolution_power(weapon: String) -> float:
+	var ev: Dictionary = evolution_defs.get(weapon, {})
+	return float(ev.get("base_power", 1.0)) + float(stats.get("evo_" + weapon, 0.0))
+
+
+## Same estimate (the Rift Carrier lasts about boss.hp_seconds against it).
 func rift_boss_dps_estimate() -> float:
 	var dps := 0.0
 	for id in wstats:

@@ -110,7 +110,7 @@ func _tile(m: Dictionary) -> Button:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 6)
 	b.add_child(v)
-	var ic := UpgradeIcon.make(_icon_key(m), col, 84)
+	var ic := UpgradeIcon.make(_icon_key(m), col, 84, str(m.stat).begins_with("evo_"))
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(ic)
 	var name := UiKit.label(m.name, 21, Color.WHITE)
@@ -234,7 +234,7 @@ func _fill_popup(flash: int) -> void:
 	halo.color = pal.ui_accent if maxed else col
 	halo.custom_minimum_size = Vector2(0, 190)
 	halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := UpgradeIcon.make(_icon_key(m), col, 132)
+	var ic := UpgradeIcon.make(_icon_key(m), col, 132, str(m.stat).begins_with("evo_"))
 	ic.name = "Icon"
 	ic.set_anchors_preset(Control.PRESET_CENTER)
 	ic.position = Vector2(-66, -66)

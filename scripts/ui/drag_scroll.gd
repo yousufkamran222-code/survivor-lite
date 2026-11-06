@@ -8,13 +8,14 @@ extends ScrollContainer
 ## and should ignore their press when `was_dragged()` is true.
 
 const DEADZONE := 12.0
-const FRICTION := 6.0  # momentum decay per second
+const FRICTION := 4.0  # momentum decay per second (lower = longer glide)
 
 var _pressing := false
 var _dragging := false
 var _last_y := 0.0
 var _start_y := 0.0
 var _vel := 0.0  # px/s, positive = content moves down
+var _last_us := 0  # time of the last drag event (fling speed from real event timing)
 
 
 func _init() -> void:
@@ -44,9 +45,13 @@ func _gui_input(e: InputEvent) -> void:
 			_dragging = false
 			_start_y = e.global_position.y
 			_last_y = _start_y
+			_last_us = Time.get_ticks_usec()
 			_vel = 0.0
 		else:
 			_pressing = false
+			# A finger that stopped before lifting shouldn't fling.
+			if (Time.get_ticks_usec() - _last_us) > 80000:
+				_vel = 0.0
 		accept_event()  # handled here, so the built-in touch drag doesn't double up
 	elif e is InputEventMouseMotion and _pressing:
 		var y: float = e.global_position.y
@@ -57,8 +62,10 @@ func _gui_input(e: InputEvent) -> void:
 			var dy := y - _last_y
 			_last_y = y
 			_scroll_by(-dy)
-			var dt := maxf(get_process_delta_time(), 1.0 / 120.0)
-			_vel = lerpf(_vel, dy / dt, 0.5)
+			var now := Time.get_ticks_usec()
+			var dt := clampf((now - _last_us) / 1000000.0, 1.0 / 240.0, 0.1)
+			_last_us = now
+			_vel = lerpf(_vel, dy / dt, 0.35)
 		accept_event()
 	elif e is InputEventScreenDrag or e is InputEventScreenTouch:
 		accept_event()  # emulated mouse events above do the work

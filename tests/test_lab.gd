@@ -483,7 +483,8 @@ func test_shop_caps_unchanged() -> void:
 		"meta_magnet": 0.96, "meta_growth": 0.4, "meta_greed": 0.64, "meta_amount": 2.0, "meta_dash_cd": 0.3, "meta_dash_charge": 1.0,
 		"meta_dash_dmg": 40.0, "meta_dash_decoy": 1.5, "meta_convert": 0.05}
 	for m in data().meta:
-		check_near(float(m.per_level) * m.costs.size(), float(old_caps[m.id]), 0.0001, m.id)
+		if old_caps.has(m.id):  # the evo_* upgrades (2026-11-06) are new
+			check_near(float(m.per_level) * m.costs.size(), float(old_caps[m.id]), 0.0001, m.id)
 
 
 func test_lysis_ignores_virulence() -> void:

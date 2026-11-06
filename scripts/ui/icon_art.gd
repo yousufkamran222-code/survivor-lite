@@ -12,6 +12,7 @@ const META_KEYS := {
 	"gold_gain": "gold", "amount": "multishot", "dash_cd": "adrenaline",
 	"dash_charges": "flagella2", "dash_damage": "lunge", "dash_decoy": "afterimage",
 	"convert": "viral",
+	"evo_bolt": "bolt", "evo_orbit": "orbit", "evo_nova": "nova", "evo_chain": "chain",
 }
 
 const COLORS := {

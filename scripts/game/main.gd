@@ -658,8 +658,8 @@ func _apply_fps() -> void:
 	if screen == "paused" or screen == "build":
 		limit = int(bal.perf.get("pause_max_fps", 30))
 	elif screen != "playing":
-		var menu_cap := int(bal.perf.get("menu_max_fps", 60))
-		limit = menu_cap if cap == 0 else mini(cap, menu_cap)
+		var menu_cap := int(bal.perf.get("menu_max_fps", 0))  # 0 = the display's refresh rate (a 60 cap judders on 90/120 Hz phones)
+		limit = menu_cap if cap == 0 else (cap if menu_cap == 0 else mini(cap, menu_cap))
 	Engine.max_fps = limit
 
 
@@ -1490,6 +1490,8 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	gold_row.add_child(gold_icon)
 	var gold := UiKit.label("", 52, pal.gem_large)
 	gold.autowrap_mode = TextServer.AUTOWRAP_OFF
+	gold.custom_minimum_size = Vector2(300, 0)  # fixed width: the row doesn't reflow as the number changes
+	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	gold_row.add_child(gold)
 	_results_gold_icon = gold_icon
 	# Wallet (top-right): the run's gold flies into it on collect.
@@ -1568,6 +1570,7 @@ func _gold_fly_in(amount: int) -> void:
 	var origin := root.get_global_rect().position
 	var src := _results_gold_icon.get_global_rect().get_center() - origin
 	var wl: Label = _results_wallet.find_children("*", "Label", true, false)[0]
+	wl.custom_minimum_size.x = maxf(wl.size.x, wl.get_theme_font("font").get_string_size(str(Save.gold + amount), HORIZONTAL_ALIGNMENT_LEFT, -1, wl.get_theme_font_size("font_size")).x + 4.0)  # no reflow while it counts up
 	var wicon: Control = _results_wallet
 	for c in _results_wallet.find_children("*", "", true, false):
 		if c is UpgradeIcon:

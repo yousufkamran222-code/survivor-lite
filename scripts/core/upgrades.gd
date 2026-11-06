@@ -7,7 +7,9 @@ const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "
 	# The Lab (data/lab.json) forks and keystones
 	"crit", "max_hp_pct", "elite_damage", "lysis", "shield", "iframes_pct", "second_wind", "dash_cd_pen", "dash_phase", "slipstream", "head_start", "extra_offers", "mutation",
 	"streak_dmg", "overkill", "arsenal", "last_stand", "recoil", "feed", "clot", "momentum", "refuel", "evasion", "wake",
-	"free_rerolls", "start_levels", "start_meters", "treasure"]
+	"free_rerolls", "start_levels", "start_meters", "treasure",
+	# Shop: evolution strength per weapon (World._recompute_stats)
+	"evo_bolt", "evo_orbit", "evo_nova", "evo_chain"]
 
 
 static func max_level(def: Dictionary) -> int:

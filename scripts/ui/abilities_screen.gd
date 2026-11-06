@@ -8,6 +8,7 @@ var cfg: Dictionary
 var pal: Dictionary
 var on_back: Callable
 var _list: VBoxContainer
+var _scroll: DragScroll
 
 
 func setup(lab_cfg: Dictionary, palette: Dictionary, back: Callable) -> void:
@@ -23,6 +24,7 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, back: Callable) -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	add_child(hint)
 	var scroll := DragScroll.new()
+	_scroll = scroll
 	scroll.custom_minimum_size = Vector2(640, 880)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -88,6 +90,8 @@ func _card(id: String) -> Control:
 		v.add_child(stat)
 		if not equipped:
 			var eq := UiKit.button("EQUIP", func() -> void:
+				if _scroll.was_dragged():
+					return
 				Save.profile.equip_ability(cfg, id)
 				Save.write()
 				Sfx.play("upgrade", 0.0)
@@ -95,6 +99,7 @@ func _card(id: String) -> Control:
 				Analytics.event("ability_equip", {"id": id})
 				_build(false), 70)
 			eq.add_theme_font_size_override("font_size", 26)
+			eq.mouse_filter = Control.MOUSE_FILTER_PASS  # let drags on the button scroll the list
 			v.add_child(eq)
 	else:
 		var n := Lab.ability_node(cfg, id)

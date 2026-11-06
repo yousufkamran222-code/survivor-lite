@@ -19,6 +19,7 @@ var popup_layer: Control
 var on_back: Callable
 
 var _cols: HBoxContainer
+var _scroll: DragScroll
 var _genes_labels: Array[Label] = []
 var _popup: Control
 var _popup_body: VBoxContainer
@@ -49,6 +50,7 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Calla
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	add_child(hint)
 	var scroll := DragScroll.new()
+	_scroll = scroll
 	scroll.custom_minimum_size = Vector2(640, 830)
 	_cols = HBoxContainer.new()
 	_cols.add_theme_constant_override("separation", 10)
@@ -94,6 +96,7 @@ func _build(animate: bool) -> void:
 func _column(b: Dictionary) -> Control:
 	var owned: Dictionary = Save.profile.lab
 	var col := Column.new()
+	col.mouse_filter = Control.MOUSE_FILTER_PASS  # a STOP column swallowed drags: the Lab only scrolled in the gaps
 	col.color = GameData.color(b.color)
 	col.custom_minimum_size = Vector2(COL_W, ROW_Y[ROW_Y.size() - 1] + 50.0 + SIZES[SIZES.size() - 1] / 2.0 + 56.0)
 	var name := UiKit.label(str(b.name).to_upper(), 24, col.color)
@@ -143,6 +146,8 @@ func _node_button(n: Dictionary, b: Dictionary, at: Vector2, px: float) -> Butto
 	for s in ["normal", "hover", "pressed", "focus"]:
 		btn.add_theme_stylebox_override(s, empty)
 	btn.pressed.connect(func() -> void:
+		if _scroll.was_dragged():
+			return  # it was a scroll, not a tap
 		Sfx.play("click", 0.0)
 		_open(n, b))
 	var ic := NodeIcon.new()

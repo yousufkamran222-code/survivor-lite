@@ -93,7 +93,8 @@ func test_no_evolution_without_passive() -> void:
 
 
 func test_evolved_orbit_heals_and_chain_forks() -> void:
-	var w := _world()
+	var w := World.new(data(), 1, {"evo_orbit": 0.4, "evo_chain": 0.4})  # evolutions at their original strength (5 shop tiers)
+	w.emit_events = false
 	w.owned["orbit"] = 5
 	w.owned["vitality"] = 1
 	w.owned["chain"] = 5
