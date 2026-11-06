@@ -1599,76 +1599,60 @@ func _show_results(won: bool) -> void:
 func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void:
 	var col: VBoxContainer = _results[1]
 	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
+	var t := 0.25 if animate else 0.0
+	# Outcome banner: a glossy ribbon (gold on a win, dark red on a loss).
 	var head := "YOU SURVIVED!" if won else "RUN OVER"
 	if world.def_on:
 		head = "NUCLEUS DEFENDED!" if won and not world.free_mode else ("FREE MODE OVER" if world.free_mode else "NUCLEUS LOST")
-	var title := UiKit.label(head, 56, pal.ui_accent if won else pal.text)
-	title.add_theme_constant_override("outline_size", 12)
-	title.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
-	col.add_child(title)
 	var vl := int(world.bal.get("virulence", 1))
-	if _virulence_cleared > 0:
-		var txt := "VIRULENCE %d CLEARED!" % _virulence_cleared
-		if _virulence_cleared < Profile.MAX_VIRULENCE:
-			txt += "  Virulence %d unlocked" % (_virulence_cleared + 1)
-		var chip := UiKit.chip(txt, Color("#ff5a7a"), Color(0.1, 0.04, 0.08), 22)
-		chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		col.add_child(chip)
-		if animate:
-			UiKit.fade_in(chip, 0.5)
-	elif vl > 1:
-		col.add_child(UiKit.label("Virulence %d" % vl, 22, Color("#ff5a7a")))
-	if Save.profile.last_genes > 0:
-		var gchip := UiKit.chip("+%d GENES  (spend them in the Lab)" % Save.profile.last_genes, LabScreen.GENE, Color(0.04, 0.12, 0.08), 22)
-		gchip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		col.add_child(gchip)
-		if animate:
-			UiKit.fade_in(gchip, 0.7)
-	# Stats card.
-	var card := UiKit.panel(Color("#2a1f4a"), Color(1, 1, 1, 0.08), 22, 18)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 20)
-	grid.add_theme_constant_override("v_separation", 6)
-	var rows := [["Time", UiKit.fmt_time(world.time)], ["Level", str(world.level)], ["Kills", str(world.kills)]]
+	var banner := PanelContainer.new()
+	banner.add_theme_stylebox_override("panel", UiKit.gloss(pal.ui_accent if won else Color("#b8324f")))
+	var bv := VBoxContainer.new()
+	bv.add_theme_constant_override("separation", 0)
+	var title := UiKit.label(head, 52, Color("#3a2200") if won else Color.WHITE)
+	if won:
+		title.add_theme_constant_override("outline_size", 0)
+	bv.add_child(title)
+	var sub := UiKit.display(UiKit.label("%s  ·  VIRULENCE %d" % [str(_current_mode().name).to_upper(), vl], 20, Color("#5a3a00") if won else Color(1, 1, 1, 0.85)), 0 if won else 4)
+	bv.add_child(sub)
+	banner.add_child(bv)
+	col.add_child(banner)
+	# Stat tiles: big numbers that count up.
+	var tiles := [["TIME", world.time, "time"], ["KILLS", world.kills, "int"], ["LEVEL", world.level, "int"]]
 	if world.terr != null:
-		rows.append(["Dish infected", "%d%%" % roundi(world.terr.infected_fraction() * 100.0)])
+		tiles.append(["INFECTED", roundi(world.terr.infected_fraction() * 100.0), "pct"])
 	if world.conv_on:
-		rows.append(["Germs converted", str(world.conversions)])
+		tiles.append(["CONVERTED", world.conversions, "int"])
 	if world.def_on:
 		if world.free_mode:
-			rows.append(["Free Mode wave", str(world.wave)])
+			tiles.append(["FREE WAVE", world.wave, "int"])
 		else:
-			rows.append(["Waves cleared", "%d / %d" % [world.waves_cleared, world.wave_count]])
-		rows.append(["Towers", str(world.towers_built)])
-	for r in rows:
-		var k := UiKit.label(r[0], 24, Color(pal.text, 0.65))
-		k.autowrap_mode = TextServer.AUTOWRAP_OFF
-		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(k)
-		var v := UiKit.label(r[1], 24, pal.text)
-		v.autowrap_mode = TextServer.AUTOWRAP_OFF
-		v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(v)
-	card.add_child(grid)
-	col.add_child(card)
+			tiles.append(["WAVES", world.waves_cleared, "int"])
+		tiles.append(["TOWERS", world.towers_built, "int"])
+	var grid := GridContainer.new()
+	grid.columns = tiles.size() if tiles.size() <= 4 else 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	var ti := 0
+	for tile in tiles:
+		grid.add_child(_stat_tile(tile[0], float(tile[1]), tile[2], t + 0.08 * ti if animate else -1.0))
+		ti += 1
+	col.add_child(grid)
 	col.add_child(_highlights_card(animate))
 	# Score (counts up), NEW BEST stamp.
 	var score_row := HBoxContainer.new()
 	score_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	score_row.add_theme_constant_override("separation", 14)
-	var score := UiKit.label("", 40, pal.text)
+	var score := UiKit.label("", 44, Color.WHITE)
 	score.autowrap_mode = TextServer.AUTOWRAP_OFF
 	score_row.add_child(score)
 	col.add_child(score_row)
 	var score_v := int(_summary.score)
-	var t := 0.25 if animate else 0.0
 	if animate:
-		UiKit.count_up(score, 0, score_v, 1.1, "Score %d", t, 1.0)
+		UiKit.count_up(score, 0, score_v, 1.1, "SCORE %d", t, 1.0)
 	else:
-		score.text = "Score %d" % score_v
+		score.text = "SCORE %d" % score_v
 	if _new_best:
 		var best := UiKit.chip("NEW BEST!", pal.ui_accent, Color(0.1, 0.06, 0.15), 24)
 		score_row.add_child(best)
@@ -1685,16 +1669,14 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 				Sfx.vibrate(40))
 			tw.tween_property(best, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.parallel().tween_property(best, "rotation", 0.0, 0.25)
-	# Achievements, staggered.
-	var k := 0
-	for a in _new_achievements:
-		var ach := UiKit.chip("Achievement: %s" % a.name, Color(pal.gem_medium, 0.9), Color(0.08, 0.05, 0.12), 22)
-		ach.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		col.add_child(ach)
-		if animate:
-			UiKit.fade_in(ach, t + 1.3 + 0.2 * k)
-		k += 1
-	# Gold (counts up).
+	# Rewards card: gold (counts up; flies to the wallet on collect), Genes,
+	# and the Virulence result.
+	var rewards := UiKit.panel(Color("#2a1f52"), Color(pal.ui_accent, 0.35), 22, 16)
+	var rv := VBoxContainer.new()
+	rv.add_theme_constant_override("separation", 8)
+	var cap := UiKit.display(UiKit.label("REWARDS", 18, Color(pal.text, 0.6)), 0)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	rv.add_child(cap)
 	var gold_row := HBoxContainer.new()
 	gold_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	gold_row.add_theme_constant_override("separation", 10)
@@ -1708,6 +1690,35 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	gold.custom_minimum_size = Vector2(gw + 8.0, 0)
 	gold.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	gold_row.add_child(gold)
+	rv.add_child(gold_row)
+	var extra := HBoxContainer.new()
+	extra.alignment = BoxContainer.ALIGNMENT_CENTER
+	extra.add_theme_constant_override("separation", 10)
+	if Save.profile.last_genes > 0:
+		extra.add_child(UiKit.chip("+%d GENES" % Save.profile.last_genes, LabScreen.GENE, Color(0.04, 0.12, 0.08), 22))
+	if _virulence_cleared > 0:
+		var txt := "V%d CLEARED!" % _virulence_cleared
+		if _virulence_cleared < Profile.MAX_VIRULENCE:
+			txt += "  V%d UNLOCKED" % (_virulence_cleared + 1)
+		extra.add_child(UiKit.chip(txt, Color("#ff5a7a"), Color(0.1, 0.04, 0.08), 22))
+	if extra.get_child_count() > 0:
+		rv.add_child(extra)
+	# New achievements wrap inside the rewards card (they used to take a row each).
+	if not _new_achievements.is_empty():
+		var flow := HFlowContainer.new()
+		flow.alignment = FlowContainer.ALIGNMENT_CENTER
+		flow.add_theme_constant_override("h_separation", 8)
+		flow.add_theme_constant_override("v_separation", 8)
+		var k := 0
+		for a in _new_achievements:
+			var ach := UiKit.chip("Achievement: %s" % a.name, Color(pal.gem_medium, 0.9), Color(0.08, 0.05, 0.12), 19)
+			flow.add_child(ach)
+			if animate:
+				UiKit.fade_in(ach, t + 1.3 + 0.2 * k)
+			k += 1
+		rv.add_child(flow)
+	rewards.add_child(rv)
+	col.add_child(rewards)
 	_results_gold_icon = gold_icon
 	# Wallet (top-right): the run's gold flies into it on collect.
 	if is_instance_valid(_results_wallet):
@@ -1720,7 +1731,6 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	wallet.offset_top = 30.0
 	_results[0].add_child(wallet)
 	_results_wallet = wallet
-	col.add_child(gold_row)
 	_results_gold_label = gold
 	_results_gold_tween = null
 	if animate or gold_from > 0:
@@ -1736,13 +1746,46 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 					_results_gold *= 2
 					_build_results(won, false, before)
 				else:
-					_build_results(won, false)), 120))
-	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 116, "primary")
-	again.add_theme_font_size_override("font_size", 40)
+					_build_results(won, false)), 96, "positive"))
+	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 120, "primary")
+	again.add_theme_font_size_override("font_size", 44)
 	col.add_child(again)
-	col.add_child(UiKit.button("Menu", _collect.bind(false), 80))
+	var menu := _text_button("Menu", _collect.bind(false))
+	col.add_child(menu)
 	if not _results[0].visible:
 		UiKit.reveal(_results)
+
+
+## One results stat tile: a big number (counts up when `delay` >= 0) over a
+## small caption. kind: "int", "time" (m:ss) or "pct".
+func _stat_tile(caption: String, value: float, kind: String, delay: float) -> Control:
+	var p := UiKit.panel(Color("#2a1f52"), Color(1, 1, 1, 0.1), 20, 10)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	var num := UiKit.label("", 36, Color.WHITE)
+	num.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(num)
+	var cap := UiKit.display(UiKit.label(caption, 16, Color(pal.text, 0.6)), 0)
+	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(cap)
+	p.add_child(v)
+	var show := func(f: float) -> void:
+		match kind:
+			"time":
+				num.text = UiKit.fmt_time(f)
+			"pct":
+				num.text = "%d%%" % roundi(f)
+			_:
+				num.text = str(roundi(f))
+	if delay < 0.0:
+		show.call(value)
+	else:
+		show.call(0.0)
+		var tw := num.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_method(show, 0.0, value, 0.8).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	return p
 
 
 func _collect(again: bool) -> void:
