@@ -42,6 +42,9 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results screen)
 var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
+var _unlock_pop = null  # unlock announcement overlay (UiKit.overlay array), built on demand
+var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
+var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
 var _new_best := false
 var _virulence_cleared := 0  # results: the Virulence level this win cleared for the first time (0 = none)
 var _touch_index := -1
@@ -148,7 +151,10 @@ func _ready() -> void:
 		Save.write()
 	_apply_settings()
 	_victory = UiKit.overlay(ui_root, 0.8)
-	_show_menu()
+	if Onboarding.prologue_done(Save.profile):
+		_show_menu()
+	else:
+		_start_run(true)  # first launch: straight into the prologue, no menu
 
 
 # ------------------------------------------------------------------ input
@@ -321,7 +327,14 @@ func _process(delta: float) -> void:
 	if _slowmo > 0.0:
 		_slowmo -= delta
 		dt *= _slowmo_scale
+	if world.tut != null and world.tut.slowmo():
+		dt *= float(data.onboarding.prologue.get("slowmo_scale", 0.25))  # a beat waits for you
 	world.step(dt, _move_input())
+	hud.coach = world.coach()
+	if _coached_mode != "" and world.tut != null and world.tut.done:
+		Onboarding.mark_coached(Save.profile, _coached_mode)
+		_coached_mode = ""
+		Save.write()
 	hud.sim_ms = lerpf(hud.sim_ms, (Time.get_ticks_usec() - t0) / 1000.0, 0.1)
 	hud.cam_pos = view.cam.position
 	hud.cam_zoom = view.cam_zoom
@@ -353,7 +366,10 @@ func _process(delta: float) -> void:
 		"dead":
 			_on_death()
 		"won":
-			_show_results(true)
+			if _prologue:
+				_show_prologue_results()
+			else:
+				_show_results(true)
 
 
 func _handle_events(events: Array) -> void:
@@ -362,6 +378,10 @@ func _handle_events(events: Array) -> void:
 	for ev in events:
 		_hint_event(ev.type)
 		match ev.type:
+			"coach":
+				if str(ev.text) != "":
+					Sfx.play("chest", 0.0, 1.6)
+				Analytics.event("tutorial_step", {"id": ev.id, "mode": "prologue" if _prologue else str(_current_mode().id)})
 			"shoot":
 				Sfx.play("shoot")
 			"hit":
@@ -684,12 +704,28 @@ func _on_streak_milestone(ev: Dictionary) -> void:
 	hud.streak_burst()
 
 
-func _start_run() -> void:
-	var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
-	var mode_id: String = _current_mode().id
-	world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
-	var ab_id := Save.profile.equipped_ability(data.lab)
-	world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
+## Starts a run in the selected mode, or the Patient Zero prologue (a
+## scripted run with no shop bonuses, so medals are fair). The first real run
+## of a mode with a coach (data/onboarding.json coaches) carries its beats.
+func _start_run(prologue: bool = false) -> void:
+	var first_launch := prologue and not Onboarding.prologue_done(Save.profile)
+	_prologue = prologue
+	_coached_mode = ""
+	var mode_id: String = "prologue" if prologue else str(_current_mode().id)
+	if prologue:
+		world = World.new(GameData.apply_prologue(data), randi(), {})
+		world.start_tutorial(data.onboarding.prologue.beats, Onboarding.prologue_opts(data, Save.profile))
+	else:
+		var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
+		world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
+		var ab_id := Save.profile.equipped_ability(data.lab)
+		world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
+		if Onboarding.coach_due(data, Save.profile, mode_id):
+			world.start_tutorial(data.onboarding.coaches[mode_id])
+			_coached_mode = mode_id
+	hud.title_t = 0.0 if first_launch else -1.0
+	hud.title_text = str(bal.title).to_upper()
+	hud.title_sub = "You are the infection."
 	view.set_world(world)
 	view.set_look(Cosmetics.look(data.cosmetics, Save.profile))
 	_pop_sound = Cosmetics.look(data.cosmetics, Save.profile).get("pop", {})
@@ -705,8 +741,8 @@ func _start_run() -> void:
 	Sfx.play_music("run")
 	_life_best_streak = int(Save.profile.stats.get("best_streak", 0))
 	_streak_best_called = false
-	Analytics.event("run_start", {"run": Save.runs + 1, "mode": _current_mode().id})
-	_load_hints(_current_mode().id)
+	Analytics.event("run_start", {"run": Save.runs + 1, "mode": mode_id})
+	_load_hints(mode_id)
 	_hide_all()
 	_set_screen("playing")
 
@@ -782,9 +818,13 @@ func _show_menu() -> void:
 	row.add_theme_constant_override("separation", 12)
 	var current := _current_mode()
 	for m in data.modes:
-		row.add_child(_mode_card(m, m.id == current.id))
+		if Onboarding.unlocked(data, Save.profile, m.id):
+			row.add_child(_mode_card(m, m.id == current.id))
+		else:
+			row.add_child(_locked_mode_card(m))
 	col.add_child(row)
-	col.add_child(_virulence_row(current.id))
+	if Onboarding.unlocked(data, Save.profile, "virulence"):
+		col.add_child(_virulence_row(current.id))
 	col.add_child(UiKit.label(current.desc, 22, Color(pal.text, 0.8)))
 	var play := Button.new()
 	play.text = "PLAY"
@@ -801,12 +841,13 @@ func _show_menu() -> void:
 	# Bottom row: upgrades, profile, sound.
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 12)
-	bottom.add_child(_tile_button("gold", pal.ui_accent, "UPGRADES", _show_shop))
-	bottom.add_child(_tile_button("lab", LabScreen.GENE, "LAB", _show_lab))
-	bottom.add_child(_tile_button("style", Color("#ff7ac8"), "STYLE", _show_style))
+	bottom.add_child(_gated_tile("shop", "gold", pal.ui_accent, "UPGRADES", _show_shop))
+	bottom.add_child(_gated_tile("lab", "lab", LabScreen.GENE, "LAB", _show_lab))
+	bottom.add_child(_gated_tile("style", "style", Color("#ff7ac8"), "STYLE", _show_style))
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
 	bottom.add_child(_tile_button("settings", pal.player_nucleus, "SETTINGS", _show_settings))
 	col.add_child(bottom)
+	col.add_child(_prologue_button())
 	# The build label doubles as the hidden benchmark trigger (tap 5 times).
 	var build := UiKit.label(_build_label(), 16, Color(pal.text, 0.35))
 	build.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -814,6 +855,139 @@ func _show_menu() -> void:
 	col.add_child(build)
 	_menu[0].visible = true
 	UiKit.fade_in(col)
+	_announce_next()
+
+
+## New unlocks (Onboarding.pending_announcements), one popup at a time:
+## icon, NEW MODE / NEW FEATURE, the name and one line; OK marks it seen.
+func _announce_next() -> void:
+	var todo := Onboarding.pending_announcements(data, Save.profile)
+	if todo.is_empty() or (_unlock_pop != null and is_instance_valid(_unlock_pop[0]) and _unlock_pop[0].visible):
+		return
+	var u: Dictionary = todo[0]
+	if _unlock_pop == null or not is_instance_valid(_unlock_pop[0]):
+		_unlock_pop = UiKit.overlay(ui_root, 0.78)
+	var col: VBoxContainer = _unlock_pop[1]
+	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 18)
+	var icons := {"classic": "mode_classic", "shop": "gold", "style": "style", "lab": "lab", "virulence": "keystone"}
+	var accent: Color = pal.ui_accent
+	var icon := str(icons.get(u.id, ""))
+	for m in data.modes:
+		if m.id == u.id:
+			icon = str(m.get("icon", icon))
+			accent = GameData.color(m.get("color", "#ffd166"))
+	var head := "NEW MODE" if u.kind == "mode" else "UNLOCKED"
+	col.add_child(UiKit.display(UiKit.label(head, 30, Color(pal.text, 0.8)), 6))
+	var ic := UpgradeIcon.make(icon, accent, 150)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(ic)
+	col.add_child(UiKit.display(UiKit.label(str(u.name).to_upper(), 64, accent), 10))
+	var d := UiKit.label(str(u.desc), 26, Color.WHITE)
+	d.custom_minimum_size = Vector2(560, 0)
+	col.add_child(d)
+	col.add_child(UiKit.button("NICE!", func() -> void:
+		Onboarding.mark_announced(Save.profile, str(u.id))
+		Save.write()
+		_unlock_pop[0].visible = false
+		if u.kind == "mode":
+			Save.mode = str(u.id)  # jump to the new mode
+		_show_menu(), 110, "primary"))
+	Sfx.play("evolve", 0.0, 1.2)
+	Sfx.vibrate(60)
+	Analytics.event("unlock_shown", {"id": u.id})
+	UiKit.reveal(_unlock_pop)
+
+
+## A menu tile that unlocks with play (shop, Lab, Style): locked = dim with
+## the requirement; just unlocked = a NEW badge until it's opened once.
+func _gated_tile(id: String, icon_key: String, accent: Color, text: String, on_press: Callable) -> Button:
+	if not Onboarding.unlocked(data, Save.profile, id):
+		var why := Onboarding.unlock_text(data, Save.profile, id)
+		var b := _tile_button("lock", Color(0.6, 0.55, 0.75), text, func() -> void:
+			Sfx.play("deny", 0.0)
+			_menu_toast(why))
+		b.modulate = Color(1, 1, 1, 0.55)
+		return b
+	var t := _tile_button(icon_key, accent, text, func() -> void:
+		Onboarding.mark_opened(Save.profile, id)
+		Save.write()
+		on_press.call())
+	if Onboarding.is_new(Save.profile, id):
+		var badge := UiKit.chip("NEW", Color("#ff5a7a"), Color.WHITE, 15)
+		badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		badge.position = Vector2(-8, -10)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.add_child(badge)
+		badge.resized.connect(func() -> void: badge.position = Vector2(t.size.x - badge.size.x + 6, -10))
+		var tw := badge.create_tween().set_loops()
+		tw.tween_property(badge, "modulate:a", 0.55, 0.5)
+		tw.tween_property(badge, "modulate:a", 1.0, 0.5)
+	return t
+
+
+## A mode you haven't unlocked yet: shown (so you see what's coming), dim,
+## with a lock and what opens it.
+func _locked_mode_card(m: Dictionary) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 196)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb := UiKit._box(Color("#1f1738"), 20, 10)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(1, 1, 1, 0.08)
+	for st in ["normal", "hover", "pressed"]:
+		b.add_theme_stylebox_override(st, sb)
+	var why := Onboarding.unlock_text(data, Save.profile, m.id)
+	b.pressed.connect(func() -> void:
+		Sfx.play("deny", 0.0)
+		_menu_toast(why))
+	var v := VBoxContainer.new()
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	var ic := UpgradeIcon.make("lock", Color(0.6, 0.55, 0.75), 60)
+	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ic)
+	var name := UiKit.display(UiKit.label(str(m.name).to_upper(), 20, Color(1, 1, 1, 0.45)))
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(name)
+	var lab := UiKit.label(why.replace("Unlocks after ", "After "), 15, Color(1, 1, 1, 0.45))
+	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(lab)
+	b.add_child(v)
+	return b
+
+
+## Patient Zero, replayable from the menu: best medal and score.
+func _prologue_button() -> Control:
+	var pc: Dictionary = data.onboarding.prologue
+	var best := int(Save.profile.record("prologue").get("best_score", 0))
+	var medal := Onboarding.medal(pc, best)
+	var txt := "PATIENT ZERO"
+	if best > 0:
+		txt += "   %s  %d" % [str(medal.get("name", "No medal")).to_upper(), best]
+	var b := UiKit.button(txt, func() -> void: _start_run(true), 70, "secondary")
+	b.add_theme_font_size_override("font_size", 24)
+	if not medal.is_empty():
+		b.add_theme_color_override("font_color", GameData.color(medal.color))
+	return b
+
+
+func _menu_toast(text: String) -> void:
+	if text == "":
+		return
+	var l := UiKit.display(UiKit.label(text, 26, Color.WHITE), 6)
+	l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	l.position = Vector2(0, -260)
+	l.size = Vector2(720, 40)
+	l.position.x = 0
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu[0].add_child(l)
+	var tw := l.create_tween()
+	tw.tween_interval(1.6)
+	tw.tween_property(l, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(l.queue_free)
 
 
 func _gold_pill() -> Control:
@@ -966,7 +1140,10 @@ func _show_profile() -> void:
 
 func _current_mode() -> Dictionary:
 	for m in data.modes:
-		if m.id == Save.mode:
+		if m.id == Save.mode and Onboarding.unlocked(data, Save.profile, m.id):
+			return m
+	for m in data.modes:  # the saved mode isn't open yet: the first one that is (Classic)
+		if m.id == "classic" or Onboarding.unlocked(data, Save.profile, m.id):
 			return m
 	return data.modes[0]
 
@@ -1068,7 +1245,7 @@ func _show_levelup() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 40)
 	var reroll := _text_button("Reroll (%d free)" % world.free_rerolls if world.free_rerolls > 0 else "Reroll (ad)", _reroll)
-	reroll.visible = world.free_rerolls > 0 or Ads.is_rewarded_available()
+	reroll.visible = world.free_rerolls > 0 or (Ads.is_rewarded_available() and Onboarding.ads_allowed(data, Save.profile) and not _prologue)
 	row.add_child(reroll)
 	buttons.append(reroll)
 	var later := _text_button("Later (keep %d)" % world.pending_levelups, _later)
@@ -1456,8 +1633,8 @@ func _show_chest() -> void:
 		await get_tree().create_timer(delay).timeout
 		delay *= 1.13
 	for k in slots.size():
-		if not is_instance_valid(slots[k]):
-			return
+		if not is_instance_valid(slots[k]) or not is_instance_valid(icons[k]) or not is_instance_valid(cards[k]) or not is_instance_valid(burst):
+			return  # the chest was closed while the reels were still spinning
 		var r: Dictionary = rewards[k]
 		var evo: bool = r.kind == "evolution"
 		var ic = icons[k]
@@ -1836,7 +2013,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 		_results_gold_tween = UiKit.count_up(gold, gold_from, _results_gold, 0.9, "+%d gold", t + (0.6 if animate else 0.0), 1.3)
 	else:
 		gold.text = "+%d gold" % _results_gold
-	if not _results_doubled and Ads.is_rewarded_available():
+	if not _results_doubled and Ads.is_rewarded_available() and Onboarding.ads_allowed(data, Save.profile):
 		col.add_child(UiKit.button("DOUBLE GOLD  (watch ad)", func() -> void:
 			Ads.show_rewarded("double_gold", func(ok: bool) -> void:
 				if ok and not _results_doubled:
@@ -1853,6 +2030,98 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	col.add_child(menu)
 	if not _results[0].visible:
 		UiKit.reveal(_results)
+
+
+## Leaving the prologue from the pause menu. The first time it counts as
+## skipped (so nobody is stuck before the menu), with no score.
+func _quit_prologue() -> void:
+	if not Onboarding.prologue_done(Save.profile):
+		Save.profile.onboarding["prologue_done"] = true
+		Analytics.event("prologue_skip", {"t": int(world.time), "beat": str(world.tut.beat().get("id", "end")) if world.tut != null else ""})
+		Save.write()
+	_prologue = false
+	_show_menu()
+
+
+## Prologue results: INFECTION COMPLETE, kills / streak / boss time, the
+## score counting up to a medal, the gold (paid straight into the wallet so
+## nothing is lost), then CONTINUE to the menu (first time) or PLAY AGAIN.
+func _show_prologue_results() -> void:
+	_hide_all()
+	_set_screen("results")
+	Sfx.play_music("ending")
+	var pc: Dictionary = data.onboarding.prologue
+	var first := not Onboarding.prologue_done(Save.profile)
+	var boss_s: float = world.tut.boss_s if world.tut != null else 0.0
+	var score := Onboarding.prologue_score(pc, world.kills, world.best_streak, boss_s)
+	var prev_medal := Onboarding.medal(pc, int(Save.profile.record("prologue").get("best_score", 0)))
+	var best := Onboarding.record_prologue(Save.profile, score, world.kills, Save.now())
+	var medal := Onboarding.medal(pc, score)
+	var gold := world.run_gold_now(true) + (int(pc.get("gold_reward", 0)) if first else 0)
+	var had_cosmetics := Cosmetics.earned_ids(data.cosmetics, Save.profile)
+	Save.profile.add_gold(gold, Save.now())
+	_new_cosmetics = Cosmetics.newly_earned(data.cosmetics, had_cosmetics, Cosmetics.earned_ids(data.cosmetics, Save.profile))
+	Save.write()
+	Analytics.event("prologue_end", {"first": first, "score": score, "medal": str(medal.get("id", "")), "kills": world.kills, "streak": world.best_streak, "boss_s": snappedf(boss_s, 0.1), "t": int(world.time)})
+	var col: VBoxContainer = _results[1]
+	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 18)
+	var title := UiKit.display(UiKit.label("INFECTION COMPLETE", 58, pal.ui_accent), 10)
+	col.add_child(title)
+	col.add_child(UiKit.label(str(pc.get("name", "Patient Zero")), 26, Color(pal.text, 0.75)))
+	var tiles := HBoxContainer.new()
+	tiles.add_theme_constant_override("separation", 12)
+	tiles.add_child(_stat_tile("KILLS", world.kills, "int", 0.3))
+	tiles.add_child(_stat_tile("PEAK STREAK", world.best_streak, "int", 0.45))
+	tiles.add_child(_stat_tile("BOSS TIME", boss_s, "time", 0.6))
+	col.add_child(tiles)
+	var sl := UiKit.display(UiKit.label("", 52, Color.WHITE), 8)
+	col.add_child(sl)
+	UiKit.count_up(sl, 0, score, 1.1, "SCORE %d", 0.8, 1.2)
+	var chips := HFlowContainer.new()
+	chips.alignment = FlowContainer.ALIGNMENT_CENTER
+	chips.add_theme_constant_override("h_separation", 10)
+	if not medal.is_empty():
+		var mc := UiKit.chip("%s MEDAL" % str(medal.name).to_upper(), GameData.color(medal.color), Color(0.1, 0.06, 0.15), 28)
+		chips.add_child(mc)
+		UiKit.fade_in(mc, 2.0)
+		if str(medal.get("id", "")) != str(prev_medal.get("id", "")) and not first:
+			var up := UiKit.chip("NEW MEDAL!", Color("#ff7ac8"), Color(0.1, 0.04, 0.1), 22)
+			chips.add_child(up)
+			UiKit.fade_in(up, 2.2)
+	if best and not first:
+		var nb := UiKit.chip("NEW BEST", pal.ui_accent, Color(0.1, 0.06, 0.15), 22)
+		chips.add_child(nb)
+		UiKit.fade_in(nb, 2.3)
+	for it in _new_cosmetics:
+		var cc := UiKit.chip("NEW STYLE: %s" % it.name, Color("#ff7ac8"), Color(0.1, 0.04, 0.1), 19)
+		chips.add_child(cc)
+		UiKit.fade_in(cc, 2.4)
+	col.add_child(chips)
+	var next_m := {}
+	for m in pc.get("medals", []):
+		if score < int(m.score):
+			next_m = m
+			break
+	if not next_m.is_empty():
+		col.add_child(UiKit.label("%s medal at %d" % [next_m.name, int(next_m.score)], 20, Color(pal.text, 0.6)))
+	var gl := UiKit.display(UiKit.label("+%d gold" % gold, 40, pal.ui_accent), 6)
+	col.add_child(gl)
+	if first:
+		col.add_child(UiKit.label("Spend it in UPGRADES. More modes unlock as you play.", 21, Color(pal.text, 0.75)))
+		var cont := UiKit.button("CONTINUE", func() -> void:
+			_prologue = false
+			_show_menu(), 120, "primary")
+		cont.add_theme_font_size_override("font_size", 44)
+		col.add_child(cont)
+	else:
+		var again := UiKit.button("PLAY AGAIN", func() -> void: _start_run(true), 120, "primary")
+		again.add_theme_font_size_override("font_size", 44)
+		col.add_child(again)
+		col.add_child(_text_button("Menu", func() -> void:
+			_prologue = false
+			_show_menu()))
+	UiKit.reveal(_results)
 
 
 ## One results stat tile: a big number (counts up when `delay` >= 0) over a
@@ -1902,7 +2171,7 @@ func _collect(again: bool) -> void:
 	var next := _start_run if again else _show_menu
 	var a: Dictionary = bal.ads
 	var due := Save.deaths > 0 and Save.deaths % int(a.interstitial_every_deaths) == 0
-	if due and Save.runs >= int(a.min_runs_before_interstitial) and not _results_doubled:
+	if due and Save.runs >= int(a.min_runs_before_interstitial) and not _results_doubled and Onboarding.ads_allowed(data, Save.profile):
 		Ads.show_interstitial("between_runs", next)
 	else:
 		next.call()
@@ -2094,7 +2363,10 @@ func _build_pause() -> void:
 	col.add_child(UiKit.button("SETTINGS", func() -> void:
 		UiKit.clear(col)
 		col.add_child(_settings_screen(_build_pause)), 90))
-	col.add_child(UiKit.button("Quit run", func() -> void: _show_results(false), 80))
+	if _prologue:
+		col.add_child(UiKit.button("Quit to menu", _quit_prologue, 80))
+	else:
+		col.add_child(UiKit.button("Quit run", func() -> void: _show_results(false), 80))
 	if not _pause[0].visible:
 		UiKit.reveal(_pause)
 	else:
@@ -2282,8 +2554,15 @@ func _finish_benchmark() -> void:
 func _load_hints(mode_id: String) -> void:
 	_hints = []
 	_hint_queue = []
+	if mode_id == "prologue":
+		return  # its beats teach everything
 	var h: Dictionary = data.get("hints", {})
+	var taught := Onboarding.prologue_done(Save.profile)  # the prologue covered moving, dash, upgrades, elites, Outbreak
 	for hint in h.get("shared", []) + h.get(mode_id, []):
+		if taught and h.get("shared", []).has(hint) and str(hint.id) != "build_menu":
+			continue
+		if data.onboarding.get("coaches", {}).has(mode_id) and h.get(mode_id, []).has(hint):
+			continue  # the mode's coach replaces its text tips
 		if not Save.hints_seen.has(hint.id):
 			_hints.append(hint)
 

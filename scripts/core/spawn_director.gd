@@ -15,6 +15,8 @@ var _next_elite_t := INF
 var budget_mult := 1.0
 ## Lulls and surges (waves.lulls, set by World each step).
 var lull_mult := 1.0
+## Tutorial beats (World.tut) dial the ambient spawning up or down.
+var script_mult := 1.0
 
 
 func _init(waves_data: Dictionary, enemies_by_id: Dictionary, random: RandomNumberGenerator) -> void:
@@ -75,7 +77,7 @@ func update(dt: float, t: float, alive: int) -> Array:
 		if not _done_events.has(i) and t >= float(ev.t):
 			_done_events[i] = true
 			out.append({"id": ev.enemy, "count": int(ev.count), "pattern": ev.get("pattern", "ring")})
-	budget = minf(budget + budget_rate(t) * budget_mult * lull_mult * dt, float(waves.max_budget_bank))
+	budget = minf(budget + budget_rate(t) * budget_mult * lull_mult * script_mult * dt, float(waves.max_budget_bank))
 	_spend(pool_at(t), alive, out)
 	return out
 

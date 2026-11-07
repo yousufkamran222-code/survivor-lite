@@ -242,6 +242,12 @@ static func draw(ci: CanvasItem, key: String, c: Vector2, size: float, col: Colo
 				star.append(c + Vector2(cos(a), sin(a)) * k * (0.95 if t % 2 == 0 else 0.42))
 			ci.draw_colored_polygon(star, col)
 			ci.draw_circle(c, k * 0.2, w)
+		"lock":
+			# A padlock: shackle arc over a body with a keyhole.
+			ci.draw_arc(c + Vector2(0, -k * 0.2), k * 0.42, PI, TAU, 14, col, lw * 1.4)
+			ci.draw_rect(Rect2(c + Vector2(-k * 0.62, -k * 0.2), Vector2(k * 1.24, k * 0.95)), col)
+			ci.draw_circle(c + Vector2(0, k * 0.2), k * 0.14, Color(0.1, 0.06, 0.18))
+			ci.draw_rect(Rect2(c + Vector2(-k * 0.06, k * 0.2), Vector2(k * 0.12, k * 0.32)), Color(0.1, 0.06, 0.18))
 		"style":
 			# A paintbrush over a splash of colour (cosmetics).
 			ci.draw_circle(c + Vector2(-k * 0.35, k * 0.35), k * 0.42, col)

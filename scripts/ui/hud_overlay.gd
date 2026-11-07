@@ -55,6 +55,10 @@ var _bars_wait := 0.0
 var _sig_world: World = null
 var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
 var _hint_text := ""
+var coach := {}  # the tutorial's prompt this frame (World.coach(), set by Main)
+var _coach_idx := -1
+var _coach_t := 0.0  # time the current prompt has been up
+var title_t := -1.0  # first-launch title over the dish (>= 0 while showing)
 var _hint_t := 0.0  # time the current hint has been up
 const HINT_S := 4.5
 var streak_show := 10
@@ -259,6 +263,14 @@ func _process(delta: float) -> void:
 		_orders_t += delta
 	if _hint_text != "":
 		_hint_t += delta
+	if int(coach.get("index", -1)) != _coach_idx:
+		_coach_idx = int(coach.get("index", -1))
+		_coach_t = 0.0
+	_coach_t += delta
+	if title_t >= 0.0:
+		title_t += delta
+		if title_t > TITLE_S:
+			title_t = -1.0
 	if show_perf and world != null:
 		_update_perf(delta)
 	var i := 0
@@ -311,6 +323,8 @@ func _draw_hud() -> void:
 		ty += 52.0
 	_draw_streak(w)
 	_draw_hint(w)
+	_draw_coach(w)
+	_draw_title(w)
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
 		draw_string(font, Vector2(0, size.y - 14), _perf_text, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
@@ -1131,3 +1145,105 @@ func _draw_hint(w: float) -> void:
 	sb.border_color = Color(pal.ui_accent, 0.7 * a)
 	draw_style_box(sb, rect)
 	draw_multiline_string(font, rect.position + Vector2(20, 14 + fs * 0.85), _hint_text, HORIZONTAL_ALIGNMENT_CENTER, width - 40.0, fs, -1, Color(1, 1, 1, a))
+
+
+# ------------------------------------------------- new-player start (coach)
+
+const TITLE_S := 3.6
+var title_text := ""
+var title_sub := ""
+
+
+## The tutorial prompt: a big line of text that pops in, plus a pointer at
+## what to touch (a pulsing ring and a bouncing arrow on a button, a ghost
+## finger for moving, a circling dot for Infection's loop, a ring on a pad).
+func _draw_coach(w: float) -> void:
+	if coach.is_empty() or not evo_seq.is_empty():
+		return
+	var txt := str(coach.get("text", ""))
+	var k := _coach_t
+	if txt != "":
+		# Shrinks to fit one line (down to 30 px), else wraps onto two;
+		# below the streak counter, above the cell.
+		var pop := 1.0 + 0.35 * exp(-k * 9.0) * cos(k * 22.0)
+		var room := w - 60.0
+		var base := 46
+		while base > 30 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
+			base -= 2
+		var fs := int(base * pop)
+		var a := clampf(k / 0.12, 0.0, 1.0)
+		var y := 500.0
+		if font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
+			draw_multiline_string_outline(font, Vector2(30, y - fs * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, -1, 12, Color(UiKit.OUTLINE, 0.9 * a))
+			draw_multiline_string(font, Vector2(30, y - fs * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, -1, Color(1, 1, 1, a))
+		else:
+			draw_string_outline(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, 12, Color(UiKit.OUTLINE, 0.9 * a))
+			draw_string(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, Color(1, 1, 1, a))
+	var col: Color = pal.ui_accent
+	match str(coach.get("target", "none")):
+		"upgrade":
+			_point_at(upgrade_center(), 66.0, col)
+		"dash":
+			_point_at(dash_center(), dash_radius, col)
+		"outbreak":
+			_point_at(outbreak_center(), 58.0, col)
+		"orders":
+			_point_at(order_center(), 54.0, col)
+		"move":
+			# Ghost finger dragging left and right, low on the screen.
+			var base := Vector2(w * 0.5, size.y * 0.72)
+			var off := Vector2(sin(k * 2.6) * 120.0, 0.0)
+			draw_arc(base, 90.0, 0, TAU, 40, Color(1, 1, 1, 0.18), 3.0)
+			draw_circle(base + off, 34.0, Color(1, 1, 1, 0.35))
+			draw_circle(base + off, 22.0, Color(1, 1, 1, 0.6))
+		"loop":
+			# A dot circling out of the cell and back: draw a loop.
+			var c := size / 2.0
+			var r := 150.0
+			draw_arc(c, r, 0, TAU, 48, Color(col, 0.3), 4.0)
+			var a2 := fmod(k * 1.8, TAU)
+			draw_circle(c + Vector2.from_angle(a2) * r, 16.0, Color(col, 0.9))
+		"pad":
+			var best := -1
+			var bd := INF
+			for i in world.pad_pos.size():
+				if world.pad_tower[i] < 0 and world.pad_pos[i].distance_to(world.p_pos) < bd:
+					bd = world.pad_pos[i].distance_to(world.p_pos)
+					best = i
+			if best >= 0:
+				var sp: Vector2 = (world.pad_pos[best] - cam_pos) * cam_zoom + size / 2.0
+				var inner := Rect2(Vector2(60, 220), size - Vector2(120, 420))
+				if inner.has_point(sp):
+					_point_at(sp, 70.0 * cam_zoom, Color("#7cff9b"))
+				else:
+					var dir := (sp - size / 2.0).normalized()
+					var edge := size / 2.0 + dir * minf(size.x, size.y) * 0.36
+					_arrow(edge, dir, Color("#7cff9b"))
+
+
+func _point_at(c: Vector2, r: float, col: Color) -> void:
+	var k := _coach_t
+	var pulse := 0.5 + 0.5 * sin(k * 7.0)
+	draw_arc(c, r + 10.0 + 8.0 * pulse, 0, TAU, 40, Color(col, 0.9), 6.0)
+	draw_arc(c, r + 26.0 + 14.0 * fmod(k * 1.4, 1.0), 0, TAU, 40, Color(col, 0.5 * (1.0 - fmod(k * 1.4, 1.0))), 3.0)
+	var tip := c + Vector2(0, -(r + 30.0 + 12.0 * absf(sin(k * 5.0))))
+	_arrow(tip, Vector2.DOWN, col)
+
+
+func _arrow(tip: Vector2, dir: Vector2, col: Color) -> void:
+	var side := dir.orthogonal() * 20.0
+	var back := tip - dir * 34.0
+	draw_colored_polygon(PackedVector2Array([tip, back + side, back - side]), col)
+	draw_line(back, back - dir * 26.0, col, 10.0)
+
+
+## First-launch title over the dish: the game name and the tagline, fading.
+func _draw_title(w: float) -> void:
+	if title_t < 0.0 or title_text == "":
+		return
+	var a := clampf(minf(title_t / 0.5, (TITLE_S - title_t) / 0.8), 0.0, 1.0)
+	var rise := 20.0 * (1.0 - clampf(title_t / 0.6, 0.0, 1.0))
+	draw_string_outline(font, Vector2(0, 250 + rise), title_text, HORIZONTAL_ALIGNMENT_CENTER, w, 84, 16, Color(UiKit.OUTLINE, a))
+	draw_string(font, Vector2(0, 250 + rise), title_text, HORIZONTAL_ALIGNMENT_CENTER, w, 84, Color(pal.ui_accent, a))
+	draw_string_outline(font, Vector2(0, 300 + rise), title_sub, HORIZONTAL_ALIGNMENT_CENTER, w, 30, 8, Color(UiKit.OUTLINE, a))
+	draw_string(font, Vector2(0, 300 + rise), title_sub, HORIZONTAL_ALIGNMENT_CENTER, w, 30, Color(1, 1, 1, a))

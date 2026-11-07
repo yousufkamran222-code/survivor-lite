@@ -29,7 +29,7 @@ var muted: bool:
 	get: return bool(profile.settings.get("muted", false))
 	set(v): profile.settings["muted"] = v
 var mode: String:
-	get: return str(profile.settings.get("mode", "infection"))
+	get: return str(profile.settings.get("mode", "classic"))
 	set(v): profile.settings["mode"] = v
 # Settings (stored in profile.settings, a free-form dict: no format change).
 var music_volume: float:

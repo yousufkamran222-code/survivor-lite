@@ -121,6 +121,19 @@ static func buy(cfg: Dictionary, p: Profile, id: String, now: int) -> int:
 	return c
 
 
+## The free pick that comes with the Style unlock (Onboarding.free_pick):
+## any gold item up to `max_cost`, owned without paying. Returns true if
+## granted (and uses up the pick).
+static func take_free(cfg: Dictionary, p: Profile, id: String, max_cost: int, now: int) -> bool:
+	var it := find(cfg, id)
+	if it.is_empty() or unlock_type(it) != "gold" or p.cosmetics.has(id) or cost(it) > max_cost or not Onboarding.free_pick(p):
+		return false
+	p.cosmetics[id] = now
+	p.onboarding["free_pick"] = false
+	p.updated_at = now
+	return true
+
+
 ## Ids of every item earned (own rule; the developer toggle doesn't count).
 static func earned_ids(cfg: Dictionary, p: Profile) -> Array:
 	var f := p.flat()

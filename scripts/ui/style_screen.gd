@@ -35,6 +35,10 @@ func setup(cosmetics_cfg: Dictionary, palette: Dictionary, back: Callable) -> vo
 	head.add_child(title)
 	head.add_child(_gold_pill())
 	add_child(head)
+	if Onboarding.free_pick(Save.profile):
+		var fp := UiKit.label("Pick any item up to %s gold for FREE!" % Cosmetics._thousands(_free_cap()), 22, Color("#7cff9b"))
+		fp.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		add_child(fp)
 	_preview = CosmeticPreview.new()
 	_preview.pal = pal
 	for e in GameData.load_json("res://data/enemies.json"):
@@ -151,6 +155,9 @@ func _tile(it: Dictionary) -> Button:
 		sc = PINK
 	elif unlocked:
 		status = "Owned"
+	elif Cosmetics.unlock_type(it) == "gold" and Onboarding.free_pick(_prof()) and Cosmetics.cost(it) <= _free_cap():
+		status = "FREE PICK"
+		sc = Color("#7cff9b")
 	elif Cosmetics.unlock_type(it) == "gold":
 		status = "%s gold" % Cosmetics._thousands(Cosmetics.cost(it))
 		sc = pal.ui_accent
@@ -194,6 +201,9 @@ func _show_selected() -> void:
 		_info.add_child(b)
 	elif unlocked:
 		_info.add_child(UiKit.button("EQUIP", _equip, 72, "primary"))
+	elif kind == "gold" and Onboarding.free_pick(_prof()) and Cosmetics.cost(it) <= _free_cap():
+		var fb := UiKit.button("TAKE IT FREE", _take_free, 72, "positive")
+		_info.add_child(fb)
 	elif kind == "gold":
 		var c := Cosmetics.cost(it)
 		var b := UiKit.button("BUY  %s gold" % Cosmetics._thousands(c), _buy, 72, "positive" if Save.gold >= c else "secondary")
@@ -231,6 +241,24 @@ func _equip() -> void:
 		Analytics.event("cosmetic_equip", {"id": _sel})
 		_build_grid(false)
 		_show_selected()
+
+
+func _free_cap() -> int:
+	return int(GameData.load_json("res://data/onboarding.json").get("free_pick_max_cost", 0))
+
+
+## The Style unlock's free item (Onboarding.free_pick).
+func _take_free() -> void:
+	if not Cosmetics.take_free(cfg, _prof(), _sel, _free_cap(), Save.now()):
+		Sfx.play("deny", 0.0)
+		return
+	Cosmetics.equip(cfg, _prof(), _sel)
+	Save.write()
+	Sfx.play("upgrade", 0.0)
+	Sfx.vibrate(60)
+	Analytics.event("cosmetic_free_pick", {"id": _sel})
+	_build_grid(false)
+	_show_selected()
 
 
 func _buy() -> void:

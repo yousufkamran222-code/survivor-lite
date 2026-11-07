@@ -8,7 +8,7 @@ extends RefCounted
 ## - records: per game mode bests (best_time, best_score, best_infected_pct, ...)
 ## - achievements: id -> unix time unlocked (definitions in data/online.json)
 
-const VERSION := 7  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned); 6: shop tiers split in two; 7: cosmetics (bought) + settings.cosmetics (equipped). Older saves load 0 / empty
+const VERSION := 8  # 3: best_streak; 4: per-mode "virulence" (highest level cleared) + settings.virulence (selected); 5: the Lab (genes, lab, abilities, stats.genes_earned); 6: shop tiers split in two; 7: cosmetics (bought) + settings.cosmetics (equipped); 8: onboarding (prologue/unlock flags; older saves that had played get everything unlocked). Older saves load 0 / empty
 ## v6 split these shop upgrades into twice as many tiers of half the bonus
 ## (same cap): a v5 level N becomes 2N, so nobody loses a bonus.
 const META_SPLIT_V6 := ["meta_hp", "meta_might", "meta_haste", "meta_armor", "meta_regen", "meta_move", "meta_magnet", "meta_growth", "meta_greed", "meta_dash_cd", "meta_dash_dmg", "meta_dash_decoy", "meta_convert"]
@@ -21,7 +21,7 @@ const RECORD_FIELDS := ["runs", "wins", "best_time", "best_score", "best_kills",
 var version := VERSION
 var gold := 0
 var meta_levels := {}  # meta id -> level
-var settings := {"muted": false, "mode": "infection"}
+var settings := {"muted": false, "mode": "classic"}
 var stats := {}  # COUNTERS + "kills_by_type" {enemy: n} + "evolved_ids" {evo: true} + "best_level" + "best_streak"
 var records := {}  # mode id -> {RECORD_FIELDS}
 var achievements := {}  # achievement id -> unix time
@@ -29,6 +29,7 @@ var genes := 0  # Lab currency, earned on Virulence wins (data/lab.json genes)
 var lab := {}  # Lab node id -> level
 var abilities := {}  # reserved: ability levels live in `lab` (their unlock nodes); equipped one in settings.equipped_ability
 var cosmetics := {}  # cosmetic id -> unix time bought with gold (challenge unlocks come from stats; see Cosmetics)
+var onboarding := {}  # new-player start flags (see Onboarding): prologue_done, all, announced, opened, coached, free_pick
 var last_genes := 0  # Genes the last record_run() granted (results screen)
 var updated_at := 0  # unix time of the last change (cloud conflict resolution)
 
@@ -48,7 +49,7 @@ func to_dict() -> Dictionary:
 	return {
 		"version": version, "gold": gold, "meta_levels": meta_levels, "settings": settings,
 		"stats": stats, "records": records, "achievements": achievements, "updated_at": updated_at,
-		"genes": genes, "lab": lab, "abilities": abilities, "cosmetics": cosmetics,
+		"genes": genes, "lab": lab, "abilities": abilities, "cosmetics": cosmetics, "onboarding": onboarding,
 	}
 
 
@@ -81,7 +82,16 @@ static func from_dict(d: Dictionary) -> Profile:
 	p.lab = _int_values(d.get("lab", {}))
 	p.abilities = _int_values(d.get("abilities", {}))
 	p.cosmetics = _int_values(d.get("cosmetics", {}))  # v6 saves: none bought yet
+	p.onboarding = d.get("onboarding", {}).duplicate(true)
+	if int(d.get("version", 0)) < 8 and int(p.stats.runs) > 0:
+		p.onboarding = _veteran()  # played before the new-player start existed: nothing gets locked
 	return p
+
+
+## Onboarding for players who already know the game: everything open, no
+## prologue forced, no coaches, no announcements.
+static func _veteran() -> Dictionary:
+	return {"prologue_done": true, "all": true}
 
 
 ## Builds a profile from the old ConfigFile-era fields (save.cfg, v1).
@@ -98,6 +108,7 @@ static func from_legacy(gold: int, meta_levels: Dictionary, best_time: float, ru
 		p._record(str(m)).best_time = float(best_times[m])
 	if best_times.is_empty() and best_time > 0.0:
 		p._record("classic").best_time = best_time
+	p.onboarding = _veteran()
 	return p
 
 
@@ -453,6 +464,15 @@ static func merge(a: Profile, b: Profile, lab_cfg: Dictionary = {}) -> Profile:
 			m.lab[id] = maxi(m.lab_level(id), int(older.lab[id]))
 	for id in older.abilities:
 		m.abilities[id] = maxi(int(m.abilities.get(id, 0)), int(older.abilities[id]))
+	for k in ["prologue_done", "all"]:  # onboarding: what one copy unlocked stays unlocked
+		if bool(older.onboarding.get(k, false)):
+			m.onboarding[k] = true
+	for k in ["announced", "opened", "coached"]:
+		var dst: Dictionary = m.onboarding.get(k, {}).duplicate()
+		for id in older.onboarding.get(k, {}):
+			dst[id] = true
+		if not dst.is_empty():
+			m.onboarding[k] = dst
 	for id in older.cosmetics:  # bought cosmetics are never lost
 		if not m.cosmetics.has(id):
 			m.cosmetics[id] = older.cosmetics[id]

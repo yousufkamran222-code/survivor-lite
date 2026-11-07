@@ -114,6 +114,14 @@ var clot_pool := 0.0  # Lab: Clotting, HP still to heal back
 var clot_rate := 0.0
 var free_rerolls := 0  # Lab: Free Rerolls left this run
 var dodges := 0
+# New-player start (data/onboarding.json, Tutorial): scripted beats, fixed
+# offers, an XP boost and the evolution showcase. Null/empty in normal runs.
+var tut: Tutorial = null
+var forced_offers: Array = []  # queue of offer lists for the next level-ups
+var tut_xp_mult := 1.0
+var showcase := ""  # weapon the next chest evolves outright (prologue)
+var picks := 0  # upgrades picked this run
+var claims := 0  # territory claims this run
 
 # --- Abilities (Lab phase 2; data/lab.json abilities). One equipped per run,
 # set by equip_ability() before the first step; recharged by kills.
@@ -419,6 +427,10 @@ func step(dt: float, move: Vector2) -> void:
 		_step_rift(dt, move)
 		return
 	time += dt
+	if tut != null:
+		tut.update(self, dt)
+		if state != "playing":
+			return
 	if time >= run_length and not def_on:
 		state = "won"
 		_emit({"type": "victory"})
@@ -517,6 +529,7 @@ func choose_upgrade(id: String) -> void:
 		if next_level_of(id) <= Upgrades.max_level(upgrade_defs[id]):
 			_apply_level(id)
 	pending_levelups -= 1
+	picks += 1
 	offers = []
 	mutated_offer = ""
 	state = "playing"
@@ -563,6 +576,57 @@ func close_levelup() -> void:
 		_kept_mutated = mutated_offer
 		offers = []
 		state = "playing"
+
+
+## Starts scripted beats (Tutorial) in this run: the prologue or a mode coach.
+func start_tutorial(beats: Array, opts: Dictionary = {}) -> void:
+	tut = Tutorial.new(beats, opts)
+	if opts.has("showcase"):
+		showcase = str(opts.showcase)
+
+
+## The prompt the tutorial wants shown ({} = none).
+func coach() -> Dictionary:
+	return tut.prompt if tut != null and not tut.done else {}
+
+
+## One level-up for free (a tutorial beat makes sure the picker has one).
+func grant_level() -> void:
+	level += 1
+	xp_next = Progression.xp_needed(bal, level)
+	pending_levelups += 1
+	_emit({"type": "level_gained", "level": level, "banked": pending_levelups})
+
+
+## A fixed offer list (tutorial): cards that can still level up, topped up
+## from the normal roll so the picker always has its usual count.
+func _forced(row: Array, rolled: Array) -> Array:
+	var out := []
+	var n := maxi(rolled.size(), mini(row.size(), int(bal.upgrades.offers_per_level)))
+	for id in row:
+		if upgrade_defs.has(id) and next_level_of(id) <= Upgrades.max_level(upgrade_defs[id]) and upgrade_list.has(upgrade_defs[id]):
+			out.append(id)
+	for id in rolled:
+		if out.size() >= n:
+			break
+		if not out.has(id):
+			out.append(id)
+	return out
+
+
+## Prologue chest: the showcase weapon jumps to max, its partner is added if
+## missing, and the chest's reward is the evolution.
+func _showcase_chest() -> void:
+	var ev: Dictionary = evolution_defs[showcase]
+	var partner := str(ev.requires)
+	var wmax := Upgrades.max_level(upgrade_defs[showcase])
+	if int(owned.get(showcase, 0)) < wmax:
+		while int(owned.get(showcase, 0)) < wmax:
+			_apply_level(showcase)
+		chest_rewards.append({"kind": "upgrade", "id": showcase, "name": upgrade_defs[showcase].name, "desc": Upgrades.describe(upgrade_defs[showcase], wmax), "level": wmax})
+	if not owned.has(partner):
+		_apply_level(partner)
+		chest_rewards.append({"kind": "upgrade", "id": partner, "name": upgrade_defs[partner].name, "desc": Upgrades.describe(upgrade_defs[partner], 1), "level": 1})
 
 
 ## Starts a dash if it is off cooldown. Returns true if it dashed.
@@ -893,7 +957,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 		# min_life_s of your estimated damage (weak builds are unaffected).
 		hp = maxf(hp, player_dps_estimate() * float(el.get("min_life_s", 0.0)))
 	elif d.behavior == "boss" and d.has("min_life_s"):
-		hp = maxf(hp, player_dps_estimate() * float(d.min_life_s))  # Mother Cell: a real fight even when evolved
+		hp = maxf(hp, player_dps_estimate() * float(bal.get("boss_min_life_s", d.min_life_s)))  # Mother Cell: a real fight even when evolved
 	e_rad.append(r)
 	e_spd.append(spd)
 	e_elite.append(1 if elite else 0)
@@ -1581,6 +1645,8 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 		amount *= 1.0 - clampf(float(stats.get("last_stand", 0.0)), 0.0, 0.8)  # Lab: Last Stand
 	var taken := amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_hp -= taken
+	if float(bal.get("hp_floor", 0.0)) > 0.0:  # prologue: you can't die (never told)
+		p_hp = maxf(p_hp, p_max_hp * float(bal.hp_floor))
 	if float(stats.get("clot", 0.0)) > 0.0 and p_hp > 0.0:  # Lab: Clotting heals part of it back
 		clot_pool += taken * float(stats.clot)
 		clot_rate = clot_pool / maxf(float(lab_cfg.get("clot_s", 4.0)), 0.1)
@@ -1663,7 +1729,7 @@ func _drop_gem(pos: Vector2, value: float) -> void:
 func _update_gems(dt: float) -> void:
 	var pr := float(bal.player.pickup_radius) * (1.0 + float(stats.magnet))
 	var speed := float(bal.xp.gem_speed)
-	var gain := (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0))
+	var gain := (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0)) * tut_xp_mult
 	if outbreak_t > 0.0:
 		gain *= float(bal.outbreak.get("xp_mult", 1.0))  # frenzy: boosted XP
 	var i := 0
@@ -1757,6 +1823,8 @@ func _offerable() -> Array:
 
 func _open_levelup() -> void:
 	offers = _roll()
+	if not forced_offers.is_empty():
+		offers = _forced(forced_offers.pop_front(), offers)
 	_pick_mutation()
 	if offers.is_empty():
 		pending_levelups = 0
@@ -1789,6 +1857,9 @@ func _drop_chest(pos: Vector2, items: int) -> void:
 func _open_chest(items: int) -> void:
 	chests_opened += 1
 	chest_rewards = []
+	if showcase != "" and not evolved.has(showcase) and evolution_defs.has(showcase):
+		_showcase_chest()  # prologue: this chest evolves the showcase weapon
+		items = 1
 	for k in items:
 		chest_rewards.append(_chest_reward())
 	state = "chest"
@@ -1931,6 +2002,7 @@ func _update_territory(dt: float) -> void:
 
 ## Newly enclosed land bursts: enemies standing on it lose a chunk of max HP.
 func _on_claim(claimed: PackedInt32Array) -> void:
+	claims += 1
 	var set := {}
 	for i in claimed:
 		set[i] = true

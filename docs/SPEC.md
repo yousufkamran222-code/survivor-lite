@@ -109,6 +109,11 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 ## Analytics events (via `Analytics.event`)
 `session_start`, `run_start`, `upgrade_pick`, `chest_open`, `evolution`, `pickup` (kind), `boss_spawn`, `boss_killed`, `death` (time, level, cause), `run_end` (won, time, level, kills, gold, elites, chests, evolutions, dashes), `meta_buy`, `ad_rewarded_start/end` (placement, rewarded), `ad_interstitial`. These are enough for D1/D7 retention, session length, ads per user and the quit point.
 
+## New-player start (`data/onboarding.json`)
+- **Patient Zero** (first launch, no menu): a scripted ~2.5-3 min run. Beats: move (ghost finger) → auto-fire → banked UPGRADE (slow motion until you tap) → a Lancer: DASH (slow motion) → grab XP → surrounded: dash out → an elite with an affix → its chest evolves your weapon → a horde for a big streak → OUTBREAK (slow motion) → the Mother Cell → INFECTION COMPLETE. You can't die (hidden HP floor). Results: score (kills + streak + boss speed), medal, gold. Replayable from the menu: the showcased evolution and elite affix rotate; Gold medal unlocks the Prototype skin.
+- **Staged menu:** Classic and Upgrades after the prologue; Style after 2 runs (one free item ≤ 2,500 gold); Infection after 3 runs or a win; Swarm after 5; Nucleus after 7; Virulence after the first win; the Lab once you've earned Genes. Locked modes and tiles stay visible with what opens them; each unlock gets a popup once and a NEW badge until opened.
+- **Coaches:** the first real run of Infection, Swarm and Nucleus has short prompts (loop to claim; give orders; stand on a pad and build). No ad prompts in the first 3 runs.
+
 ## Cosmetics (`data/cosmetics.json`), visual only
 - 4 categories: **Cell** (body, nucleus, cilia, pattern, glow), **Weapons** (colours of all four weapons + evolved colours, bolt/orbit shape), **Pops** (kill particles, splat, ring and kill sound; Melody turns a kill streak into a tune), **Trails** (what the cell leaves behind while dashing). One equipped per category; the menu hero wears your skin.
 - Unlocks: free defaults; **gold** (1,200-4,000, a sink once the shop is full); **challenges** (lifetime/best stats, e.g. 5,000 kills, a x250 streak, win every mode); **prestige** (Virulence 5 / 8 / 10 cleared in any mode). Past play counts. Paid packs later (Play Billing, M3).

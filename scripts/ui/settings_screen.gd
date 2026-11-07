@@ -164,6 +164,15 @@ func _dev_rows() -> void:
 	add_child(_choice_row("All Virulence levels", ["Off", "On"], 1 if Save.profile.dev_all_virulence() else 0, func(i: int) -> void:
 		Save.profile.settings["dev_all_virulence"] = i == 1
 		Save.write()))
+	var tut := UiKit.button("Replay new-player start", func() -> void: pass, 70)
+	tut.add_theme_font_size_override("font_size", 22)
+	tut.pressed.connect(func() -> void:
+		Onboarding.reset(Save.profile)  # next launch: the prologue, coaches and unlock popups again
+		Save.write()
+		Sfx.play("click", 0.0)
+		tut.text = "Restart the game to see it"
+		tut.disabled = true)
+	add_child(tut)
 	add_child(_choice_row("All cosmetics", ["Off", "On"], 1 if Save.profile.dev_all_cosmetics() else 0, func(i: int) -> void:
 		Save.profile.settings["dev_all_cosmetics"] = i == 1  # Off puts back what you really own
 		Save.write()))

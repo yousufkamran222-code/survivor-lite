@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab", "cosmetics"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab", "cosmetics", "onboarding"]
 const VIRULENCE_MODS := ["enemy_speed_mult", "knock_resist_add", "budget_mult", "ranged_weight_mult", "shot_speed_mult", "iframes_mult",
 	"final_minute_s", "breather_mult", "boss_time_s", "boss_burst_mult", "damage_taken_mult", "enemy_hp_mult"]
 
@@ -34,6 +34,18 @@ static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
 		if m.id == mode_id:
 			_merge(out.balance, m.get("overrides", {}))
 			out.balance["mode_id"] = mode_id
+	return out
+
+
+## The Patient Zero prologue (data/onboarding.json): its base mode, then its
+## own balance overrides and waves overrides (no scripted events, no
+## timed elites: its beats spawn those). mode_id = "prologue".
+static func apply_prologue(d: Dictionary) -> Dictionary:
+	var pc: Dictionary = d.get("onboarding", {}).get("prologue", {})
+	var out := apply_mode(d, str(pc.get("base_mode", "classic")))
+	_merge(out.balance, pc.get("overrides", {}).duplicate(true))
+	_merge(out.waves, pc.get("waves_overrides", {}).duplicate(true))
+	out.balance["mode_id"] = "prologue"
 	return out
 
 
@@ -221,6 +233,7 @@ static func validate(d: Dictionary) -> Array:
 	_validate_hints(d, errors)
 	_validate_lab(d, errors)
 	_validate_cosmetics(d, errors)
+	_validate_onboarding(d, errors)
 	# Virulence: 10 levels, known modifiers only.
 	var diffd: Dictionary = d.get("difficulty", {})
 	if diffd.get("levels", []).size() != 10:
@@ -440,3 +453,55 @@ static func _validate_cosmetics(d: Dictionary, errors: Array) -> void:
 		var def := Cosmetics.find(cfg, str(cfg.get("defaults", {}).get(c, "")))
 		if def.is_empty() or def.cat != c or Cosmetics.unlock_type(def) != "free":
 			errors.append("cosmetics: category %s needs a free default item" % c)
+
+
+## Onboarding (data/onboarding.json): known beat conditions, prompt targets,
+## spawned enemy ids and offer ids; unlock entries name a known mode/feature.
+static func _validate_onboarding(d: Dictionary, errors: Array) -> void:
+	var cfg: Dictionary = d.get("onboarding", {})
+	if cfg.is_empty():
+		return
+	var conds := ["moved", "kills", "picks", "dashes", "chests", "evolved", "streak", "outbreaks", "boss_killed", "claims", "conversions", "orders", "on_pad", "towers", "time"]
+	var targets := ["none", "move", "upgrade", "dash", "outbreak", "orders", "loop", "pad"]
+	var enemy_ids := {}
+	for e in d.enemies:
+		enemy_ids[e.id] = true
+	var lists := {"prologue": cfg.get("prologue", {}).get("beats", [])}
+	for m in cfg.get("coaches", {}):
+		lists["coach " + str(m)] = cfg.coaches[m]
+	for name in lists:
+		for b in lists[name]:
+			var where := "onboarding %s beat %s" % [name, b.get("id", "?")]
+			for k in b.get("until", {}):
+				if not conds.has(k):
+					errors.append("%s: unknown condition '%s'" % [where, k])
+			if not targets.has(str(b.get("target", "none"))):
+				errors.append("%s: unknown target '%s'" % [where, b.target])
+			if b.get("until", {}).is_empty() and not b.has("max_s"):
+				errors.append("%s never ends (needs until or max_s)" % where)
+			var st: Dictionary = b.get("start", {})
+			var spawns: Array = st.get("spawn", []).duplicate()
+			spawns.append_array(b.get("repeat", {}).get("spawn", []))
+			for sp in spawns:
+				if not enemy_ids.has(sp.get("id", "")):
+					errors.append("%s spawns unknown enemy '%s'" % [where, sp.get("id", "")])
+			for row in st.get("offers", []):
+				for id in row:
+					if id != "showcase" and id != "partner" and not d.upgrades.any(func(u: Dictionary) -> bool: return u.id == id):
+						errors.append("%s offers unknown upgrade '%s'" % [where, id])
+	var pc: Dictionary = cfg.get("prologue", {})
+	for w in pc.get("showcases", []):
+		if not d.evolutions.any(func(e: Dictionary) -> bool: return e.weapon == w):
+			errors.append("onboarding: showcase '%s' has no evolution" % w)
+	for a in pc.get("affixes", []):
+		if not World.AFFIX_IDS.has(a) or a == "":
+			errors.append("onboarding: unknown elite affix '%s'" % a)
+	var mode_ids := []
+	for m in d.modes:
+		mode_ids.append(m.id)
+	for u in cfg.get("unlocks", []):
+		if u.kind == "mode" and not mode_ids.has(u.id):
+			errors.append("onboarding unlock '%s' is not a mode" % u.id)
+	for m in mode_ids:
+		if not cfg.get("unlocks", []).any(func(u: Dictionary) -> bool: return u.id == m):
+			errors.append("onboarding: mode '%s' has no unlock rule" % m)

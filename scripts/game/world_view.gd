@@ -1285,7 +1285,7 @@ func _on_hit(ev: Dictionary, max_fx: int) -> void:
 			old.frac += float(ev.get("frac", 0.0))
 			old.t = 0.0
 			old.vel = Vector2(old.vel.x * 0.5, -float(juice.get("num_rise", 0.0)) * 0.6)  # hop again
-		elif _damage_numbers < int(bal.perf.max_damage_numbers):
+		elif _damage_numbers < int(bal.perf.max_damage_numbers) and fx.size() < max_fx:  # a refused number must not be registered
 			_damage_numbers += 1
 			# Numbers hop out sideways and fall back under gravity (instead of
 			# a straight rise), so a burst of hits sprays instead of stacking.

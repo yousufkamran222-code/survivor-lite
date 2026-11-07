@@ -26,6 +26,8 @@
       "look": {"body": "#2a2a6e", "nucleus": "#c38bff", "cilia_color": "#8f8fff", "pattern": "stars", "pattern_color": "#ffffff", "glow": "#6b5bff"}},
     {"id": "golden", "cat": "skin", "name": "Golden Cell", "desc": "Pure gold, sparkling. Only the best get this one.", "unlock": {"type": "prestige", "stat": "best_virulence", "goal": 10, "text": "Clear Virulence 10 in any mode"},
       "look": {"body": "#ffd166", "nucleus": "#fff4cc", "cilia_color": "#ffe9a8", "pattern": "sparkle", "pattern_color": "#ffffff", "glow": "#ffb000"}},
+    {"id": "prototype", "cat": "skin", "name": "Prototype", "desc": "The very first cell, starry and bright.", "unlock": {"type": "challenge", "stat": "best_score_prologue", "goal": 1300, "text": "Earn a Gold medal in Patient Zero"},
+      "look": {"body": "#b8f0ff", "nucleus": "#ff7ac8", "cilia": 16, "cilia_color": "#ffffff", "pattern": "stars", "pattern_color": "#ffd166", "glow": "#5ce1e6"}},
     {"id": "chrome", "cat": "skin", "name": "Chrome", "desc": "Polished metal with a shine that sweeps around.", "unlock": {"type": "gold", "cost": 3000},
       "look": {"body": "#d9e2f0", "nucleus": "#5b6b8a", "cilia_color": "#ffffff", "pattern": "shine", "pattern_color": "#ffffff", "glow": "#a8c8ff"}},
     {"id": "tiger", "cat": "skin", "name": "Tiger", "desc": "Striped and fierce.", "unlock": {"type": "challenge", "stat": "wins", "goal": 25, "text": "Win 25 runs"},
