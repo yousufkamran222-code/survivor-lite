@@ -100,20 +100,23 @@ static func unlocked(d: Dictionary, p: Profile, id: String) -> bool:
 	return false
 
 
-## "Play 3 runs to unlock" (or win / Genes), for locked cards and tiles.
-static func unlock_text(d: Dictionary, p: Profile, id: String) -> String:
+## How to open a locked mode / tile: "Play 2 more runs or win once to
+## unlock" (the toast), or the short form for a locked card ("2 more runs
+## or a win").
+static func unlock_text(d: Dictionary, p: Profile, id: String, short: bool = false) -> String:
 	var u := entry(d, id)
 	var parts := []
 	if u.has("runs"):
 		var left := maxi(int(u.runs) - int(p.stats.runs), 0)
-		parts.append("%d more run%s" % [left, "" if left == 1 else "s"])
-	if u.has("or_wins") or u.has("wins"):
-		parts.append("a win")
-	if u.has("genes"):
-		parts.append("win a run for Genes")
+		parts.append(("%d more run%s" if short else "play %d more run%s") % [left, "" if left == 1 else "s"])
+	if u.has("or_wins") or u.has("wins") or u.has("genes"):
+		parts.append("a win" if short and not parts.is_empty() else ("Win a run" if short else "win a run" + (" (it earns Genes)" if u.has("genes") else "")))
 	if parts.is_empty():
 		return ""
-	return "Unlocks after " + " or ".join(parts)
+	if short:
+		return " or ".join(parts)
+	var t := " or ".join(parts) + " to unlock"
+	return t.left(1).to_upper() + t.substr(1)
 
 
 ## Unlocked entries the player hasn't been shown yet (in data order).

@@ -345,3 +345,4 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - No reroll/double-gold/between-run ads in the first 3 runs. Settings → Developer → "Replay new-player start".
 - Fixes found on the way: a refused damage number (effects list full) was still registered and crashed the next merge; the chest reels touched freed cards if closed mid-spin.
 - 290 tests (18 new: the bot finishes the prologue with an evolution and a boss kill, can't die, rotation, forced offers, score/medals, unlock rules, announcements, free pick, coaches finish in their modes, veteran saves, merge).
+- Fix (Yousuf: unlock text cut off bottom-right): the locked-tile/mode banner was anchored wrongly; now a full-width panel over the hero cell's space (follows the menu on any screen shape), one at a time; clearer wording ("Play 2 more runs to unlock", "Win a run (it earns Genes) to unlock", cards "3 more runs or a win").

@@ -158,7 +158,11 @@ func test_unlocks_follow_runs_and_wins() -> void:
 	check(Onboarding.unlocked(d, p, "lab"))
 	p.stats.runs = 7
 	check(Onboarding.unlocked(d, p, "nucleus"))
-	check(Onboarding.unlock_text(d, Profile.new(), "swarm").contains("5 more runs"))
+	check_eq(Onboarding.unlock_text(d, Profile.new(), "swarm"), "Play 5 more runs to unlock")
+	check_eq(Onboarding.unlock_text(d, Profile.new(), "infection"), "Play 3 more runs or win a run to unlock")
+	check_eq(Onboarding.unlock_text(d, Profile.new(), "lab"), "Win a run (it earns Genes) to unlock")
+	check_eq(Onboarding.unlock_text(d, Profile.new(), "infection", true), "3 more runs or a win")
+	check_eq(Onboarding.unlock_text(d, Profile.new(), "virulence", true), "Win a run")
 
 
 func test_announcements_once_and_free_style_pick() -> void:

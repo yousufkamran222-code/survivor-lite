@@ -42,6 +42,8 @@ var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results screen)
 var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
+var _menu_toast_node: Control = null
+var _menu_hero: Control = null  # the hero cell spacer on the menu (toasts sit over it)
 var _unlock_pop = null  # unlock announcement overlay (UiKit.overlay array), built on demand
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
@@ -808,6 +810,7 @@ func _show_menu() -> void:
 	col.add_child(UiKit.label("You are the infection.", 26, Color(pal.text, 0.75)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
+	_menu_hero = hero
 	hero.custom_minimum_size = Vector2(0, 230)
 	hero.item_rect_changed.connect(func() -> void:
 		if _menu_bg.size.y > 0.0:
@@ -952,7 +955,7 @@ func _locked_mode_card(m: Dictionary) -> Button:
 	var name := UiKit.display(UiKit.label(str(m.name).to_upper(), 20, Color(1, 1, 1, 0.45)))
 	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(name)
-	var lab := UiKit.label(why.replace("Unlocks after ", "After "), 15, Color(1, 1, 1, 0.45))
+	var lab := UiKit.label(Onboarding.unlock_text(data, Save.profile, m.id, true), 15, Color(1, 1, 1, 0.45))
 	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(lab)
 	b.add_child(v)
@@ -977,17 +980,31 @@ func _prologue_button() -> Control:
 func _menu_toast(text: String) -> void:
 	if text == "":
 		return
-	var l := UiKit.display(UiKit.label(text, 26, Color.WHITE), 6)
-	l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	l.position = Vector2(0, -260)
-	l.size = Vector2(720, 40)
-	l.position.x = 0
+	if is_instance_valid(_menu_toast_node):
+		_menu_toast_node.queue_free()  # one at a time: a new tap replaces it
+	# Full-width banner above the bottom tiles (anchored to the screen, so it
+	# can never sit off an edge), wrapping if the text is long.
+	var p := UiKit.panel(Color(0.08, 0.05, 0.14, 0.94), Color(pal.ui_accent, 0.7), 20, 14)
+	# Over the top of the hero cell's space (between the tagline and the mode
+	# cards), wherever the menu sits on this screen: never covers a button.
+	var y := 260.0
+	if is_instance_valid(_menu_hero):
+		y = _menu_hero.global_position.y + 8.0
+	p.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	p.offset_left = 50.0
+	p.offset_right = -50.0
+	p.offset_top = y
+	p.offset_bottom = y + 70.0
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UiKit.label(text, 26, Color.WHITE)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_menu[0].add_child(l)
-	var tw := l.create_tween()
-	tw.tween_interval(1.6)
-	tw.tween_property(l, "modulate:a", 0.0, 0.4)
-	tw.tween_callback(l.queue_free)
+	p.add_child(l)
+	_menu[0].add_child(p)
+	_menu_toast_node = p
+	var tw := p.create_tween()
+	tw.tween_interval(1.8)
+	tw.tween_property(p, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(p.queue_free)
 
 
 func _gold_pill() -> Control:
