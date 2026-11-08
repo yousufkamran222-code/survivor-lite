@@ -136,6 +136,7 @@ var _last_dash_t := -100.0
 var _ready_since := 0.0  # when a dash charge last became available
 var _od_slip_t := 0.0
 var streak_buff := -1  # index into skill.streak_buffs (-1 = none)
+var _power_from := 0  # streak count when power last reset (skill.streak_power_breaks_on_hit)
 var perfect_loops := 0
 var clutch_claims := 0
 var _trail_hit := false  # took damage since the current Infection trail started
@@ -483,6 +484,7 @@ func step(dt: float, move: Vector2) -> void:
 			_emit({"type": "streak_end", "n": streak, "best": streak >= best_streak})
 			streak = 0
 			streak_buff = -1
+			_power_from = 0
 	if outbreak_t > 0.0:
 		outbreak_t -= dt
 		if outbreak_t <= 0.0:
@@ -1690,6 +1692,11 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	p_hp -= taken
 	if terr != null and not terr.trail_cells.is_empty():
 		_trail_hit = true  # no Perfect Loop for this trail
+	if bool(skill.get("streak_power_breaks_on_hit", false)) and taken > 0.0:
+		_power_from = streak  # streak power starts over (the streak itself goes on)
+		if streak_buff >= 0:
+			streak_buff = -1
+			_emit({"type": "streak_power_lost"})
 	if float(bal.get("hp_floor", 0.0)) > 0.0:  # prologue: you can't die (never told)
 		p_hp = maxf(p_hp, p_max_hp * float(bal.hp_floor))
 	if float(stats.get("clot", 0.0)) > 0.0 and p_hp > 0.0:  # Lab: Clotting heals part of it back
@@ -3365,8 +3372,9 @@ func _fill_outbreak(elite: bool, boss: bool) -> void:
 func _update_streak_buff() -> void:
 	var tiers: Array = skill.get("streak_buffs", [])
 	var k := -1
+	var n := streak - _power_from  # kills since your last hit (if hits reset the power)
 	for j in tiers.size():
-		if streak >= int(tiers[j].at):
+		if n >= int(tiers[j].at):
 			k = j
 	if k > streak_buff:
 		_emit({"type": "streak_buff", "tier": k, "damage": float(tiers[k].get("damage", 0.0)), "speed": float(tiers[k].get("speed", 0.0)), "haste": float(tiers[k].get("haste", 0.0))})

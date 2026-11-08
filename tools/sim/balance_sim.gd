@@ -33,14 +33,19 @@ func _initialize() -> void:
 		for pair in str(args.set).split(","):
 			var kv := pair.split("=")
 			var keys := kv[0].split(".")
-			var node: Dictionary = d.balance
+			var node: Variant = d.balance
 			var k0 := 0
 			if keys[0] == "waves":  # waves.* keys go to data/waves.json
 				node = d.waves
 				k0 = 1
 			for k in range(k0, keys.size() - 1):
-				node = node[keys[k]]
-			node[keys[keys.size() - 1]] = float(kv[1])
+				node = node[int(keys[k])] if node is Array else node[keys[k]]  # numeric keys index lists
+			var last: String = keys[keys.size() - 1]
+			var val: Variant = (kv[1] == "true") if kv[1] in ["true", "false"] else float(kv[1])
+			if node is Array:
+				node[int(last)] = val
+			else:
+				node[last] = val
 	force_order = World.ORDER_IDS.find(str(args.get("order", "")))
 	nobait = args.has("nobait")
 	var meta := {}

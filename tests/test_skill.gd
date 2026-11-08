@@ -172,3 +172,18 @@ func test_a_calm_claim_is_not_clutch() -> void:
 	var w := _infection()
 	_walk(w, [Vector2(150, 0), Vector2(500, 0), Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
 	check_eq(w.clutch_claims, 0)
+
+
+func test_hits_can_reset_streak_power() -> void:
+	var w := _classic()
+	w.skill = w.skill.duplicate(true)
+	w.skill["streak_power_breaks_on_hit"] = true
+	for k in 60:
+		w._add_streak()
+	check_eq(w.streak_buff, 1)
+	w._hurt(1.0, "test")
+	check_eq(w.streak_buff, -1, "a hit resets the power")
+	check_eq(w.streak, 60, "the streak itself goes on")
+	for k in 25:
+		w._add_streak()
+	check_eq(w.streak_buff, 0, "power rebuilds from kills since the hit")

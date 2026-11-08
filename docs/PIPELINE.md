@@ -358,3 +358,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - New layout: settings gear (top-left) + gold (top-right), title, hero cell, **one big mode card** (icon, name, one line, best record / V cleared, NEW chip) with arrows and swipe, a compact Virulence pill (- VIRULENCE N +, one info line), page dots, PLAY (shows LOCKED on a locked page), and 4 tiles (Upgrades, Lab, Style, Profile). Locked modes and Patient Zero (medal + best score) are carousel pages, so the old 4-card row, the Patient Zero button and the settings tile are gone.
 - Fix: saves from before v8 (`onboarding.all`) no longer get an "UNLOCKED: everything" banner.
 - Mode picker: tapping the mode card (a tap, not a swipe) opens a clean GAME MODE list (every mode + Patient Zero; selected one marked; locked ones dim with what opens them); picking one closes it and slides that mode onto the card.
+
+### 2026-11-08 Skill moves (D-041): bot sims, seeds 600/700/800 × 8 per mode (win %, level p50, time p50 s)
+- Before → after (all moves on): Classic win 0/0/0 → 0/13/0, level 7-11 → 8-16; **Infection 0/0/0 → 50/38/63**, level 15-19 → 27-34, t50 148-201 → 248-300; Swarm 0/0/0 → 25/13/13, level 7-12 → 13-18; Nucleus 63/13/13 → 63/75/25.
+- Turning one move off at a time (Infection): no Perfect Loop 38/63/63, no Perfect Dodge 38/63/75, no Overdrive 38/25/63, **no streak power 0/0/0** (level 16-21). Classic without Perfect Dodge ≈ the same as with it. So streak power is the whole jump: late-run kills are nearly continuous (bot streak p50 344-569 in Infection), so it acted as a permanent +80-120% damage buff.
+- Option `skill.streak_power_breaks_on_hit` (a hit resets the power, the streak goes on; off by default, pending Yousuf): Classic 0/0/0 (level 8-12), Infection 0/0/0 (level 17-22, t50 168-222), Swarm 13/25/13, Nucleus 50/75/13.
+- `balance_sim --set` now reaches list entries (numeric keys) and takes true/false.
