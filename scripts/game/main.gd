@@ -47,7 +47,8 @@ var _menu_hero: Control = null
 var _mode_box: VBoxContainer  # the menu carousel card + Virulence pill + dots (rebuilt in place)
 var _play_btn: Button
 var _browse := ""  # carousel page shown (a mode id or "prologue")
-var _swipe_from := -9999.0  # the hero cell spacer on the menu (toasts sit over it)
+var _swipe_from := -9999.0
+var _mode_pick = null  # the mode list overlay (UiKit.overlay array), built on demand  # the hero cell spacer on the menu (toasts sit over it)
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
 var _new_best := false
@@ -794,6 +795,8 @@ func _hide_all() -> void:
 
 func _show_menu() -> void:
 	Sfx.play_music("menu")
+	if _mode_pick != null and is_instance_valid(_mode_pick[0]):
+		_mode_pick[0].visible = false
 	_hide_all()
 	_set_screen("menu")
 	_menu_bg.visible = true
@@ -999,6 +1002,97 @@ func _on_card_input(ev: InputEvent) -> void:
 			_swipe_from = -9999.0
 			if absf(dx) > 60.0:
 				_step_mode(-1 if dx > 0.0 else 1)
+			elif absf(dx) < 14.0:
+				_open_mode_picker()  # a tap (not a swipe) opens the full list
+
+
+## Tap the mode card: a clean list of every mode (and Patient Zero) to
+## pick from, locked ones dim with what opens them. Picking closes it and
+## shows that mode on the card.
+func _open_mode_picker() -> void:
+	if _mode_pick == null or not is_instance_valid(_mode_pick[0]):
+		_mode_pick = UiKit.overlay(ui_root, 0.86)
+	var col: VBoxContainer = _mode_pick[1]
+	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 14)
+	col.custom_minimum_size = Vector2(640, 0)
+	col.add_child(UiKit.display(UiKit.label("GAME MODE", 54, pal.ui_accent), 10))
+	var k := 0
+	for id in _carousel():
+		var r := _mode_row(str(id))
+		col.add_child(r)
+		k += 1
+	col.add_child(_text_button("Close", func() -> void: _mode_pick[0].visible = false))
+	Sfx.play("click", 0.0)
+	UiKit.reveal(_mode_pick)
+
+
+func _mode_row(id: String) -> Button:
+	var prologue := id == "prologue"
+	var m := _mode_def(id)
+	var open := prologue or Onboarding.unlocked(data, Save.profile, id)
+	var chosen := id == _browse
+	var accent: Color = Color("#ff7ac8") if prologue else GameData.color(m.get("color", "#ffd166"))
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 128)
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := UiKit.card(Color("#33265f") if chosen else (Color("#2a1f4a") if open else Color("#1d1636")), accent if chosen else (Color(accent, 0.35) if open else Color(1, 1, 1, 0.08)), 24, 16)
+	sb.set_border_width_all(4 if chosen else 2)
+	var sbp := sb.duplicate()
+	sbp.bg_color = sb.bg_color.lightened(0.08)
+	for st in ["normal", "hover", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.add_theme_stylebox_override("pressed", sbp)
+	UiKit.press_feedback(b)
+	b.pressed.connect(func() -> void:
+		if not open:
+			Sfx.play("deny", 0.0)
+			return
+		_mode_pick[0].visible = false
+		var ids := _carousel()
+		var d := signi(ids.find(id) - ids.find(_browse))
+		_browse = id
+		if not prologue:
+			Save.mode = id
+			Onboarding.mark_opened(Save.profile, id)
+			Save.write()
+		Sfx.play("upgrade", 0.0)
+		_build_mode_panel(d if d != 0 else 1))
+	var h := HBoxContainer.new()
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 18.0
+	h.offset_right = -18.0
+	h.add_theme_constant_override("separation", 16)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(h)
+	var ic := UpgradeIcon.make("trophy" if prologue else (str(m.get("icon", "")) if open else "lock"), accent if open else Color(0.55, 0.5, 0.7), 84)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var nm := UiKit.display(UiKit.label(str(data.onboarding.prologue.get("name", "Patient Zero")).to_upper() if prologue else str(m.name).to_upper(), 32, Color.WHITE if open else Color(1, 1, 1, 0.45)), 7)
+	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(nm)
+	var line := "Replay the intro for a medal" if prologue else str(m.get("desc", ""))
+	if not open:
+		line = Onboarding.unlock_text(data, Save.profile, id)
+	var dl := UiKit.label(line, 18, Color("#ff9a9a") if not open else Color(1, 1, 1, 0.7))
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(dl)
+	if chosen:
+		var tick := UiKit.chip("SELECTED", accent, Color(0.1, 0.06, 0.15), 15)
+		tick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(tick)
+	return b
 
 
 ## Virulence for the shown mode as one compact pill: < VIRULENCE 3 > and a
