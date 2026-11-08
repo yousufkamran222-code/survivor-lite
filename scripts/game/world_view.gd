@@ -255,6 +255,20 @@ func consume(events: Array) -> void:
 				_add_fx({"kind": "pop", "pos": ev.pos, "color": _wcolor("orbit", pal.orbit), "r": 10.0, "life": 0.2}, max_fx)
 			"dash":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": 46.0, "life": 0.2, "color": pal.player}, max_fx + 4)
+			"perfect_dodge":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": float(ev.radius), "life": 0.35, "color": Color("#e8fbff"), "w": 8.0}, max_fx + 6)
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": float(ev.radius) * 0.6, "life": 0.28, "color": pal.ui_accent, "w": 5.0}, max_fx + 6)
+				add_zoom_punch(0.06)
+				add_shake(6.0)
+			"overdrive":
+				_add_fx({"kind": "ring", "pos": ev.pos, "r": 150.0, "life": 0.4, "color": Color("#7af0ff"), "w": 10.0}, max_fx + 6)
+				add_zoom_punch(0.08)
+				add_shake(9.0)
+			"clutch_claim":
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 260.0, "life": 0.45, "color": Color("#9be7ff"), "w": 8.0}, max_fx + 6)
+				add_shake(7.0)
+			"perfect_loop":
+				_add_fx({"kind": "ring", "pos": world.p_pos, "r": 220.0, "life": 0.45, "color": pal.ui_accent, "w": 8.0}, max_fx + 6)
 			"elite_killed":
 				add_shake(10.0)
 				add_zoom_punch(float(juice.get("cam_punch_elite", 0.0)))
@@ -658,7 +672,7 @@ func _process_view(delta: float) -> void:
 		_spark_ang = randf() * TAU
 	_update_cell_pose(delta)
 	_core_flash = maxf(0.0, _core_flash - delta)
-	if world.p_dash_t > 0.0:  # dash trail (Cosmetics: afterimage and/or particles)
+	if world.p_dash_t > 0.0 or world.overdrive_t > 0.0:  # dash trail (Cosmetics: afterimage and/or particles); Overdrive keeps it on
 		var bc := CosmeticArt.body_color(_skin, pal.player, _cell_t)
 		if _trail.is_empty() or _trail.get("afterimage", false):
 			_add_fx({"kind": "dot", "pos": world.p_pos, "vel": Vector2.ZERO, "color": Color(bc, 0.6), "r": world.p_radius, "life": 0.22}, int(bal.perf.max_effects) + 8)
@@ -904,6 +918,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = white
 		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
+		elif world.e_stun[i] > 0.0:
+			c = Color("#bdf3ff").lerp(c, 0.15 + 0.15 * sin(_view_t * 18.0))  # Clutch Claim stun: icy flicker
 		elif world.e_gild[i] == 1:
 			c = c.lerp(pal.ui_accent, 0.7)  # coated in gold by an Outbreak
 		elif world.e_plague[i] > 0.0:
@@ -1138,6 +1154,12 @@ func _draw_player(ci: CanvasItem) -> void:
 	CosmeticArt.draw_glitch(ci, _cell_tex, p, r / ShapeTextures.CELL_BODY, _skin, _cell_t)
 	ci.draw_set_transform(p, _move_ang, Vector2(sx, sy))
 	CosmeticArt.draw_cilia(ci, r, _skin, body, _cell_t, speed_k, int(juice.get("cilia", 12)))
+	if world.perfect_t > 0.0:  # Perfect Dodge buff: a gold halo while it lasts
+		var pr := r * (1.7 + 0.12 * sin(_cell_t * 12.0))
+		ci.draw_texture_rect(_disc_tex, Rect2(-pr, -pr, pr * 2.0, pr * 2.0), false, Color(pal.ui_accent, 0.22 + 0.1 * minf(world.perfect_t, 1.0)))
+	if world.overdrive_t > 0.0:  # Overdrive: a bright cyan core glow
+		var orr := r * (2.0 + 0.2 * sin(_cell_t * 30.0))
+		ci.draw_texture_rect(_disc_tex, Rect2(-orr, -orr, orr * 2.0, orr * 2.0), false, Color("#7af0ff", 0.35))
 	if world.outbreak_t > 0.0:
 		# Frenzy aura: a pulsing glow behind the cell.
 		var gr := r * (1.9 + 0.15 * sin(_cell_t * 14.0))

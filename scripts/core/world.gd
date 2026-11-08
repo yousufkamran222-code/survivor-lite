@@ -121,6 +121,24 @@ var forced_offers: Array = []  # queue of offer lists for the next level-ups
 var tut_xp_mult := 1.0
 var showcase := ""  # weapon the next chest evolves outright (prologue)
 var picks := 0  # upgrades picked this run
+# Skill moves (balance.skill, D-041): Perfect Dodge, Overdrive, streak buffs,
+# Perfect Loop and Clutch Claim. Gameplay effects live here; Main/WorldView
+# present them from events and these fields.
+var skill: Dictionary = {}
+var perfect_t := 0.0  # Perfect Dodge buff time left
+var perfect_cd := 0.0
+var perfect_dodges := 0
+var overdrive_t := 0.0  # Overdrive time left (fast + invulnerable)
+var overdrive_cd := 0.0
+var overdrives := 0
+var dash_chain := 0  # back-to-back dashes so far
+var _last_dash_t := -100.0
+var _ready_since := 0.0  # when a dash charge last became available
+var _od_slip_t := 0.0
+var streak_buff := -1  # index into skill.streak_buffs (-1 = none)
+var perfect_loops := 0
+var clutch_claims := 0
+var _trail_hit := false  # took damage since the current Infection trail started
 var claims := 0  # territory claims this run
 
 # --- Abilities (Lab phase 2; data/lab.json abilities). One equipped per run,
@@ -255,6 +273,7 @@ var e_elite := PackedByteArray()
 var e_team := PackedByteArray()  # 0 = enemy, 1 = ally (converted, Swarm mode)
 var e_life := PackedFloat32Array()  # ally lifetime left
 var e_slow := PackedFloat32Array()  # seconds of Fever Node slow left
+var e_stun := PackedFloat32Array()  # seconds stunned (Clutch Claim): no moving, attacking or contact damage
 var e_plague := PackedFloat32Array()  # seconds of Outbreak plague left
 var e_gild := PackedByteArray()  # 1 = coated in gold by an Outbreak (pays gild_gold when killed)
 var _next_uid := 1
@@ -395,6 +414,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	xp_next = Progression.xp_needed(bal, 1)
 	owned[bal.start_weapon] = 1
 	lab_cfg = data.get("lab", {}).get("tuning", {})
+	skill = bal.get("skill", {})
 	elite_cfg = data.waves.get("elites", {})
 	for m in data.get("meta", []):  # max evolution bonus per weapon (offer_bias)
 		if str(m.stat).begins_with("evo_"):
@@ -462,6 +482,7 @@ func step(dt: float, move: Vector2) -> void:
 		if streak_t > float(bal.streak.window_s):
 			_emit({"type": "streak_end", "n": streak, "best": streak >= best_streak})
 			streak = 0
+			streak_buff = -1
 	if outbreak_t > 0.0:
 		outbreak_t -= dt
 		if outbreak_t <= 0.0:
@@ -635,6 +656,8 @@ func dash() -> bool:
 		return false
 	var pl: Dictionary = bal.player
 	p_dash_dir = p_move.normalized() if p_move.length_squared() > 0.01 else p_facing
+	var perfect := _perfect_threat() if p_iframes <= 0.0 and perfect_cd <= 0.0 else ""
+	_dash_chain_step()
 	p_dash_t = float(pl.dash_s)
 	p_dash_charges -= 1
 	if p_dash_cd <= 0.0:
@@ -653,6 +676,12 @@ func dash() -> bool:
 		decoy_cd = float(pl.decoy_cooldown_s) - cut
 		_emit({"type": "decoy", "pos": p_pos})
 	_emit({"type": "dash", "pos": p_pos, "dir": p_dash_dir})
+	if perfect != "":
+		_perfect_dodge(perfect)
+	if p_dash_charges > 0:
+		_ready_since = time  # still have a charge: ready again right away
+	if dash_chain >= int(skill.get("overdrive", {}).get("chain", 99)) and overdrive_cd <= 0.0:
+		_start_overdrive()
 	return true
 
 
@@ -824,12 +853,15 @@ func _update_player(dt: float, move: Vector2) -> void:
 	if p_dash_charges < dash_max_charges():
 		p_dash_cd -= dt
 		if p_dash_cd <= 0.0:
+			if p_dash_charges == 0:
+				_ready_since = time  # Overdrive: the chain allows gap_s from now
 			p_dash_charges += 1
 			p_dash_cd = dash_cooldown() if p_dash_charges < dash_max_charges() else 0.0
 	else:
 		p_dash_cd = 0.0
 	if decoy_cd > 0.0:
 		decoy_cd -= dt
+	_update_skill(dt)
 	if shield_cd > 0.0:
 		shield_cd -= dt
 	if p_pull != Vector2.ZERO and p_dash_t <= 0.0:
@@ -859,7 +891,9 @@ func _update_player(dt: float, move: Vector2) -> void:
 		# Leave the dash still moving that way (eases out instead of a dead stop).
 		p_vel = p_dash_dir * float(bal.player.speed) * (1.0 + float(stats.move))
 	else:
-		var spd := float(bal.player.speed) * (1.0 + float(stats.move))
+		var spd := float(bal.player.speed) * (1.0 + float(stats.move) + skill_buff("speed"))
+		if overdrive_t > 0.0:
+			spd *= float(skill.overdrive.get("speed_mult", 2.0))
 		if slip_t > 0.0:
 			slip_t -= dt
 			spd *= 1.0 + float(lab_cfg.get("slip_speed", 0.3))
@@ -964,6 +998,7 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 	e_team.append(0)
 	e_life.append(0.0)
 	e_slow.append(0.0)
+	e_stun.append(0.0)
 	e_plague.append(0.0)
 	e_gild.append(0)
 	e_type.append(t)
@@ -1008,11 +1043,13 @@ func _remove_enemy(i: int) -> void:
 		e_team[i] = e_team[last]
 		e_life[i] = e_life[last]
 		e_slow[i] = e_slow[last]
+		e_stun[i] = e_stun[last]
 		e_plague[i] = e_plague[last]
 		e_gild[i] = e_gild[last]
 	e_team.resize(last)
 	e_life.resize(last)
 	e_slow.resize(last)
+	e_stun.resize(last)
 	e_plague.resize(last)
 	e_gild.resize(last)
 	e_rad.resize(last)
@@ -1117,10 +1154,14 @@ func _update_enemies(dt: float) -> void:
 				if dist > hr and not cloaked:
 					spd *= float(boss_def.get("hunt_mult", 2.4)) if beh == BEH_BOSS else float(elite_cfg.get("hunt_mult", 2.0))
 			vel = dir * spd
-			if beh != BEH_CHASE:
-				vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
-			if e_affix[i] != AFFIX_NONE and not cloaked:
-				vel = _elite_affix(i, pos, dir, dist, vel, dt)
+			if e_stun[i] > 0.0:  # Clutch Claim: stunned germs stand still and don't attack
+				e_stun[i] -= dt
+				vel = Vector2.ZERO
+			else:
+				if beh != BEH_CHASE:
+					vel = _special_behavior(i, t, beh, pos, dir, dist, spd, vel, dt)
+				if e_affix[i] != AFFIX_NONE and not cloaked:
+					vel = _elite_affix(i, pos, dir, dist, vel, dt)
 		# Soft separation so swarms read as a crowd, not one blob. Each enemy
 		# resolves overlaps every SEP_EVERY passes, with a matching push strength.
 		var sep := Vector2.ZERO
@@ -1241,6 +1282,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
+	if amount < 1.0e5 and e_team[i] == 0 and _src != "allies" and _src != "towers":
+		amount *= skill_damage_mult()  # Perfect Dodge buff, streak buffs
 	var crit := false
 	if amount < 1.0e5 and e_team[i] == 0:
 		var ed := float(stats.get("elite_damage", 0.0))  # Lab: Precision
@@ -1645,6 +1688,8 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 		amount *= 1.0 - clampf(float(stats.get("last_stand", 0.0)), 0.0, 0.8)  # Lab: Last Stand
 	var taken := amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
 	p_hp -= taken
+	if terr != null and not terr.trail_cells.is_empty():
+		_trail_hit = true  # no Perfect Loop for this trail
 	if float(bal.get("hp_floor", 0.0)) > 0.0:  # prologue: you can't die (never told)
 		p_hp = maxf(p_hp, p_max_hp * float(bal.hp_floor))
 	if float(stats.get("clot", 0.0)) > 0.0 and p_hp > 0.0:  # Lab: Clotting heals part of it back
@@ -1678,7 +1723,7 @@ func _contact_damage() -> void:
 	if p_iframes > 0.0 or state != "playing" or p_down > 0.0:
 		return
 	for i: int in query(p_pos, p_radius):
-		if e_hp[i] > 0.0:
+		if e_hp[i] > 0.0 and e_stun[i] <= 0.0:
 			var d: Dictionary = enemy_defs[e_type[i]]
 			if e_uid[i] == rift_uid:
 				_hurt(float(bal.rift.boss.contact_damage), "rift_boss", e_pos[i])
@@ -1966,11 +2011,19 @@ func _pressure(per_infected: float) -> float:
 func _update_territory(dt: float) -> void:
 	director.budget_mult = _pressure(float(bal.territory.get("pressure_budget_per_infected", 0.0)))
 	var lost_before := terr.trails_lost
+	if terr.trail_cells.is_empty():
+		_trail_hit = false  # a new trail starts clean
+	var had_trail := not terr.trail_cells.is_empty()
+	var left := terr.trail_time_left()
+	var hit := _trail_hit
 	var claimed := terr.update_player(p_pos, dt)
 	if terr.trails_lost > lost_before:
 		_emit({"type": "trail_lost"})
 	if not claimed.is_empty():
-		_on_claim(claimed)
+		var pl: Dictionary = skill.get("perfect_loop", {})
+		var perfect := had_trail and not hit and claimed.size() >= int(pl.get("min_tiles", 1)) and not pl.is_empty()
+		var clutch := had_trail and left <= float(skill.get("clutch_claim", {}).get("last_s", -1.0))
+		_on_claim(claimed, perfect, clutch)
 	_terr_tick += dt
 	var tick := float(bal.territory.tick_s)
 	if _terr_tick < tick:
@@ -2001,18 +2054,38 @@ func _update_territory(dt: float) -> void:
 
 
 ## Newly enclosed land bursts: enemies standing on it lose a chunk of max HP.
-func _on_claim(claimed: PackedInt32Array) -> void:
+## Perfect Loop (no damage taken since the trail began): a much bigger burst
+## and double claim XP. Clutch Claim (closed while the trail was flashing,
+## in its last seconds): every germ inside that survives is stunned.
+func _on_claim(claimed: PackedInt32Array, perfect: bool = false, clutch: bool = false) -> void:
 	claims += 1
 	var set := {}
 	for i in claimed:
 		set[i] = true
-	var frac := float(bal.territory.claim_burst_frac)
+	var pl: Dictionary = skill.get("perfect_loop", {})
+	var frac := float(pl.get("burst_frac", 1.0)) if perfect else float(bal.territory.claim_burst_frac)
+	var efrac := minf(frac, float(pl.get("elite_burst_frac", frac))) if perfect else frac
+	var inside := []
 	for i in e_pos.size():
 		if e_team[i] == 0 and set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
-			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
+			inside.append(e_uid[i])
+			_damage(i, e_maxhp[i] * (efrac if e_elite[i] == 1 else frac), Vector2.ZERO)
 	_process_dead()
+	var stunned := 0
+	if clutch:
+		var stun := float(skill.clutch_claim.get("stun_s", 2.0))
+		for i in e_pos.size():
+			if inside.has(e_uid[i]):
+				e_stun[i] = maxf(e_stun[i], stun)
+				stunned += 1
+		clutch_claims += 1
+		_emit({"type": "clutch_claim", "stunned": stunned})
 	# Bigger loops pay out: XP per claimed tile.
-	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0))
+	var xp_mult := float(pl.get("xp_mult", 1.0)) if perfect else 1.0
+	xp += claimed.size() * float(bal.territory.get("claim_xp_per_tile", 0.0)) * (1.0 + float(stats.xp_gain)) * float(bal.xp.get("gain_mult", 1.0)) * xp_mult
+	if perfect:
+		perfect_loops += 1
+		_emit({"type": "perfect_loop", "tiles": claimed.size()})
 	_emit({"type": "claim", "tiles": claimed.size(), "cells": claimed, "infected": terr.infected_fraction()})
 
 
@@ -2419,6 +2492,108 @@ func _slip_wake() -> void:
 			continue
 		_slip_hits[e_uid[i]] = true
 		_damage(i, dmg, p_vel.normalized() * 160.0)
+
+
+# ============================================================ Skill moves
+
+## In-run buff from the current kill streak tier ("damage", "speed", "haste").
+func skill_buff(key: String) -> float:
+	if streak_buff < 0:
+		return 0.0
+	return float(skill.streak_buffs[streak_buff].get(key, 0.0))
+
+
+func skill_damage_mult() -> float:
+	var m := 1.0 + skill_buff("damage")
+	if perfect_t > 0.0:
+		m *= float(skill.perfect_dodge.get("damage_mult", 1.0))
+	return m
+
+
+## What this dash dodges at the last moment ("" = nothing): a shot about to
+## land, a germ about to touch you, an elite's charge or the boss's slam.
+func _perfect_threat() -> String:
+	var pd: Dictionary = skill.get("perfect_dodge", {})
+	if pd.is_empty():
+		return ""
+	var w := float(pd.get("window_s", 0.2))
+	var hit_r := p_radius + 6.0
+	for k in s_pos.size():
+		var rel := s_pos[k] - p_pos
+		var v := s_vel[k]
+		var vv := v.length_squared()
+		var tc := clampf(-rel.dot(v) / vv, 0.0, w) if vv > 0.0 else 0.0
+		if (rel + v * tc).length() < hit_r:
+			return "shot"
+	if boss_slam == 2 and boss_slam_t <= w * 2.0 and p_pos.distance_to(boss_slam_at) < float(boss_def.get("slam_radius", 120.0)):
+		return "slam"
+	for i: int in query(p_pos, p_radius + 90.0):
+		if e_hp[i] <= 0.0 or e_stun[i] > 0.0:
+			continue
+		var reach := p_radius + enemy_radius(i) + e_spd[i] * w + 4.0
+		if e_affix[i] == AFFIX_IDS.find("charge") and e_aphase[i] == 2:
+			reach += 60.0  # a charging elite covers ground fast
+		if e_pos[i].distance_to(p_pos) <= reach:
+			return "elite" if e_elite[i] == 1 else "contact"
+	return ""
+
+
+## Perfect Dodge: your dash comes back, a shockwave shoves germs away, and
+## for a few seconds you hit harder and fire faster.
+func _perfect_dodge(cause: String) -> void:
+	var pd: Dictionary = skill.perfect_dodge
+	perfect_dodges += 1
+	perfect_cd = float(pd.get("cooldown_s", 1.5))
+	perfect_t = float(pd.get("buff_s", 3.0))
+	p_dash_charges = mini(dash_max_charges(), p_dash_charges + int(pd.get("refund", 1)))
+	if p_dash_charges >= dash_max_charges():
+		p_dash_cd = 0.0
+	p_iframes = maxf(p_iframes, float(pd.get("iframes_s", 0.3)))
+	var r := float(pd.get("shock_radius", 0.0))
+	for i: int in query(p_pos, r):
+		var off := e_pos[i] - p_pos
+		var resist := 0.85 if (e_elite[i] == 1 or _tbeh[e_type[i]] == BEH_BOSS) else 0.0
+		e_knock[i] += off.normalized() * float(pd.get("shock_knock", 400.0)) * (1.0 - resist)
+	_emit({"type": "perfect_dodge", "pos": p_pos, "cause": cause, "radius": r})
+
+
+## Back-to-back dashes: each dash taken within gap_s of being able to dash
+## extends the chain; anything slower starts a new one.
+func _dash_chain_step() -> void:
+	var gap := float(skill.get("overdrive", {}).get("gap_s", 0.0))
+	var ready := maxf(_ready_since, _last_dash_t)
+	dash_chain = dash_chain + 1 if time - ready <= gap and dash_chain > 0 else 1
+	_last_dash_t = time
+
+
+## Overdrive: very fast and untouchable for a couple of seconds. With the
+## Lab's Slipstream its ramming wake stays on the whole time.
+func _start_overdrive() -> void:
+	var od: Dictionary = skill.overdrive
+	overdrive_t = float(od.get("duration_s", 2.5))
+	overdrive_cd = float(od.get("cooldown_s", 6.0)) + overdrive_t
+	dash_chain = 0
+	overdrives += 1
+	_od_slip_t = 0.0
+	_emit({"type": "overdrive", "pos": p_pos})
+
+
+func _update_skill(dt: float) -> void:
+	perfect_t = maxf(0.0, perfect_t - dt)
+	perfect_cd = maxf(0.0, perfect_cd - dt)
+	overdrive_cd = maxf(0.0, overdrive_cd - dt)
+	if overdrive_t > 0.0:
+		overdrive_t -= dt
+		p_iframes = maxf(p_iframes, 0.05)  # untouchable
+		if float(stats.get("slipstream", 0.0)) > 0.0:
+			slip_t = maxf(slip_t, overdrive_t)
+			_od_slip_t -= dt
+			if _od_slip_t <= 0.0:  # ram the same germs again every so often
+				_od_slip_t = float(skill.overdrive.get("slip_refresh_s", 0.3))
+				_slip_hits = {}
+		if overdrive_t <= 0.0:
+			overdrive_t = 0.0
+			_emit({"type": "overdrive_end"})
 
 
 # ================================================== Elite and boss threats
@@ -3186,11 +3361,24 @@ func _fill_outbreak(elite: bool, boss: bool) -> void:
 
 ## One more kill in the streak. Milestones (balance.streak.milestones, then
 ## every repeat_every after the last) emit a "streak" event and queue rewards.
+## The streak buff tier for the current streak (balance.skill.streak_buffs).
+func _update_streak_buff() -> void:
+	var tiers: Array = skill.get("streak_buffs", [])
+	var k := -1
+	for j in tiers.size():
+		if streak >= int(tiers[j].at):
+			k = j
+	if k > streak_buff:
+		_emit({"type": "streak_buff", "tier": k, "damage": float(tiers[k].get("damage", 0.0)), "speed": float(tiers[k].get("speed", 0.0)), "haste": float(tiers[k].get("haste", 0.0))})
+	streak_buff = k
+
+
 func _add_streak() -> void:
 	var c: Dictionary = bal.streak
 	streak = streak + 1 if streak > 0 and streak_t <= float(c.window_s) else 1
 	streak_t = 0.0
 	best_streak = maxi(best_streak, streak)
+	_update_streak_buff()
 	if is_streak_milestone(streak):
 		_streak_hits.append(streak)
 		_emit({"type": "streak", "n": streak, "tier": streak_tier(streak)})
@@ -3269,7 +3457,11 @@ func trigger_outbreak() -> bool:
 
 
 func _frenzy_speed() -> float:
-	return float(bal.outbreak.weapon_speed) if outbreak_t > 0.0 else 1.0
+	var f := float(bal.outbreak.weapon_speed) if outbreak_t > 0.0 else 1.0
+	f *= 1.0 + skill_buff("haste")  # streak buffs
+	if perfect_t > 0.0:
+		f *= float(skill.perfect_dodge.get("haste_mult", 1.0))
+	return f
 
 
 # ============================================================ Plague Trail

@@ -384,6 +384,34 @@ func _handle_events(events: Array) -> void:
 	for ev in events:
 		_hint_event(ev.type)
 		match ev.type:
+			"perfect_dodge":
+				_start_slowmo(0.32, 0.3)
+				Sfx.play("crit", 0.0, 1.3)
+				Sfx.play("upgrade", 0.0, 1.5)
+				Sfx.vibrate(60)
+				hud.toast("PERFECT!", Color("#e8fbff"), 1.0)
+				Analytics.event("perfect_dodge", {"cause": ev.cause})
+			"overdrive":
+				Sfx.play("evolve", 0.0, 1.6)
+				Sfx.play("dash", 0.0, 0.7)
+				Sfx.vibrate(110)
+				hud.toast("OVERDRIVE!", Color("#7af0ff"), 1.4)
+				Analytics.event("overdrive", {"t": int(world.time)})
+			"streak_buff":
+				Sfx.play("level_up", 0.0, 1.1 + 0.08 * int(ev.tier))  # the power shows under the streak counter
+				hud.streak_burst()
+			"perfect_loop":
+				Sfx.play("upgrade", 0.0, 1.2)
+				Sfx.vibrate(50)
+				hud.toast("PERFECT LOOP!  x2 XP", pal.ui_accent, 1.5)
+				Analytics.event("perfect_loop", {"tiles": int(ev.tiles)})
+			"clutch_claim":
+				Sfx.play("boss", 0.0, 1.5)
+				Sfx.play("claim", 0.0, 1.4)
+				Sfx.vibrate(90)
+				_start_slowmo(0.25, 0.4)
+				hud.toast("CLUTCH!  %d STUNNED" % int(ev.stunned), Color("#9be7ff"), 1.6)
+				Analytics.event("clutch_claim", {"stunned": int(ev.stunned)})
 			"coach":
 				if str(ev.text) != "":
 					Sfx.play("chest", 0.0, 1.6)

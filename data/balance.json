@@ -159,6 +159,20 @@
         "damage": 30, "pulses": 4, "pulse_gap_s": 0.22, "area": 170, "area_step": 90, "knockback": 380}
     }
   },
+  "skill": {
+    "_doc": "Player-skill moves (D-041). perfect_dodge: dash in the last window_s before a hit (shot, germ contact, elite charge, boss slam). overdrive: dash chain times in a row, each within gap_s of the dash being ready. streak_buffs: in-run buffs while a kill streak lasts. perfect_loop / clutch_claim: Infection claims with no damage taken / closed in the last last_s of the trail.",
+    "perfect_dodge": {"window_s": 0.2, "cooldown_s": 1.5, "buff_s": 3.0, "damage_mult": 1.6, "haste_mult": 1.35, "refund": 1, "iframes_s": 0.35, "shock_radius": 190, "shock_knock": 460},
+    "overdrive": {"chain": 4, "gap_s": 0.5, "duration_s": 2.5, "speed_mult": 2.6, "cooldown_s": 6.0, "slip_refresh_s": 0.3},
+    "streak_buffs": [
+      {"at": 25, "damage": 0.15, "speed": 0.05, "haste": 0.1},
+      {"at": 50, "damage": 0.3, "speed": 0.1, "haste": 0.2},
+      {"at": 100, "damage": 0.5, "speed": 0.15, "haste": 0.3},
+      {"at": 250, "damage": 0.8, "speed": 0.2, "haste": 0.45},
+      {"at": 500, "damage": 1.2, "speed": 0.25, "haste": 0.6}
+    ],
+    "perfect_loop": {"min_tiles": 6, "xp_mult": 2.0, "burst_frac": 1.0, "elite_burst_frac": 0.4},
+    "clutch_claim": {"last_s": 2.5, "stun_s": 2.0}
+  },
   "streak": {
     "window_s": 1.0,
     "milestones": [25, 50, 100, 150, 250, 350, 500],

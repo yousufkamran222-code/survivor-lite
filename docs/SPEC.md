@@ -114,6 +114,13 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 - **Staged menu:** Classic and Upgrades after the prologue; Style after 2 runs (one free item ≤ 2,500 gold); Infection after 3 runs or a win; Swarm after 5; Nucleus after 7; Virulence after the first win; the Lab once you've earned Genes. Locked modes and tiles stay visible with what opens them; each unlock gets a popup once and a NEW badge until opened.
 - **Coaches:** the first real run of Infection, Swarm and Nucleus has short prompts (loop to claim; give orders; stand on a pad and build). No ad prompts in the first 3 runs.
 
+## Skill moves (`balance.skill`)
+- **Perfect Dodge:** dash at the last moment before a hit (shot, germ, elite charge, boss slam) → slow-motion flash, the dash comes back, a shockwave, and 3 s of ×1.6 damage and ×1.35 fire rate.
+- **Overdrive:** 4 dashes back to back (each within 0.5 s of being ready) → 2.5 s of ×2.6 speed and invulnerability. With the Lab's Slipstream you ram germs the whole time.
+- **Streak power:** kill streaks give growing in-run buffs (x25: +15% damage … x500: +120% damage, +25% speed, +60% fire rate), lost when the streak breaks.
+- **Perfect Loop (Infection):** close a loop without taking damage → everything inside dies (elites lose 40%), ×2 claim XP.
+- **Clutch Claim (Infection):** close a loop while its trail is flashing red (last 2.5 s) → every germ inside is stunned for 2 s.
+
 ## Cosmetics (`data/cosmetics.json`), visual only
 - 4 categories: **Cell** (body, nucleus, cilia, pattern, glow), **Weapons** (colours of all four weapons + evolved colours, bolt/orbit shape), **Pops** (kill particles, splat, ring and kill sound; Melody turns a kill streak into a tune), **Trails** (what the cell leaves behind while dashing). One equipped per category; the menu hero wears your skin.
 - Unlocks: free defaults; **gold** (1,200-4,000, a sink once the shop is full); **challenges** (lifetime/best stats, e.g. 5,000 kills, a x250 streak, win every mode); **prestige** (Virulence 5 / 8 / 10 cleared in any mode). Past play counts. Paid packs later (Play Billing, M3).

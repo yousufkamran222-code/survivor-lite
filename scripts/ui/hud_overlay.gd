@@ -1096,6 +1096,10 @@ func _draw_streak(w: float) -> void:
 	if name != "":
 		# The tier name swells on a milestone (that's the milestone call-out).
 		_rtext(name, pos + Vector2(0, 30.0 + 18.0 * _streak_burst), int(20.0 + 22.0 * _streak_burst), 6, col)
+	# The streak's power (balance.skill.streak_buffs) under the bar.
+	if world.streak_buff >= 0:
+		var bt := "+%d%% DMG  +%d%% SPD" % [roundi(world.skill_buff("damage") * 100.0), roundi(world.skill_buff("speed") * 100.0)]
+		_rtext(bt, pos + Vector2(0, 76.0 + 18.0 * _streak_burst), 18, 5, Color(col, 0.9))
 	# Time left before the streak breaks.
 	var left := clampf(1.0 - world.streak_t / float(world.bal.streak.window_s), 0.0, 1.0)
 	var bw := 150.0
