@@ -122,8 +122,8 @@ static func unlock_text(d: Dictionary, p: Profile, id: String, short: bool = fal
 ## Unlocked entries the player hasn't been shown yet (in data order).
 static func pending_announcements(d: Dictionary, p: Profile) -> Array:
 	var out := []
-	if not prologue_done(p):
-		return out
+	if not prologue_done(p) or bool(_ob(p).get("all", false)):
+		return out  # veterans had everything before it existed: nothing to announce
 	var seen: Dictionary = _ob(p).get("announced", {})
 	for u in d.onboarding.get("unlocks", []):
 		if not seen.has(u.id) and unlocked(d, p, u.id):

@@ -43,7 +43,11 @@ var _new_achievements: Array = []
 var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results screen)
 var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
 var _menu_toast_node: Control = null
-var _menu_hero: Control = null  # the hero cell spacer on the menu (toasts sit over it)
+var _menu_hero: Control = null
+var _mode_box: VBoxContainer  # the menu carousel card + Virulence pill + dots (rebuilt in place)
+var _play_btn: Button
+var _browse := ""  # carousel page shown (a mode id or "prologue")
+var _swipe_from := -9999.0  # the hero cell spacer on the menu (toasts sit over it)
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
 var _new_best := false
@@ -797,68 +801,306 @@ func _show_menu() -> void:
 	_menu_bg.look = Cosmetics.look(data.cosmetics, Save.profile)
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 16)
-	# Top row: gold pill on the right.
+	col.add_theme_constant_override("separation", 14)
+	# Top bar: settings (gear) left, gold right.
 	var top := HBoxContainer.new()
-	top.alignment = BoxContainer.ALIGNMENT_END
+	top.add_child(_icon_button("settings", pal.player_nucleus, _show_settings))
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(gap)
 	top.add_child(_gold_pill())
 	col.add_child(top)
-	var title := UiKit.label(str(bal.title).to_upper(), 82, pal.ui_accent)
-	title.add_theme_constant_override("outline_size", 14)
-	title.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.14))
+	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
 	col.add_child(title)
-	col.add_child(UiKit.label("You are the infection.", 26, Color(pal.text, 0.75)))
+	col.add_child(UiKit.label("You are the infection.", 22, Color(pal.text, 0.6)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
 	_menu_hero = hero
-	hero.custom_minimum_size = Vector2(0, 230)
+	hero.custom_minimum_size = Vector2(0, 200)
 	hero.item_rect_changed.connect(func() -> void:
 		if _menu_bg.size.y > 0.0:
 			_menu_bg.hero_y = (hero.global_position.y + hero.size.y / 2.0) / _menu_bg.size.y)
 	col.add_child(hero)
-	# Mode cards.
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	var current := _current_mode()
-	for m in data.modes:
-		if Onboarding.unlocked(data, Save.profile, m.id):
-			row.add_child(_mode_card(m, m.id == current.id))
-		else:
-			row.add_child(_locked_mode_card(m))
-	col.add_child(row)
-	if Onboarding.unlocked(data, Save.profile, "virulence"):
-		col.add_child(_virulence_row(current.id))
-	col.add_child(UiKit.label(current.desc, 22, Color(pal.text, 0.8)))
-	var play := Button.new()
-	play.text = "PLAY"
-	play.custom_minimum_size = Vector2(0, 136)
-	UiKit.style_button(play, "primary", 60)
-	play.pressed.connect(func() -> void:
-		Sfx.play("click", 0.0)
-		_start_run())
-	col.add_child(play)
-	play.resized.connect(func() -> void: play.pivot_offset = play.size / 2.0)
-	var pulse := play.create_tween().set_loops()
-	pulse.tween_property(play, "scale", Vector2(1.03, 1.03), 0.7).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(play, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
-	# Bottom row: upgrades, profile, sound.
+	# The mode carousel (one card at a time) and PLAY: rebuilt in place when
+	# you swipe or change Virulence, so the rest of the menu never re-animates.
+	var ids := _carousel()
+	if not ids.has(_browse):
+		_browse = str(_current_mode().id)
+	_mode_box = VBoxContainer.new()
+	_mode_box.add_theme_constant_override("separation", 10)
+	col.add_child(_mode_box)
+	_play_btn = Button.new()
+	_play_btn.custom_minimum_size = Vector2(0, 128)
+	_play_btn.pressed.connect(_on_play)
+	col.add_child(_play_btn)
+	_play_btn.resized.connect(func() -> void: _play_btn.pivot_offset = _play_btn.size / 2.0)
+	var pulse := _play_btn.create_tween().set_loops()
+	pulse.tween_property(_play_btn, "scale", Vector2(1.03, 1.03), 0.7).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(_play_btn, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
+	_build_mode_panel(0)
+	# Bottom row: progression and you.
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 12)
 	bottom.add_child(_gated_tile("shop", "gold", pal.ui_accent, "UPGRADES", _show_shop))
 	bottom.add_child(_gated_tile("lab", "lab", LabScreen.GENE, "LAB", _show_lab))
 	bottom.add_child(_gated_tile("style", "style", Color("#ff7ac8"), "STYLE", _show_style))
 	bottom.add_child(_tile_button("trophy", pal.ui_accent, "PROFILE", _show_profile))
-	bottom.add_child(_tile_button("settings", pal.player_nucleus, "SETTINGS", _show_settings))
 	col.add_child(bottom)
-	col.add_child(_prologue_button())
 	# The build label doubles as the hidden benchmark trigger (tap 5 times).
-	var build := UiKit.label(_build_label(), 16, Color(pal.text, 0.35))
+	var build := UiKit.label(_build_label(), 15, Color(pal.text, 0.3))
 	build.mouse_filter = Control.MOUSE_FILTER_STOP
 	build.gui_input.connect(_on_build_label_input)
 	col.add_child(build)
 	_menu[0].visible = true
 	UiKit.fade_in(col)
 	_announce_next()
+
+
+## Carousel pages: the modes in the order they unlock, then Patient Zero
+## (once it's been played).
+func _carousel() -> Array:
+	var out := []
+	for u in data.onboarding.get("unlocks", []):
+		if u.kind == "mode":
+			out.append(str(u.id))
+	for m in data.modes:
+		if not out.has(m.id):
+			out.append(str(m.id))
+	if Onboarding.prologue_done(Save.profile):
+		out.append("prologue")
+	return out
+
+
+func _mode_def(id: String) -> Dictionary:
+	for m in data.modes:
+		if m.id == id:
+			return m
+	return {}
+
+
+## Swipe / arrow: the next page. Picking an unlocked mode makes it the one
+## PLAY starts (and clears its NEW badge).
+func _step_mode(d: int) -> void:
+	var ids := _carousel()
+	var i := ids.find(_browse)
+	_browse = str(ids[posmod(i + d, ids.size())])
+	if _browse != "prologue" and Onboarding.unlocked(data, Save.profile, _browse):
+		Save.mode = _browse
+		Onboarding.mark_opened(Save.profile, _browse)
+		Save.write()
+	Sfx.play("click", 0.0, 1.0 + 0.05 * d)
+	_build_mode_panel(d)
+
+
+## The one big mode card (icon, name, line, record or lock), the Virulence
+## pill under it, the page dots, and PLAY's state. `dir` slides it in from
+## that side (0 = no animation).
+func _build_mode_panel(dir: int) -> void:
+	UiKit.clear(_mode_box)
+	var id := _browse
+	var prologue := id == "prologue"
+	var m := _mode_def(id)
+	var open := prologue or Onboarding.unlocked(data, Save.profile, id)
+	var pc: Dictionary = data.onboarding.prologue
+	var accent: Color = Color("#ff7ac8") if prologue else GameData.color(m.get("color", "#ffd166"))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.add_child(_arrow_button("<", func() -> void: _step_mode(-1)))
+	var card := PanelContainer.new()
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size = Vector2(0, 200)
+	var sb := UiKit.card(Color("#2c2052") if open else Color("#1f1738"), Color(accent, 0.9) if open else Color(1, 1, 1, 0.1), 28, 20)
+	sb.set_border_width_all(3)
+	card.add_theme_stylebox_override("panel", sb)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(_on_card_input)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 18)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(h)
+	var ic := UpgradeIcon.make("trophy" if prologue else (str(m.get("icon", "")) if open else "lock"), accent if open else Color(0.55, 0.5, 0.7), 112)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 10)
+	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var nm := UiKit.display(UiKit.label(str(pc.get("name", "Patient Zero")).to_upper() if prologue else str(m.name).to_upper(), 40, Color.WHITE if open else Color(1, 1, 1, 0.5)), 8)
+	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_row.add_child(nm)
+	if not prologue and Onboarding.is_new(Save.profile, id):
+		var nb := UiKit.chip("NEW", Color("#ff5a7a"), Color.WHITE, 15)
+		nb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		name_row.add_child(nb)
+	v.add_child(name_row)
+	var line := "Replay the intro. Beat your score for a medal." if prologue else str(m.get("desc", ""))
+	var dl := UiKit.label(line, 19, Color(1, 1, 1, 0.75 if open else 0.45))
+	dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(dl)
+	var sub := ""
+	var sub_c := accent
+	if prologue:
+		var best := int(Save.profile.record("prologue").get("best_score", 0))
+		var medal := Onboarding.medal(pc, best)
+		sub = "%s medal  ·  best %d" % [str(medal.name), best] if not medal.is_empty() else "Best %d  ·  no medal yet" % best
+		if not medal.is_empty():
+			sub_c = GameData.color(medal.color)
+	elif not open:
+		sub = Onboarding.unlock_text(data, Save.profile, id)
+		sub_c = Color("#ff9a9a")
+	else:
+		var rec := Save.profile.record(id)
+		if int(rec.get("runs", 0)) == 0:
+			sub = "Not played yet"
+		else:
+			sub = "Best %s" % UiKit.fmt_time(float(rec.get("best_time", 0.0)))
+			if rec.has(m.get("special", "")) and int(rec[m.special]) > 0:
+				sub = str(m.special_label) % int(rec[m.special])
+			var cleared := Save.profile.virulence_cleared(id)
+			if cleared > 0:
+				sub += "  ·  V%d cleared" % cleared
+	var sl := UiKit.label(sub, 18, sub_c)
+	sl.add_theme_font_override("font", UiKit.display_font())
+	sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	sl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(sl)
+	row.add_child(card)
+	row.add_child(_arrow_button(">", func() -> void: _step_mode(1)))
+	_mode_box.add_child(row)
+	if open and not prologue and Onboarding.unlocked(data, Save.profile, "virulence"):
+		_mode_box.add_child(_virulence_pill(id))
+	_mode_box.add_child(_page_dots())
+	_refresh_play()
+	if dir != 0:
+		card.modulate.a = 0.0
+		card.resized.connect(func() -> void: card.pivot_offset = card.size / 2.0, CONNECT_ONE_SHOT)
+		card.scale = Vector2(0.94, 0.94)
+		var tw := card.create_tween().set_parallel()
+		tw.tween_property(card, "modulate:a", 1.0, 0.16)
+		tw.tween_property(card, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Swipe the card left/right to change mode.
+func _on_card_input(ev: InputEvent) -> void:
+	if ev is InputEventScreenTouch or (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT):
+		if ev.pressed:
+			_swipe_from = ev.position.x
+		elif _swipe_from > -9000.0:
+			var dx: float = ev.position.x - _swipe_from
+			_swipe_from = -9999.0
+			if absf(dx) > 60.0:
+				_step_mode(-1 if dx > 0.0 else 1)
+
+
+## Virulence for the shown mode as one compact pill: < VIRULENCE 3 > and a
+## single line of what it adds. Stepping only rebuilds this panel.
+func _virulence_pill(mode_id: String) -> Control:
+	var prof := Save.profile
+	var sel := prof.virulence_selected(mode_id)
+	var top := prof.virulence_unlocked(mode_id)
+	var accent: Color = Color("#ff5a7a") if sel > 1 else pal.ui_accent
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 14)
+	var step := func(dl: int) -> void:
+		prof.set_virulence(mode_id, sel + dl)
+		Save.write()
+		Sfx.play("click", 0.0, 1.0 + 0.04 * (sel + dl))
+		_build_mode_panel(0)
+	var left := _arrow_button("-", step.bind(-1), 70)
+	left.disabled = sel <= 1
+	h.add_child(left)
+	var lab := UiKit.display(UiKit.label("%s %d" % [str(data.difficulty.name).to_upper(), sel], 30, accent), 8)
+	lab.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lab.custom_minimum_size = Vector2(250, 0)
+	h.add_child(lab)
+	var right := _arrow_button("+", step.bind(1), 70)
+	right.disabled = sel >= top
+	h.add_child(right)
+	box.add_child(h)
+	var info := "Standard game"
+	if sel > 1:
+		var lv: Dictionary = data.difficulty.levels[sel - 1]
+		var base_dd: Dictionary = GameData.apply_mode(data, mode_id).balance.get("difficulty", {})
+		var dd: Dictionary = GameData.apply_virulence(GameData.apply_mode(data, mode_id), sel).balance.difficulty
+		info = "%s  ·  germs x%.1f HP  ·  +%d%% gold" % [str(lv.name), float(dd.enemy_hp_mult) / float(base_dd.get("enemy_hp_mult", 1.0)), roundi((float(dd.gold_mult) - 1.0) * 100.0)]
+	if sel == top and top < Profile.MAX_VIRULENCE and prof.virulence_cleared(mode_id) < top:
+		info += "  ·  win to unlock %d" % (top + 1)
+	box.add_child(UiKit.label(info, 17, Color(pal.text, 0.6)))
+	return box
+
+
+## One dot per carousel page (the shown one wide and bright, locked dim).
+func _page_dots() -> Control:
+	var ids := _carousel()
+	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_theme_constant_override("separation", 10)
+	for id in ids:
+		var on: bool = id == _browse
+		var open: bool = id == "prologue" or Onboarding.unlocked(data, Save.profile, id)
+		var d := Panel.new()
+		d.custom_minimum_size = Vector2(28 if on else 10, 10)
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		d.add_theme_stylebox_override("panel", UiKit._box(Color(1, 1, 1, 0.95 if on else (0.4 if open else 0.15)), 5, 0))
+		h.add_child(d)
+	return h
+
+
+## PLAY follows the shown page: start that mode, Patient Zero, or show
+## what unlocks a locked one.
+func _refresh_play() -> void:
+	var open := _browse == "prologue" or Onboarding.unlocked(data, Save.profile, _browse)
+	_play_btn.text = "PLAY" if open else "LOCKED"
+	_play_btn.disabled = not open
+	UiKit.style_button(_play_btn, "primary" if open else "secondary", 60)
+
+
+func _on_play() -> void:
+	Sfx.play("click", 0.0)
+	if _browse == "prologue":
+		_start_run(true)
+	elif Onboarding.unlocked(data, Save.profile, _browse):
+		Save.mode = _browse
+		_start_run()
+
+
+func _arrow_button(text: String, on_press: Callable, height: float = 200.0) -> Button:
+	var b := UiKit.button(text, on_press, height, "secondary")
+	b.custom_minimum_size = Vector2(60 if height > 100.0 else 76, height)
+	b.add_theme_font_size_override("font_size", 36)
+	return b
+
+
+## Small round icon button (the menu's settings gear).
+func _icon_button(icon_key: String, accent: Color, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(76, 76)
+	UiKit.style_button(b, "secondary")
+	UiKit.press_feedback(b)
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		on_press.call())
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cc.offset_bottom = -6.0  # sit above the 3D edge
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := UpgradeIcon.make(icon_key, accent, 48)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(ic)
+	b.add_child(cc)
+	return b
 
 
 ## New unlocks (Onboarding.pending_announcements): no popup, just a banner
@@ -910,54 +1152,6 @@ func _gated_tile(id: String, icon_key: String, accent: Color, text: String, on_p
 		tw.tween_property(badge, "modulate:a", 0.55, 0.5)
 		tw.tween_property(badge, "modulate:a", 1.0, 0.5)
 	return t
-
-
-## A mode you haven't unlocked yet: shown (so you see what's coming), dim,
-## with a lock and what opens it.
-func _locked_mode_card(m: Dictionary) -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 196)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var sb := UiKit._box(Color("#1f1738"), 20, 10)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(1, 1, 1, 0.08)
-	for st in ["normal", "hover", "pressed"]:
-		b.add_theme_stylebox_override(st, sb)
-	var why := Onboarding.unlock_text(data, Save.profile, m.id)
-	b.pressed.connect(func() -> void:
-		Sfx.play("deny", 0.0)
-		_menu_toast(why))
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 4)
-	var ic := UpgradeIcon.make("lock", Color(0.6, 0.55, 0.75), 60)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(ic)
-	var name := UiKit.display(UiKit.label(str(m.name).to_upper(), 20, Color(1, 1, 1, 0.45)))
-	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(name)
-	var lab := UiKit.label(Onboarding.unlock_text(data, Save.profile, m.id, true), 15, Color(1, 1, 1, 0.45))
-	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(lab)
-	b.add_child(v)
-	return b
-
-
-## Patient Zero, replayable from the menu: best medal and score.
-func _prologue_button() -> Control:
-	var pc: Dictionary = data.onboarding.prologue
-	var best := int(Save.profile.record("prologue").get("best_score", 0))
-	var medal := Onboarding.medal(pc, best)
-	var txt := "PATIENT ZERO"
-	if best > 0:
-		txt += "   %s  %d" % [str(medal.get("name", "No medal")).to_upper(), best]
-	var b := UiKit.button(txt, func() -> void: _start_run(true), 70, "secondary")
-	b.add_theme_font_size_override("font_size", 24)
-	if not medal.is_empty():
-		b.add_theme_color_override("font_color", GameData.color(medal.color))
-	return b
 
 
 func _menu_toast(text: String, life: float = 1.8, border: Color = Color(0, 0, 0, 0)) -> void:
@@ -1014,104 +1208,6 @@ func _gold_pill() -> Control:
 	return pill
 
 
-## A selectable mode card: icon, name, tag and the mode's own best record.
-func _mode_card(m: Dictionary, selected: bool) -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 196)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var accent := GameData.color(m.get("color", "#ffd166"))
-	var sb := UiKit._box(Color("#3d2d6b") if selected else Color("#2a1f4a"), 20, 10)
-	sb.set_border_width_all(4 if selected else 2)
-	sb.border_color = accent if selected else Color(accent, 0.3)
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_stylebox_override("pressed", sb)
-	b.pressed.connect(func() -> void:
-		Sfx.play("click", 0.0)
-		_select_mode(m.id))
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_theme_constant_override("separation", 4)
-	var ic := UpgradeIcon.make(m.get("icon", ""), accent, 72)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(ic)
-	var name := UiKit.display(UiKit.label(str(m.name).to_upper(), 22, Color.WHITE if selected else Color(1, 1, 1, 0.75)))
-	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(name)
-	var rec := Save.profile.record(m.id)
-	var sub := "Best %s" % UiKit.fmt_time(float(rec.get("best_time", 0.0)))
-	if rec.has(m.get("special", "")) and int(rec[m.special]) > 0:
-		sub = str(m.special_label) % int(rec[m.special])
-	var subl := UiKit.label(sub if int(rec.get("runs", 0)) > 0 else "Not played yet", 17, Color(accent, 0.9))
-	subl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(subl)
-	var cleared := Save.profile.virulence_cleared(m.id)
-	if cleared > 0:
-		var vl := UiKit.label("V%d cleared" % cleared, 15, Color("#ff5a7a"))
-		vl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(vl)
-	if Onboarding.is_new(Save.profile, m.id):
-		var nb := UiKit.label("NEW!", 17, Color("#ff5a7a"))
-		nb.add_theme_font_override("font", UiKit.display_font())
-		nb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(nb)
-	if m.get("tag", "") != "":
-		var tag := UiKit.label(m.tag, 15, pal.ui_accent)
-		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(tag)
-	b.add_child(v)
-	return b
-
-
-## Virulence selector for the selected mode: arrows step through every
-## unlocked level (older ones stay playable), the next locked one shows how to
-## unlock it, and the line under it says what this level adds.
-func _virulence_row(mode_id: String) -> Control:
-	var prof := Save.profile
-	var sel := prof.virulence_selected(mode_id)
-	var top := prof.virulence_unlocked(mode_id)
-	var levels: Array = data.difficulty.levels
-	var accent: Color = Color("#ff5a7a") if sel > 1 else pal.ui_accent
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	var h := HBoxContainer.new()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_theme_constant_override("separation", 16)
-	var step := func(dl: int) -> void:
-		prof.set_virulence(mode_id, sel + dl)
-		Save.write()
-		Sfx.play("click", 0.0, 1.0 + 0.04 * (sel + dl))
-		_show_menu()
-	var left := UiKit.button("<", step.bind(-1), 64)
-	left.custom_minimum_size = Vector2(72, 64)
-	left.disabled = sel <= 1
-	h.add_child(left)
-	var lab := UiKit.label("%s %d" % [str(data.difficulty.name).to_upper(), sel], 36, accent)
-	lab.autowrap_mode = TextServer.AUTOWRAP_OFF
-	lab.custom_minimum_size = Vector2(300, 0)
-	h.add_child(lab)
-	var right := UiKit.button(">", step.bind(1), 64)
-	right.custom_minimum_size = Vector2(72, 64)
-	right.disabled = sel >= top
-	h.add_child(right)
-	box.add_child(h)
-	var lv: Dictionary = levels[sel - 1]
-	var info := "Adds %s: %s, on top of every level below." % [lv.name, str(lv.desc).to_lower()] if sel > 1 else "The standard game. Win to unlock Virulence 2."
-	if sel > 1:
-		var base_dd: Dictionary = GameData.apply_mode(data, mode_id).balance.get("difficulty", {})
-		var dd: Dictionary = GameData.apply_virulence(GameData.apply_mode(data, mode_id), sel).balance.difficulty
-		info += "\nGerms x%.1f HP, x%.1f damage.  +%d%% gold" % [float(dd.enemy_hp_mult) / float(base_dd.get("enemy_hp_mult", 1.0)), float(dd.damage_taken_mult) / float(base_dd.get("damage_taken_mult", 1.0)), roundi((float(dd.gold_mult) - 1.0) * 100.0)]
-	elif top > 1:
-		info = "The standard game (no modifiers)."
-	var il := UiKit.label(info, 19, Color(pal.text, 0.75))
-	box.add_child(il)
-	if sel == top and top < Profile.MAX_VIRULENCE and prof.virulence_cleared(mode_id) < top:
-		box.add_child(UiKit.label("Win Virulence %d to unlock %d" % [top, top + 1], 17, Color(pal.text, 0.5)))
-	return box
-
-
 ## Square-ish button with an icon over a label (menu bottom row).
 func _tile_button(icon_key: String, accent: Color, text: String, on_press: Callable) -> Button:
 	var b := Button.new()
@@ -1159,13 +1255,6 @@ func _current_mode() -> Dictionary:
 		if m.id == "classic" or Onboarding.unlocked(data, Save.profile, m.id):
 			return m
 	return data.modes[0]
-
-
-func _select_mode(id: String) -> void:
-	Save.mode = id
-	Onboarding.mark_opened(Save.profile, id)
-	Save.write()
-	_show_menu()
 
 
 ## Permanent upgrades bought with gold: tile grid + detail popup (MetaShop).

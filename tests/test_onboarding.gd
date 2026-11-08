@@ -203,7 +203,7 @@ func test_veteran_saves_keep_everything() -> void:
 	check(Onboarding.prologue_done(old), "no forced prologue for existing players")
 	for u in d.onboarding.unlocks:
 		check(Onboarding.unlocked(d, old, u.id), u.id + " stays open")
-	check(Onboarding.pending_announcements(d, old).size() >= 0)
+	check(Onboarding.pending_announcements(d, old).is_empty(), "no unlock banner for veterans")
 	check(not Onboarding.coach_due(d, old, "swarm"))
 	check(Onboarding.ads_allowed(d, old))
 	var fresh := Profile.from_dict({"version": 7, "gold": 0})

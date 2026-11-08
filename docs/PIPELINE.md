@@ -352,3 +352,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Build paths are taught on the level-up cards: a short lavender line per card from `onboarding.card_hints` ("Dash build: your dash becomes a weapon", "Tank builds: wade through crowds", ...), in Patient Zero and a player's first 15 real runs (`card_hint_runs`); hidden when the card shows an evolution hint.
 - Patient Zero basics are quicker (move beat 150 px / 5 s max, shorter text); the grow beat now says "Pick upgrades that work together".
 - 291 tests.
+
+### 2026-11-08 Main menu redesign (Yousuf: "cluttered, low quality"; "why does the whole menu fade every time I switch Virulence")
+- The fade: changing Virulence or tapping a mode card rebuilt the whole menu, replaying its entrance animation. Now the mode area is rebuilt in place (`_build_mode_panel`), nothing else moves.
+- New layout: settings gear (top-left) + gold (top-right), title, hero cell, **one big mode card** (icon, name, one line, best record / V cleared, NEW chip) with arrows and swipe, a compact Virulence pill (- VIRULENCE N +, one info line), page dots, PLAY (shows LOCKED on a locked page), and 4 tiles (Upgrades, Lab, Style, Profile). Locked modes and Patient Zero (medal + best score) are carousel pages, so the old 4-card row, the Patient Zero button and the settings tile are gone.
+- Fix: saves from before v8 (`onboarding.all`) no longer get an "UNLOCKED: everything" banner.
