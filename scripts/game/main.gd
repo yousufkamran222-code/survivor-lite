@@ -44,7 +44,6 @@ var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results scre
 var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
 var _menu_toast_node: Control = null
 var _menu_hero: Control = null  # the hero cell spacer on the menu (toasts sit over it)
-var _unlock_pop = null  # unlock announcement overlay (UiKit.overlay array), built on demand
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
 var _new_best := false
@@ -722,6 +721,7 @@ func _start_run(prologue: bool = false) -> void:
 		world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
 		var ab_id := Save.profile.equipped_ability(data.lab)
 		world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
+		Onboarding.mark_opened(Save.profile, mode_id)
 		if Onboarding.coach_due(data, Save.profile, mode_id):
 			world.start_tutorial(data.onboarding.coaches[mode_id])
 			_coached_mode = mode_id
@@ -861,45 +861,28 @@ func _show_menu() -> void:
 	_announce_next()
 
 
-## New unlocks (Onboarding.pending_announcements), one popup at a time:
-## icon, NEW MODE / NEW FEATURE, the name and one line; OK marks it seen.
+## New unlocks (Onboarding.pending_announcements): no popup, just a banner
+## over the hero area ("NEW MODE: Infection") that fades by itself, and a
+## NEW badge on the card or tile until it's opened.
 func _announce_next() -> void:
 	var todo := Onboarding.pending_announcements(data, Save.profile)
-	if todo.is_empty() or (_unlock_pop != null and is_instance_valid(_unlock_pop[0]) and _unlock_pop[0].visible):
+	if todo.is_empty():
 		return
-	var u: Dictionary = todo[0]
-	if _unlock_pop == null or not is_instance_valid(_unlock_pop[0]):
-		_unlock_pop = UiKit.overlay(ui_root, 0.78)
-	var col: VBoxContainer = _unlock_pop[1]
-	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 18)
-	var icons := {"classic": "mode_classic", "shop": "gold", "style": "style", "lab": "lab", "virulence": "keystone"}
-	var accent: Color = pal.ui_accent
-	var icon := str(icons.get(u.id, ""))
-	for m in data.modes:
-		if m.id == u.id:
-			icon = str(m.get("icon", icon))
-			accent = GameData.color(m.get("color", "#ffd166"))
-	var head := "NEW MODE" if u.kind == "mode" else "UNLOCKED"
-	col.add_child(UiKit.display(UiKit.label(head, 30, Color(pal.text, 0.8)), 6))
-	var ic := UpgradeIcon.make(icon, accent, 150)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ic)
-	col.add_child(UiKit.display(UiKit.label(str(u.name).to_upper(), 64, accent), 10))
-	var d := UiKit.label(str(u.desc), 26, Color.WHITE)
-	d.custom_minimum_size = Vector2(560, 0)
-	col.add_child(d)
-	col.add_child(UiKit.button("NICE!", func() -> void:
+	var names := []
+	var mode_new := false
+	for u in todo:
 		Onboarding.mark_announced(Save.profile, str(u.id))
-		Save.write()
-		_unlock_pop[0].visible = false
-		if u.kind == "mode":
-			Save.mode = str(u.id)  # jump to the new mode
-		_show_menu(), 110, "primary"))
-	Sfx.play("evolve", 0.0, 1.2)
-	Sfx.vibrate(60)
-	Analytics.event("unlock_shown", {"id": u.id})
-	UiKit.reveal(_unlock_pop)
+		names.append(str(u.name))
+		mode_new = mode_new or u.kind == "mode"
+		Analytics.event("unlock_shown", {"id": u.id})
+	Save.write()
+	var line := ("NEW MODE: " if mode_new and todo.size() == 1 else "UNLOCKED: ") + ", ".join(names)
+	if todo.size() == 1:
+		line += "\n" + str(todo[0].desc)
+	Sfx.play("upgrade", 0.0)
+	Sfx.vibrate(40)
+	_show_menu()  # redraw with the NEW badges
+	_menu_toast(line, 4.0, Color("#7cff9b"))
 
 
 ## A menu tile that unlocks with play (shop, Lab, Style): locked = dim with
@@ -977,14 +960,22 @@ func _prologue_button() -> Control:
 	return b
 
 
-func _menu_toast(text: String) -> void:
+func _menu_toast(text: String, life: float = 1.8, border: Color = Color(0, 0, 0, 0)) -> void:
 	if text == "":
+		return
+	# A just-rebuilt menu needs a few layout passes before the hero spacer
+	# has its real position (containers sort deferred).
+	for k in 6:
+		await get_tree().process_frame
+		if is_instance_valid(_menu_hero) and _menu_hero.global_position.y > 120.0:
+			break
+	if screen != "menu":
 		return
 	if is_instance_valid(_menu_toast_node):
 		_menu_toast_node.queue_free()  # one at a time: a new tap replaces it
 	# Full-width banner above the bottom tiles (anchored to the screen, so it
 	# can never sit off an edge), wrapping if the text is long.
-	var p := UiKit.panel(Color(0.08, 0.05, 0.14, 0.94), Color(pal.ui_accent, 0.7), 20, 14)
+	var p := UiKit.panel(Color(0.08, 0.05, 0.14, 0.94), border if border.a > 0.0 else Color(pal.ui_accent, 0.7), 20, 14)
 	# Over the top of the hero cell's space (between the tagline and the mode
 	# cards), wherever the menu sits on this screen: never covers a button.
 	var y := 260.0
@@ -994,7 +985,7 @@ func _menu_toast(text: String) -> void:
 	p.offset_left = 50.0
 	p.offset_right = -50.0
 	p.offset_top = y
-	p.offset_bottom = y + 70.0
+	p.offset_bottom = y + (110.0 if text.contains("\n") else 70.0)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := UiKit.label(text, 26, Color.WHITE)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1002,7 +993,7 @@ func _menu_toast(text: String) -> void:
 	_menu[0].add_child(p)
 	_menu_toast_node = p
 	var tw := p.create_tween()
-	tw.tween_interval(1.8)
+	tw.tween_interval(life)
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(p.queue_free)
 
@@ -1061,6 +1052,11 @@ func _mode_card(m: Dictionary, selected: bool) -> Button:
 		var vl := UiKit.label("V%d cleared" % cleared, 15, Color("#ff5a7a"))
 		vl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(vl)
+	if Onboarding.is_new(Save.profile, m.id):
+		var nb := UiKit.label("NEW!", 17, Color("#ff5a7a"))
+		nb.add_theme_font_override("font", UiKit.display_font())
+		nb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(nb)
 	if m.get("tag", "") != "":
 		var tag := UiKit.label(m.tag, 15, pal.ui_accent)
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1167,6 +1163,7 @@ func _current_mode() -> Dictionary:
 
 func _select_mode(id: String) -> void:
 	Save.mode = id
+	Onboarding.mark_opened(Save.profile, id)
 	Save.write()
 	_show_menu()
 
@@ -1519,6 +1516,14 @@ func _upgrade_card(id: String) -> Button:
 		var hint := _evolution_hint(id, nl)
 		if hint != "":
 			v.add_child(UiKit.chip(hint.replace("* ", ""), Color(pal.ui_accent, 0.75), Color(0.1, 0.06, 0.15), 15))
+		else:
+			# New players: what this card is for in a build (data/onboarding.json card_hints).
+			var bh := Onboarding.card_hint(data, Save.profile, id, _prologue)
+			if bh != "":
+				var hl := UiKit.label(bh, 17, Color("#c8b8ff"))
+				hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+				hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				v.add_child(hl)
 	m.name = "Content"  # _card_slot grows the card to fit this once it knows its width
 	return b
 

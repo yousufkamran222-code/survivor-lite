@@ -496,6 +496,9 @@ static func _validate_onboarding(d: Dictionary, errors: Array) -> void:
 	for a in pc.get("affixes", []):
 		if not World.AFFIX_IDS.has(a) or a == "":
 			errors.append("onboarding: unknown elite affix '%s'" % a)
+	for id in cfg.get("card_hints", {}):
+		if not d.upgrades.any(func(u: Dictionary) -> bool: return u.id == id):
+			errors.append("onboarding card hint for unknown upgrade '%s'" % id)
 	var mode_ids := []
 	for m in d.modes:
 		mode_ids.append(m.id)

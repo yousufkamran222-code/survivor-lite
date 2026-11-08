@@ -30,10 +30,10 @@
       {"id": "gold", "name": "Gold", "score": 1300, "color": "#ffd166"}
     ],
     "beats": [
-      {"id": "move", "text": "Drag anywhere to move", "target": "move", "min_s": 1.5, "max_s": 9,
+      {"id": "move", "text": "Drag anywhere to move", "target": "move", "min_s": 1.0, "max_s": 5,
         "start": {"spawn": [{"id": "grunt", "n": 5, "pattern": "front", "dist": 460}], "ambient": 0.0},
-        "until": {"moved": 300}},
-      {"id": "fire", "text": "Your cell fires on its own", "show_s": 2.5, "max_s": 25,
+        "until": {"moved": 150}},
+      {"id": "fire", "text": "Your cell fires on its own", "show_s": 1.8, "max_s": 25,
         "start": {"spawn": [{"id": "swarm", "n": 8, "pattern": "cluster", "dist": 420}], "ambient": 0.6},
         "repeat": {"every_s": 3.0, "spawn": [{"id": "grunt", "n": 4, "pattern": "cluster", "dist": 420}]},
         "until": {"kills": 25}},
@@ -45,7 +45,7 @@
         "until": {"time": 1.3}},
       {"id": "dash", "text": "DASH through it!", "target": "dash", "slowmo": true,
         "until": {"dashes": 1}, "done": {"bomb": true}},
-      {"id": "grow", "text": "Grab the XP gems", "show_s": 3.0, "min_s": 14, "max_s": 30,
+      {"id": "grow", "text": "Pick upgrades that work together", "show_s": 3.0, "min_s": 14, "max_s": 30,
         "start": {"ambient": 1.0, "xp_mult": 2.5, "grant_levels": 1, "offers": [["showcase", "partner", "might"], ["showcase", "partner", "haste"], ["showcase", "partner", "swift"]]},
         "until": {"picks": 2}},
       {"id": "surround", "text": "Surrounded! Dash out", "show_s": 3.0, "min_s": 3, "max_s": 10,
@@ -104,6 +104,28 @@
     {"id": "virulence", "kind": "feature", "name": "Virulence", "desc": "Harder levels for bigger rewards. Win to climb.", "wins": 1},
     {"id": "lab", "kind": "tile", "name": "The Lab", "desc": "Spend Genes from wins on a skill tree and abilities.", "genes": 1}
   ],
+  "card_hint_runs": 15,
+  "card_hints": {
+    "bolt": "Single target: melts elites and bosses",
+    "orbit": "Close range: blocks shots. Tank builds",
+    "nova": "Crowd control: shoves germs back",
+    "chain": "Crowd clear: leaps through packed germs",
+    "might": "Every build wants more damage",
+    "haste": "Everything fires faster",
+    "swift": "Speed keeps kiting builds safe",
+    "vitality": "Tank builds: wade through crowds",
+    "magnet": "More XP, faster levels",
+    "multishot": "More bolts, antibodies and spark jumps",
+    "regen": "Tank builds: heal while you fight",
+    "flagella2": "Dash build: more dashes in a row",
+    "lunge": "Dash build: your dash becomes a weapon",
+    "afterimage": "Dash build: decoys pull germs away",
+    "adrenaline": "Dash build: dash far more often",
+    "volatile": "Dash build finisher: dash kills explode",
+    "viral": "Swarm build: more allies, more healing",
+    "hive": "Swarm build: stronger with a big swarm",
+    "incubate": "Swarm build: a bigger, longer swarm"
+  },
   "ads_from_runs": 3,
   "free_pick_max_cost": 2500
 }

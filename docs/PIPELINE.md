@@ -346,3 +346,9 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Fixes found on the way: a refused damage number (effects list full) was still registered and crashed the next merge; the chest reels touched freed cards if closed mid-spin.
 - 290 tests (18 new: the bot finishes the prologue with an evolution and a boss kill, can't die, rotation, forced offers, score/medals, unlock rules, announcements, free pick, coaches finish in their modes, veteran saves, merge).
 - Fix (Yousuf: unlock text cut off bottom-right): the locked-tile/mode banner was anchored wrongly; now a full-width panel over the hero cell's space (follows the menu on any screen shape), one at a time; clearer wording ("Play 2 more runs to unlock", "Win a run (it earns Genes) to unlock", cards "3 more runs or a win").
+
+### 2026-11-08 New-player start: fewer screens (Yousuf: "it needs to be seamless", picked "fewer screens only")
+- Unlock popups removed: new unlocks show as a banner over the hero area that fades by itself ("UNLOCKED: Style, Infection"), plus NEW badges on the mode card or tile until opened (selecting the mode or starting a run in it clears it). The old static "NEW" tags in modes.json are gone (the badge is real now).
+- Build paths are taught on the level-up cards: a short lavender line per card from `onboarding.card_hints` ("Dash build: your dash becomes a weapon", "Tank builds: wade through crowds", ...), in Patient Zero and a player's first 15 real runs (`card_hint_runs`); hidden when the card shows an evolution hint.
+- Patient Zero basics are quicker (move beat 150 px / 5 s max, shorter text); the grow beat now says "Pick upgrades that work together".
+- 291 tests.

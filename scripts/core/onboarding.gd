@@ -168,6 +168,15 @@ static func ads_allowed(d: Dictionary, p: Profile) -> bool:
 	return bool(_ob(p).get("all", false)) or int(p.stats.runs) >= int(d.onboarding.get("ads_from_runs", 0))
 
 
+## The level-up card's build hint ("Dash build: ..."), shown in Patient Zero
+## and a player's first `card_hint_runs` real runs ("" otherwise).
+static func card_hint(d: Dictionary, p: Profile, id: String, prologue: bool) -> String:
+	var ob: Dictionary = d.get("onboarding", {})
+	if not prologue and (bool(_ob(p).get("all", false)) or int(p.stats.runs) >= int(ob.get("card_hint_runs", 0))):
+		return ""
+	return str(ob.get("card_hints", {}).get(id, ""))
+
+
 static func free_pick(p: Profile) -> bool:
 	return bool(_ob(p).get("free_pick", false))
 

@@ -260,3 +260,19 @@ func test_gold_medal_skin_matches_the_gold_medal() -> void:
 	var p := Profile.new()
 	Onboarding.record_prologue(p, gold, 300, 1)
 	check(Cosmetics.earned(it, p))
+
+
+func test_card_hints_for_new_players_only() -> void:
+	var d := data()
+	var p := Profile.new()
+	check(Onboarding.card_hint(d, p, "lunge", false).begins_with("Dash build"))
+	check_eq(Onboarding.card_hint(d, p, "nope", false), "")
+	p.stats.runs = int(d.onboarding.card_hint_runs)
+	check_eq(Onboarding.card_hint(d, p, "lunge", false), "", "gone after the early runs")
+	check(Onboarding.card_hint(d, p, "lunge", true) != "", "always in Patient Zero")
+	var vet := Profile.from_dict({"version": 7, "stats": {"runs": 3}})
+	check_eq(Onboarding.card_hint(d, vet, "lunge", false), "", "veterans don't get them")
+	for u in d.upgrades:
+		var h := str(d.onboarding.card_hints.get(u.id, ""))
+		check(h != "", "%s has a card hint" % u.id)
+		check(h.length() <= 44, "%s hint fits a card (%d chars)" % [u.id, h.length()])
