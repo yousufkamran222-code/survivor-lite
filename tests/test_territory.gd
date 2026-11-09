@@ -118,9 +118,6 @@ func test_core_never_erodes() -> void:
 
 func test_claim_burst_hurts_enclosed_enemies() -> void:
 	var w := _world()
-	w._trail_hit = true  # a normal claim (a Perfect Loop would kill it: test_skill.gd)
-	w.skill = w.skill.duplicate(true)
-	w.skill.erase("perfect_loop")
 	w._add_enemy("brute", Vector2(300, 200))
 	var hp0 := w.e_hp[0]
 	w._rebuild_grid()

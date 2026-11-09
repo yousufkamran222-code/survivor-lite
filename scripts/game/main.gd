@@ -403,7 +403,7 @@ func _handle_events(events: Array) -> void:
 			"perfect_loop":
 				Sfx.play("upgrade", 0.0, 1.2)
 				Sfx.vibrate(50)
-				hud.toast("PERFECT LOOP!  x2 XP", pal.ui_accent, 1.5)
+				hud.toast("PERFECT LOOP!  x2 XP", pal.ui_accent, 1.5)  # no hits while drawing it
 				Analytics.event("perfect_loop", {"tiles": int(ev.tiles)})
 			"clutch_claim":
 				Sfx.play("boss", 0.0, 1.5)
@@ -2792,9 +2792,10 @@ func _load_hints(mode_id: String) -> void:
 	var h: Dictionary = data.get("hints", {})
 	var taught := Onboarding.prologue_done(Save.profile)  # the prologue covered moving, dash, upgrades, elites, Outbreak
 	for hint in h.get("shared", []) + h.get(mode_id, []):
-		if taught and h.get("shared", []).has(hint) and str(hint.id) != "build_menu":
+		var skill_tip: bool = hint.get("skill", false)  # skill-move tips: always shown once
+		if taught and not skill_tip and h.get("shared", []).has(hint) and str(hint.id) != "build_menu":
 			continue
-		if data.onboarding.get("coaches", {}).has(mode_id) and h.get(mode_id, []).has(hint):
+		if not skill_tip and data.onboarding.get("coaches", {}).has(mode_id) and h.get(mode_id, []).has(hint):
 			continue  # the mode's coach replaces its text tips
 		if not Save.hints_seen.has(hint.id):
 			_hints.append(hint)

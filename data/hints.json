@@ -7,11 +7,16 @@
     {"id": "rift", "event": "rift_open", "text": "A rift! Step in to fight a boss and win a power for this run."},
     {"id": "rift_bait", "event": "missile_launch", "text": "Lure the Seeker Phage: let it chase you, run at the Carrier, then dash aside when it locks!"},
     {"id": "elite", "event": "elite_spawn", "text": "An elite! Kill it for a chest. Follow the gold arrow."},
-    {"id": "outbreak", "event": "outbreak_ready", "text": "OUTBREAK is ready! Tap it: faster weapons, half damage, and nearby germs turn to gold."}
+    {"id": "outbreak", "event": "outbreak_ready", "text": "OUTBREAK is ready! Tap it: faster weapons, half damage, and nearby germs turn to gold."},
+    {"id": "skill_perfect", "event": "dash", "skill": true, "text": "Dash right before a hit for a PERFECT dodge: the dash comes back and you hit harder."},
+    {"id": "skill_overdrive", "event": "perfect_dodge", "skill": true, "text": "Dash 4 times back to back for OVERDRIVE: fast and untouchable."},
+    {"id": "skill_streak", "event": "streak_buff", "skill": true, "text": "Streak power! Keep killing without getting hit to grow it."}
   ],
   "infection": [
     {"id": "claim", "at": 3.0, "text": "Leave your land and loop back in to claim everything inside."},
-    {"id": "erosion", "event": "land_lost", "text": "Germs on your land eat it back. Keep claiming!"}
+    {"id": "erosion", "event": "land_lost", "text": "Germs on your land eat it back. Keep claiming!"},
+    {"id": "skill_perfect_loop", "event": "claim", "skill": true, "text": "Close a loop without getting hit for x2 XP."},
+    {"id": "skill_clutch", "event": "trail_red", "skill": true, "text": "Close it NOW, while it flashes, to stun every germ inside!"}
   ],
   "swarm": [
     {"id": "swarm", "at": 3.0, "text": "Some kills rise as allies that guard you."},

@@ -77,7 +77,7 @@ func test_overdrive_after_four_back_to_back_dashes() -> void:
 	w.p_dash_t = 0.0
 	w._update_player(0.1, Vector2.RIGHT)
 	var fast := w.p_pos.distance_to(p0)
-	check(fast > float(data().balance.player.speed) * 0.1 * 2.0, "much faster than walking (%.1f)" % fast)
+	check(fast > float(data().balance.player.speed) * 0.1 * 1.5, "much faster than walking (%.1f)" % fast)
 
 
 func test_slow_dashes_never_overdrive() -> void:
@@ -127,13 +127,28 @@ func test_streak_buff_damage_applies_to_hits() -> void:
 	check_near((hp1 - w.e_hp[0]) / plain, 1.0 + float(w.skill.streak_buffs[2].damage), 0.01)
 
 
-func test_perfect_loop_wipes_the_inside() -> void:
+func _loop_xp(hit: bool) -> float:
+	var w := _infection()
+	_walk(w, [Vector2(150, 0), Vector2(500, 0)])
+	if hit:
+		w._hurt(1.0, "test")
+	_walk(w, [Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
+	check_eq(w.perfect_loops, 0 if hit else 1)
+	return w.xp + w.xp_next * (w.level - 1)
+
+
+func test_perfect_loop_doubles_claim_xp_only() -> void:
+	var plain := _loop_xp(true)
+	var perfect := _loop_xp(false)
+	check(perfect > plain * 1.8, "x2 claim XP (%.1f vs %.1f)" % [perfect, plain])
 	var w := _infection()
 	w._add_enemy("brute", Vector2(300, 200))
 	w._rebuild_grid()
+	var hp0 := w.e_hp[0]
 	_walk(w, [Vector2(150, 0), Vector2(500, 0), Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
 	check_eq(w.perfect_loops, 1)
-	check_eq(w.hostile_count(), 0, "a no-damage loop kills what's inside")
+	check_eq(w.hostile_count(), 1, "no extra kills: the normal claim burst only")
+	check(w.e_hp[0] > hp0 * 0.4, "brute took just the normal burst")
 
 
 func test_taking_damage_spoils_the_perfect_loop() -> void:
@@ -144,7 +159,6 @@ func test_taking_damage_spoils_the_perfect_loop() -> void:
 	w._hurt(1.0, "test")
 	_walk(w, [Vector2(500, 400), Vector2(0, 400), Vector2(0, 150), Vector2(0, 0)])
 	check_eq(w.perfect_loops, 0)
-	check_eq(w.hostile_count(), 1, "a normal burst only")
 
 
 func test_clutch_claim_stuns_whats_inside() -> void:
@@ -156,6 +170,7 @@ func test_clutch_claim_stuns_whats_inside() -> void:
 	w.terr.trail_age = float(w.bal.territory.trail_timeout_s) - 1.0  # flashing red
 	_walk(w, [Vector2(0, 150), Vector2(0, 0)])
 	check_eq(w.clutch_claims, 1)
+	check(w.hostile_count() == 1, "the brute survived the burst")
 	check(w.e_stun[0] > 1.0, "stunned")
 	var p0 := w.e_pos[0]
 	w.p_pos = p0

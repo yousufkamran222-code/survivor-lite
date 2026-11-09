@@ -2031,6 +2031,8 @@ func _update_territory(dt: float) -> void:
 		var perfect := had_trail and not hit and claimed.size() >= int(pl.get("min_tiles", 1)) and not pl.is_empty()
 		var clutch := had_trail and left <= float(skill.get("clutch_claim", {}).get("last_s", -1.0))
 		_on_claim(claimed, perfect, clutch)
+	elif had_trail and not terr.trail_cells.is_empty() and left > float(skill.get("clutch_claim", {}).get("last_s", -1.0)) and terr.trail_time_left() <= float(skill.get("clutch_claim", {}).get("last_s", -1.0)):
+		_emit({"type": "trail_red"})  # the trail starts flashing: a Clutch Claim is possible now
 	_terr_tick += dt
 	var tick := float(bal.territory.tick_s)
 	if _terr_tick < tick:
@@ -2061,8 +2063,8 @@ func _update_territory(dt: float) -> void:
 
 
 ## Newly enclosed land bursts: enemies standing on it lose a chunk of max HP.
-## Perfect Loop (no damage taken since the trail began): a much bigger burst
-## and double claim XP. Clutch Claim (closed while the trail was flashing,
+## Perfect Loop (no damage taken since the trail began): double claim XP.
+## Clutch Claim (closed while the trail was flashing,
 ## in its last seconds): every germ inside that survives is stunned.
 func _on_claim(claimed: PackedInt32Array, perfect: bool = false, clutch: bool = false) -> void:
 	claims += 1
@@ -2070,13 +2072,12 @@ func _on_claim(claimed: PackedInt32Array, perfect: bool = false, clutch: bool = 
 	for i in claimed:
 		set[i] = true
 	var pl: Dictionary = skill.get("perfect_loop", {})
-	var frac := float(pl.get("burst_frac", 1.0)) if perfect else float(bal.territory.claim_burst_frac)
-	var efrac := minf(frac, float(pl.get("elite_burst_frac", frac))) if perfect else frac
+	var frac := float(bal.territory.claim_burst_frac)
 	var inside := []
 	for i in e_pos.size():
 		if e_team[i] == 0 and set.has(terr.index_of(e_pos[i])) and _tbeh[e_type[i]] != BEH_BOSS:
 			inside.append(e_uid[i])
-			_damage(i, e_maxhp[i] * (efrac if e_elite[i] == 1 else frac), Vector2.ZERO)
+			_damage(i, e_maxhp[i] * frac, Vector2.ZERO)
 	_process_dead()
 	var stunned := 0
 	if clutch:

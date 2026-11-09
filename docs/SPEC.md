@@ -116,9 +116,9 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 
 ## Skill moves (`balance.skill`)
 - **Perfect Dodge:** dash at the last moment before a hit (shot, germ, elite charge, boss slam) → slow-motion flash, the dash comes back, a shockwave, and 3 s of ×1.6 damage and ×1.35 fire rate.
-- **Overdrive:** 4 dashes back to back (each within 0.5 s of being ready) → 2.5 s of ×2.6 speed and invulnerability. With the Lab's Slipstream you ram germs the whole time.
-- **Streak power:** kill streaks give growing in-run buffs (x25: +15% damage … x500: +120% damage, +25% speed, +60% fire rate), lost when the streak breaks.
-- **Perfect Loop (Infection):** close a loop without taking damage → everything inside dies (elites lose 40%), ×2 claim XP.
+- **Overdrive:** 4 dashes back to back (each within 0.5 s of being ready) → 2.5 s of ×2 speed (still aimable) and invulnerability. With the Lab's Slipstream you ram germs the whole time.
+- **Streak power:** kill streaks give growing in-run buffs (x25: +15% damage … x500: +120% damage, +25% speed, +60% fire rate), lost when the streak breaks; getting hit starts the power over (the streak keeps counting).
+- **Perfect Loop (Infection):** close a loop without taking damage → ×2 claim XP.
 - **Clutch Claim (Infection):** close a loop while its trail is flashing red (last 2.5 s) → every germ inside is stunned for 2 s.
 
 ## Cosmetics (`data/cosmetics.json`), visual only
