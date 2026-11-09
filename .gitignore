@@ -11,3 +11,6 @@ service-account*.json
 __pycache__/
 .venv/
 /data/build_info.json
+
+# Android build template (installed by CI, ~200 MB)
+/android/

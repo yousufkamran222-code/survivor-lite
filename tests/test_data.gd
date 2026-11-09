@@ -49,3 +49,14 @@ func test_hint_events_exist_in_the_world() -> void:
 				n += 1
 				check(('"type": "%s"' % hint.event) in src, "hint '%s' waits for unknown event '%s'" % [hint.id, hint.event])
 	check(n > 0, "some hints are event-triggered")
+
+
+func test_store_builds_force_debug_off() -> void:
+	var d := data()
+	d.balance.debug.dev_tools = true
+	d.balance.debug.show_perf = true
+	d.balance.debug.invincible = true
+	GameData.apply_store_build(d, false)
+	check(d.balance.debug.dev_tools, "playtest builds keep the dev tools")
+	GameData.apply_store_build(d, true)
+	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)

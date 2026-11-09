@@ -167,8 +167,27 @@ func test_save_file_roundtrip_and_backup() -> void:
 	sv3.legacy = sv.legacy
 	sv3.load_save()
 	check_eq(sv3.gold, 77, "falls back to the backup")
-	for n in [sv, sv2, sv3]:
+	check(FileAccess.file_exists(sv.path.get_basename() + ".corrupt"), "the corrupt file is kept aside")
+	sv3.write()  # saving now must not copy the corrupt file over the good backup
+	var sv4: Node = load("res://scripts/autoload/save_service.gd").new()
+	sv4.path = "user://test_io_missing.json"
+	sv4.backup = sv.backup
+	sv4.legacy = sv.legacy
+	sv4.load_save()
+	check_eq(sv4.gold, 77, "backup still holds the good save")
+	for n in [sv, sv2, sv3, sv4]:
 		n.free()
+
+
+func test_newer_save_is_kept_aside() -> void:
+	var sv := _save_service("newer")
+	var f := FileAccess.open(sv.path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": Profile.VERSION + 5, "gold": 42}))
+	f.close()
+	sv.load_save()
+	check_eq(sv.gold, 42, "still loads what it can")
+	check(FileAccess.file_exists(sv.path.get_basename() + ".newer"), "a copy is kept before we overwrite it")
+	sv.free()
 
 
 func test_legacy_cfg_is_imported() -> void:

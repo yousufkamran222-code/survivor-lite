@@ -1,0 +1,141 @@
+name: Store build (AAB)
+
+# The Google Play build: an Android App Bundle exported with the "Android
+# Store" preset (Gradle build, custom feature "store": developer tools and the
+# perf readout are forced off in game, see GameData.apply_store_build).
+# Run it from the Actions tab, or push a v* tag.
+#
+# Signing: with the ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
+# ANDROID_KEY_ALIAS secrets (docs/SETUP.md §2) the AAB is signed with your
+# upload key and can go to Play. Without them it is signed with a throwaway
+# key: fine for checking the pipeline, NEVER upload it (Play would lock that
+# key in as the upload key).
+#
+# Checks: Android Auto Backup is on (progress survives a reinstall or a new
+# phone), the target API is the template's (36), and every arm64 native
+# library is 16 KB-page aligned (Google Play rule for Android 15+ targets).
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: ./.github/actions/setup-godot
+        with:
+          templates: "true"
+
+      - name: Tests
+        run: godot --headless --path . -s res://tests/run_tests.gd
+
+      - name: Android SDK packages (platform 36 + the template's build-tools)
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "build-tools;36.1.0" > /dev/null
+
+      - name: Install the Android build template (not committed, ~200 MB)
+        run: |
+          V="$(tr -d '[:space:]' < GODOT_VERSION)"
+          T="$HOME/.local/share/godot/export_templates/${V}.stable/android_source.zip"
+          rm -rf android && mkdir -p android/build
+          unzip -q "$T" -d android/build
+          echo "${V}.stable" > android/.build_version
+          touch android/build/.gdignore
+          M=android/build/src/main/AndroidManifest.xml
+          sed -i 's/android:allowBackup="false"/android:allowBackup="true"/' "$M"
+          grep -q 'android:allowBackup="true"' "$M"
+          grep -E "compileSdk|targetSdk|minSdk" android/build/config.gradle | head -3
+
+      - name: Configure Godot editor settings (SDK + JDK paths)
+        run: |
+          godot --headless --editor --quit --path . || true
+          python3 - <<'PY'
+          import glob, os, re
+          path = sorted(glob.glob(os.path.expanduser("~/.config/godot/editor_settings-*.tres")))[-1]
+          s = open(path).read()
+          vals = {
+              "export/android/android_sdk_path": os.environ["ANDROID_HOME"],
+              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+          }
+          for k, v in vals.items():
+              line = f'{k} = "{v}"'
+              if re.search(rf"^{re.escape(k)} = .*$", s, flags=re.M):
+                  s = re.sub(rf"^{re.escape(k)} = .*$", line, s, flags=re.M)
+              else:
+                  s = s.rstrip("\n") + "\n" + line + "\n"
+          open(path, "w").write(s)
+          print("patched", path)
+          PY
+
+      - name: Stamp version
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
+
+      - name: Export AAB
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          mkdir -p build/android
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$RUNNER_TEMP/release.keystore"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$KEY_ALIAS"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$KEYSTORE_PASS"
+            echo "SIGNED=upload" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No signing secrets: the AAB is signed with a THROWAWAY key. Do not upload it to Play."
+            keytool -genkeypair -keystore "$RUNNER_TEMP/throwaway.keystore" -storepass throwaway -alias throwaway \
+              -keypass throwaway -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Throwaway,O=Test,C=US"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$RUNNER_TEMP/throwaway.keystore"
+            export GODOT_ANDROID_KEYSTORE_RELEASE_USER=throwaway
+            export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=throwaway
+            echo "SIGNED=THROWAWAY-do-not-upload" >> "$GITHUB_ENV"
+          fi
+          godot --headless --path . --export-release "Android Store" build/android/petri-panic.aab
+          ls -la build/android
+          test -s build/android/petri-panic.aab
+
+      - name: Check 16 KB page alignment (arm64 native libraries)
+        run: |
+          mkdir -p "$RUNNER_TEMP/aab" && cd "$RUNNER_TEMP/aab"
+          unzip -q -o "$GITHUB_WORKSPACE/build/android/petri-panic.aab"
+          bad=0; n=0
+          for f in $(find . -path "*arm64-v8a*" -name "*.so"); do
+            n=$((n + 1))
+            for a in $(readelf -lW "$f" | awk '$1 == "LOAD" {print $NF}'); do
+              if [ $((a)) -lt 16384 ]; then echo "::error::$f LOAD alignment $a < 0x4000"; bad=1; fi
+            done
+          done
+          echo "checked $n arm64 libraries"
+          test "$n" -gt 0
+          test "$bad" -eq 0
+
+      - name: Summary
+        run: |
+          {
+            echo "### Store build (AAB) #${GITHUB_RUN_NUMBER}"
+            echo "- signed with: **${SIGNED}**"
+            echo "- size: $(du -h build/android/petri-panic.aab | cut -f1)"
+            echo "- 16 KB alignment: OK; Auto Backup: on; target API: template default"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petri-panic-aab-${{ github.run_number }}-${{ env.SIGNED }}
+          path: build/android/petri-panic.aab
+          retention-days: 30

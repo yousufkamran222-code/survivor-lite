@@ -48,6 +48,8 @@ var _mode_box: VBoxContainer  # the menu carousel card + Virulence pill + dots (
 var _play_btn: Button
 var _browse := ""  # carousel page shown (a mode id or "prologue")
 var _swipe_from := -9999.0
+var _menu_page := "home"  # which menu page is open (Android Back goes up one level)
+var _quit_pop = null  # "Quit?" confirm (UiKit.overlay array)
 var _mode_pick = null  # the mode list overlay (UiKit.overlay array), built on demand  # the hero cell spacer on the menu (toasts sit over it)
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
@@ -79,6 +81,7 @@ func _ready() -> void:
 	for e in errors:
 		push_error("data: " + e)
 	bal = data.balance
+	GameData.apply_store_build(data, OS.has_feature("store"))
 	# The Lab was reshaped (2026-11-05): refund Genes for removed/repriced nodes.
 	var lab_back := Save.profile.migrate_lab(data.lab, Save.now())
 	Save.write()
@@ -279,6 +282,37 @@ func _move_input() -> Vector2:
 	return v.limit_length(1.0)
 
 
+## Android Back on the menu: close the mode list or quit prompt, go up from
+## a sub-screen (Abilities → Lab, others → menu), else ask before quitting.
+func _menu_back() -> void:
+	if _quit_pop != null and is_instance_valid(_quit_pop[0]) and _quit_pop[0].visible:
+		_quit_pop[0].visible = false
+	elif _mode_pick != null and is_instance_valid(_mode_pick[0]) and _mode_pick[0].visible:
+		_mode_pick[0].visible = false
+	elif _menu_page == "abilities":
+		_show_lab()
+	elif _menu_page != "home":
+		Save.write()
+		_show_menu()
+	else:
+		_ask_quit()
+
+
+func _ask_quit() -> void:
+	if _quit_pop == null or not is_instance_valid(_quit_pop[0]):
+		_quit_pop = UiKit.overlay(ui_root, 0.8)
+	var col: VBoxContainer = _quit_pop[1]
+	UiKit.clear(col)
+	col.add_theme_constant_override("separation", 20)
+	col.add_child(UiKit.display(UiKit.label("QUIT?", 56, pal.ui_accent), 10))
+	col.add_child(UiKit.label("Your progress is saved.", 24, Color(pal.text, 0.75)))
+	col.add_child(UiKit.button("KEEP PLAYING", func() -> void: _quit_pop[0].visible = false, 110, "primary"))
+	col.add_child(_text_button("Quit", func() -> void:
+		Save.write()
+		get_tree().quit()))
+	UiKit.reveal(_quit_pop)
+
+
 func _release_stick() -> void:
 	_touch_index = -1
 	hud.stick_active = false
@@ -297,6 +331,12 @@ func _notification(what: int) -> void:
 			_resume()
 		elif screen == "build":
 			_close_build()
+		elif screen == "levelup":
+			_later()  # keep the level-ups banked
+		elif screen == "chest":
+			_close_chest()
+		elif screen == "menu":
+			_menu_back()
 
 
 # -------------------------------------------------------------- game loop
@@ -830,6 +870,7 @@ func _show_menu() -> void:
 	_menu_bg.visible = true
 	_menu_bg.show_hero = true
 	_menu_bg.look = Cosmetics.look(data.cosmetics, Save.profile)
+	_menu_page = "home"
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
 	col.add_theme_constant_override("separation", 14)
@@ -1314,7 +1355,7 @@ func _menu_toast(text: String, life: float = 1.8, border: Color = Color(0, 0, 0,
 	tw.tween_callback(p.queue_free)
 
 
-func _gold_pill() -> Control:
+func _gold_pill(shown: int = -1) -> Control:
 	var pill := PanelContainer.new()
 	var sb := UiKit._box(Color(0.08, 0.05, 0.14, 0.85), 26, 14)
 	sb.set_border_width_all(2)
@@ -1323,7 +1364,7 @@ func _gold_pill() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	h.add_child(UpgradeIcon.make("gold", pal.ui_accent, 36))
-	var amount := UiKit.display(UiKit.label(str(Save.gold), 28, pal.ui_accent))
+	var amount := UiKit.display(UiKit.label(str(Save.gold if shown < 0 else shown), 28, pal.ui_accent))
 	amount.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(amount)
 	pill.add_child(h)
@@ -1360,6 +1401,7 @@ func _tile_button(icon_key: String, accent: Color, text: String, on_press: Calla
 
 ## Lifetime stats, per-mode records and achievements (ProfileScreen).
 func _show_profile() -> void:
+	_menu_page = "profile"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
@@ -1381,6 +1423,7 @@ func _current_mode() -> Dictionary:
 
 ## Permanent upgrades bought with gold: tile grid + detail popup (MetaShop).
 func _show_shop() -> void:
+	_menu_page = "shop"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
@@ -1392,6 +1435,7 @@ func _show_shop() -> void:
 
 ## The Lab: Genes-paid skill tree (LabScreen).
 func _show_lab() -> void:
+	_menu_page = "lab"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
@@ -1403,6 +1447,7 @@ func _show_lab() -> void:
 
 ## Cosmetics: preview, buy and equip skins, weapon styles and pops (StyleScreen).
 func _show_style() -> void:
+	_menu_page = "style"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
@@ -1414,6 +1459,7 @@ func _show_style() -> void:
 
 ## Lab abilities: pick the one to equip (AbilitiesScreen).
 func _show_abilities() -> void:
+	_menu_page = "abilities"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
@@ -2083,6 +2129,9 @@ func _show_results(won: bool) -> void:
 		Save.profile.set_virulence(mid, _virulence_cleared + 1)  # next run defaults to the new level
 	_new_best = int(_summary.score) > prev_best
 	Online.report_run(_summary, data.online.leaderboards, _new_achievements)
+	# The run's gold is credited and saved right away (the coin animation
+	# later is only for show), so a killed app or an ad can't lose it.
+	Save.profile.add_gold(_results_gold, Save.now())
 	Save.write()
 	Analytics.event("run_end", {"won": won, "t": int(world.time), "level": world.level, "kills": world.kills, "gold": _results_gold, "elites": world.elites_killed, "chests": world.chests_opened, "evolutions": world.evolved.size(), "dashes": world.dashes, "infected": snappedf(world.terr.infected_fraction(), 0.01) if world.terr != null else -1.0, "conversions": world.conversions, "mode": _current_mode().id, "virulence": int(world.bal.get("virulence", 1))})
 	_build_results(won)
@@ -2232,7 +2281,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	# Wallet (top-right): the run's gold flies into it on collect.
 	if is_instance_valid(_results_wallet):
 		_results_wallet.queue_free()
-	var wallet := _gold_pill()
+	var wallet := _gold_pill(Save.gold - _results_gold)  # shows the wallet before this run's gold flies in
 	wallet.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	wallet.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	wallet.offset_left = -28.0
@@ -2253,6 +2302,8 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 					_results_doubled = true
 					var before := _results_gold
 					_results_gold *= 2
+					Save.profile.add_gold(_results_gold - before, Save.now())  # the bonus is saved at once too
+					Save.write()
 					_build_results(won, false, before)
 				else:
 					_build_results(won, false)), 96, "positive"))
@@ -2398,8 +2449,7 @@ func _collect(again: bool) -> void:
 		_collecting = false
 	if is_instance_valid(_results_wallet):
 		_results_wallet.queue_free()
-	Save.profile.add_gold(_results_gold, Save.now())
-	_results_gold = 0
+	_results_gold = 0  # already in the wallet (credited in _show_results)
 	Save.write()
 	var next := _start_run if again else _show_menu
 	var a: Dictionary = bal.ads
@@ -2424,7 +2474,7 @@ func _gold_fly_in(amount: int) -> void:
 	var origin := root.get_global_rect().position
 	var src := _results_gold_icon.get_global_rect().get_center() - origin
 	var wl: Label = _results_wallet.find_children("*", "Label", true, false)[0]
-	wl.custom_minimum_size.x = maxf(wl.size.x, wl.get_theme_font("font").get_string_size(str(Save.gold + amount), HORIZONTAL_ALIGNMENT_LEFT, -1, wl.get_theme_font_size("font_size")).x + 4.0)  # no reflow while it counts up
+	wl.custom_minimum_size.x = maxf(wl.size.x, wl.get_theme_font("font").get_string_size(str(Save.gold), HORIZONTAL_ALIGNMENT_LEFT, -1, wl.get_theme_font_size("font_size")).x + 4.0)  # no reflow while it counts up
 	var wicon: Control = _results_wallet
 	for c in _results_wallet.find_children("*", "", true, false):
 		if c is UpgradeIcon:
@@ -2435,7 +2485,7 @@ func _gold_fly_in(amount: int) -> void:
 	var fly := float(bal.juice.get("gold_fly_s", 0.6))
 	var gap := minf(float(bal.juice.get("gold_fly_gap_s", 0.06)), 1.0 / n)
 	var left := [amount]
-	var wallet := [Save.gold]
+	var wallet := [Save.gold - amount]  # the gold is already saved: count up to it
 	_results_gold_label.text = "+%d gold" % amount
 	_results_wallet.pivot_offset = _results_wallet.size / 2.0
 	var sent := 0
@@ -2613,6 +2663,7 @@ func _settings_screen(back: Callable) -> SettingsScreen:
 
 
 func _show_settings() -> void:
+	_menu_page = "settings"
 	_menu_bg.show_hero = false
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)

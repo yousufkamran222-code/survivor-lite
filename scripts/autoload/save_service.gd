@@ -18,6 +18,7 @@ var profile := Profile.new()
 var path := PATH
 var backup := BACKUP
 var legacy := LEGACY
+var _main_ok := false  # the main file loaded cleanly (only then may it become the backup)
 
 var gold: int:
 	get: return profile.gold
@@ -44,8 +45,8 @@ var vibration: bool:
 var shake: float:  # screen-shake strength: 0, 0.5, 1, 1.5
 	get: return float(profile.settings.get("shake", 1.0))
 	set(v): profile.settings["shake"] = v
-var fps_cap: int:  # 0 = the screen's max, else 60 or 30
-	get: return int(profile.settings.get("fps_cap", 0))
+var fps_cap: int:  # 0 = the screen's max, else 60 or 30 (default 60: cooler phones, longer battery)
+	get: return int(profile.settings.get("fps_cap", 60))
 	set(v): profile.settings["fps_cap"] = v
 var show_fps: int:  # -1 = use balance.json debug.show_perf, 0 off, 1 on
 	get: return int(profile.settings.get("show_fps", -1))
@@ -70,6 +71,11 @@ func _ready() -> void:
 
 func load_save() -> void:
 	var p := _read(path)
+	_main_ok = p != null
+	if p == null and FileAccess.file_exists(path):
+		# Unreadable: keep it aside (it may be recoverable) and never let a
+		# later write copy it over the good backup.
+		DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path.get_basename() + ".corrupt"))
 	if p == null:
 		p = _read(backup)
 	if p == null and FileAccess.file_exists(legacy):
@@ -89,6 +95,10 @@ func _read(path: String) -> Profile:
 	if not (parsed is Dictionary):
 		push_warning("Save: unreadable %s" % path)
 		return null
+	if int(parsed.get("version", 0)) > Profile.VERSION:
+		# Written by a newer version of the game (e.g. after a downgrade):
+		# keep a copy before this version saves over it.
+		DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path.get_basename() + ".newer"))
 	return Profile.from_dict(parsed)
 
 
@@ -115,10 +125,12 @@ func write() -> void:
 		return
 	f.store_string(JSON.stringify(profile.to_dict()))
 	f.close()
-	# Full paths: DirAccess.copy() fails on bare file names.
-	if FileAccess.file_exists(path):
+	# Full paths: DirAccess.copy() fails on bare file names. A corrupt main
+	# file never replaces the backup.
+	if FileAccess.file_exists(path) and _main_ok:
 		DirAccess.copy_absolute(path, backup)
 	DirAccess.rename_absolute(tmp, path)
+	_main_ok = true
 
 
 func meta_level(id: String) -> int:

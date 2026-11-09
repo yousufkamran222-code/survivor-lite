@@ -37,6 +37,19 @@ static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
 	return out
 
 
+## Store builds (the Play AAB is exported with the custom feature "store"):
+## developer tools, the perf readout and test invincibility are forced off,
+## whatever balance.json says, so a playtest setting can never ship.
+static func apply_store_build(d: Dictionary, store: bool) -> void:
+	if not store:
+		return
+	var dbg: Dictionary = d.balance.get("debug", {})
+	dbg["dev_tools"] = false
+	dbg["show_perf"] = false
+	dbg["invincible"] = false
+	d.balance["debug"] = dbg
+
+
 ## The Patient Zero prologue (data/onboarding.json): its base mode, then its
 ## own balance overrides and waves overrides (no scripted events, no
 ## timed elites: its beats spawn those). mode_id = "prologue".
