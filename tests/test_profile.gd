@@ -252,3 +252,16 @@ func test_dev_gold_and_refund() -> void:
 
 func test_dev_tools_flag_exists() -> void:
 	check(data().balance.debug.has("dev_tools"), "balance.debug.dev_tools controls the Settings developer tools")
+
+
+func test_menu_ad_gold_daily_cap() -> void:
+	var p := Profile.new()
+	check_eq(p.menu_ads_left("2026-11-09", 3), 3)
+	for k in 3:
+		check_eq(p.claim_menu_ad("2026-11-09", 3, 75, k), 75)
+	check_eq(p.gold, 225)
+	check_eq(p.claim_menu_ad("2026-11-09", 3, 75, 9), 0, "capped for today")
+	check_eq(p.gold, 225)
+	check_eq(p.menu_ads_left("2026-11-10", 3), 3, "a new day resets it")
+	var q := Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())))
+	check_eq(q.menu_ads_left("2026-11-09", 3), 0, "survives a save")

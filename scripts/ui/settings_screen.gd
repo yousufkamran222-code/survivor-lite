@@ -58,6 +58,10 @@ func _build() -> void:
 		tips.disabled = true)
 	tips.disabled = Save.hints_seen.is_empty()
 	add_child(tips)
+	if Ads.privacy_options_required():  # GDPR: change your ad consent (UMP form)
+		var priv := UiKit.button("Privacy options (ads)", func() -> void: Ads.show_privacy_options(), 70)
+		priv.add_theme_font_size_override("font_size", 22)
+		add_child(priv)
 	if not dev_meta.is_empty():
 		if dev_unlocked or dev_password == "":
 			_dev_rows()

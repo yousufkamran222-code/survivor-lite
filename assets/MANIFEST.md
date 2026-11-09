@@ -12,3 +12,9 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 
 Raw third-party inputs (e.g. Kenney CC0 packs) go in `assets/raw/<pack-name>/`, together with the pack's licence file and a row in this table.
 | `assets/raw/lilita_one/LilitaOne-Regular.ttf` + `OFL.txt` | Lilita One by Juan Montoreano, from the Google Fonts repository (github.com/google/fonts, `ofl/lilitaone`); unmodified (the name "Lilita" is a Reserved Font Name, so the file must not be altered) | SIL Open Font License 1.1 |
+
+## Third-party code
+| Path | Source | Licence |
+|---|---|---|
+| `addons/admob/` | Poing Studios Godot AdMob plugin v5.1.0 (github.com/poingstudios/godot-admob-plugin), incl. its Android libraries in `android/bin/`; sample scenes, docs and AI skills removed; `ios/bin/package.gd` is our marker (iOS unused). Its editor art (`assets/`) is excluded from exports | MIT (`addons/admob/LICENSE`) |
+

@@ -11,6 +11,9 @@ name: Store build (AAB)
 # key: fine for checking the pipeline, NEVER upload it (Play would lock that
 # key in as the upload key).
 #
+# Ads: Google's TEST ad IDs unless the ADMOB_APP_ID / ADMOB_REWARDED_ID /
+# ADMOB_INTERSTITIAL_ID secrets exist (real IDs are never committed).
+#
 # Checks: Android Auto Backup is on (progress survives a reinstall or a new
 # phone), the target API is the template's (36), and every arm64 native
 # library is 16 KB-page aligned (Google Play rule for Android 15+ targets).
@@ -39,44 +42,35 @@ jobs:
       - name: Tests
         run: godot --headless --path . -s res://tests/run_tests.gd
 
-      - name: Android SDK packages (platform 36 + the template's build-tools)
-        run: |
-          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" --install "platforms;android-36" "build-tools;36.1.0" > /dev/null
+      - uses: ./.github/actions/android-gradle
 
-      - name: Install the Android build template (not committed, ~200 MB)
+      - name: Real AdMob IDs (only when the secrets exist; otherwise Google's test IDs)
+        env:
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
+          ADMOB_INTERSTITIAL_ID: ${{ secrets.ADMOB_INTERSTITIAL_ID }}
         run: |
-          V="$(tr -d '[:space:]' < GODOT_VERSION)"
-          T="$HOME/.local/share/godot/export_templates/${V}.stable/android_source.zip"
-          rm -rf android && mkdir -p android/build
-          unzip -q "$T" -d android/build
-          echo "${V}.stable" > android/.build_version
-          touch android/build/.gdignore
-          M=android/build/src/main/AndroidManifest.xml
-          sed -i 's/android:allowBackup="false"/android:allowBackup="true"/' "$M"
-          grep -q 'android:allowBackup="true"' "$M"
-          grep -E "compileSdk|targetSdk|minSdk" android/build/config.gradle | head -3
-
-      - name: Configure Godot editor settings (SDK + JDK paths)
-        run: |
-          godot --headless --editor --quit --path . || true
+          if [ -z "$ADMOB_APP_ID" ]; then echo "::warning::No AdMob secrets: the store build uses Google TEST ads."; exit 0; fi
           python3 - <<'PY'
-          import glob, os, re
-          path = sorted(glob.glob(os.path.expanduser("~/.config/godot/editor_settings-*.tres")))[-1]
-          s = open(path).read()
-          vals = {
-              "export/android/android_sdk_path": os.environ["ANDROID_HOME"],
-              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
-          }
-          for k, v in vals.items():
-              line = f'{k} = "{v}"'
-              if re.search(rf"^{re.escape(k)} = .*$", s, flags=re.M):
-                  s = re.sub(rf"^{re.escape(k)} = .*$", line, s, flags=re.M)
+          import os, re
+          p = "project.godot"
+          s = open(p).read()
+          def put(section, key, value):
+              global s
+              line = f'{key}="{value}"'
+              m = re.search(rf"^\[{re.escape(section)}\]\n", s, flags=re.M)
+              if not m:
+                  s = s.rstrip("\n") + f"\n\n[{section}]\n\n{line}\n"
+              elif re.search(rf"^{re.escape(key)}=.*$", s[m.end():], flags=re.M):
+                  s = s[:m.end()] + re.sub(rf"^{re.escape(key)}=.*$", line, s[m.end():], count=1, flags=re.M)
               else:
-                  s = s.rstrip("\n") + "\n" + line + "\n"
-          open(path, "w").write(s)
-          print("patched", path)
+                  s = s[:m.end()] + "\n" + line + "\n" + s[m.end():]
+          put("admob", "general/android/app_id", os.environ["ADMOB_APP_ID"])
+          for k, env in [("admob/rewarded_id", "ADMOB_REWARDED_ID"), ("admob/interstitial_id", "ADMOB_INTERSTITIAL_ID")]:
+              if os.environ.get(env):
+                  put("petri", k, os.environ[env])
+          open(p, "w").write(s)
+          print("AdMob IDs set from secrets")
           PY
 
       - name: Stamp version

@@ -1,15 +1,33 @@
-; Engine configuration file. Edit by hand carefully; keep it minimal.
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[admob]
+
+general/ios/enabled=false
 
 [application]
 
 config/name="Petri Panic"
 config/version="0.1.0"
 run/main_scene="res://scenes/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
-config/quit_on_go_back=false
+
+[autoload]
+
+Save="*res://scripts/autoload/save_service.gd"
+Analytics="*res://scripts/autoload/analytics.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+Ads="*res://scripts/autoload/ad_service.gd"
+Online="*res://scripts/autoload/online_service.gd"
 
 [display]
 
@@ -19,13 +37,13 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/admob/plugin.cfg")
+
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
-
-[physics]
-
-common/physics_ticks_per_second=60
 
 [rendering]
 
@@ -33,11 +51,3 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.113, 0.078, 0.2, 1)
-
-[autoload]
-
-Save="*res://scripts/autoload/save_service.gd"
-Analytics="*res://scripts/autoload/analytics.gd"
-Sfx="*res://scripts/autoload/sfx.gd"
-Ads="*res://scripts/autoload/ad_service.gd"
-Online="*res://scripts/autoload/online_service.gd"

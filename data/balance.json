@@ -124,7 +124,8 @@
   "ads": {
     "interstitial_every_deaths": 3,
     "min_runs_before_interstitial": 2,
-    "stub_duration_s": 1.0
+    "stub_duration_s": 1.0,
+    "menu_gold": {"amount": 75, "per_day": 3}
   },
   "difficulty": {
     "enemy_hp_mult": 1.0,

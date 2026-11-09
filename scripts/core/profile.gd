@@ -408,6 +408,25 @@ func set_virulence(mode: String, level: int) -> void:
 	settings.virulence[mode] = clampi(level, 1, virulence_unlocked(mode))
 
 
+## The menu's "watch an ad for gold" chip: how many are left today (a day
+## string like "2026-11-09"; settings only, no save-format change).
+func menu_ads_left(today: String, per_day: int) -> int:
+	var rec: Variant = settings.get("menu_ads", {})
+	var used := int(rec.get("n", 0)) if rec is Dictionary and str(rec.get("day", "")) == today else 0
+	return maxi(per_day - used, 0)
+
+
+## Records a watched menu ad and pays its gold. Returns the gold paid (0 if
+## today's cap is already used up).
+func claim_menu_ad(today: String, per_day: int, amount: int, now: int) -> int:
+	if menu_ads_left(today, per_day) <= 0:
+		return 0
+	var left := menu_ads_left(today, per_day)
+	settings["menu_ads"] = {"day": today, "n": per_day - left + 1}
+	add_gold(amount, now)
+	return amount
+
+
 func add_gold(amount: int, now: int) -> void:
 	gold += amount
 	stats.gold_earned = int(stats.gold_earned) + amount

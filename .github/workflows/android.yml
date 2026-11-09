@@ -1,6 +1,7 @@
 name: Android build
 
-# Builds an installable APK. Run it from the Actions tab ("Run workflow") before
+# Builds an installable test APK (Gradle build, so the AdMob plugin and its
+# test ads are included; developer tools stay on). Run it from the Actions tab ("Run workflow") before
 # any session where you judge feel/performance, and on every milestone tag (v*).
 #
 # Signing: if the ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD /
@@ -32,26 +33,7 @@ jobs:
       - name: Tests
         run: godot --headless --path . -s res://tests/run_tests.gd
 
-      - name: Configure Godot editor settings (SDK + JDK paths)
-        run: |
-          godot --headless --editor --quit --path . || true
-          python3 - <<'PY'
-          import glob, os, re
-          path = sorted(glob.glob(os.path.expanduser("~/.config/godot/editor_settings-*.tres")))[-1]
-          s = open(path).read()
-          vals = {
-              "export/android/android_sdk_path": os.environ["ANDROID_HOME"],
-              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
-          }
-          for k, v in vals.items():
-              line = f'{k} = "{v}"'
-              if re.search(rf"^{re.escape(k)} = .*$", s, flags=re.M):
-                  s = re.sub(rf"^{re.escape(k)} = .*$", line, s, flags=re.M)
-              else:
-                  s = s.rstrip("\n") + "\n" + line + "\n"
-          open(path, "w").write(s)
-          print("patched", path)
-          PY
+      - uses: ./.github/actions/android-gradle
 
       - name: Stamp version
         run: |

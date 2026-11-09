@@ -1,0 +1,47 @@
+name: Android Gradle setup
+description: Android SDK packages, Godot's Android build template (unpacked into android/, not committed), Auto Backup on, and the editor's SDK/JDK paths. Run after setup-godot with templates.
+runs:
+  using: composite
+  steps:
+    - name: Android SDK packages (platform 36 + the template's build-tools)
+      shell: bash
+      run: |
+        SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        yes | "$SDKM" --licenses > /dev/null || true
+        "$SDKM" --install "platforms;android-36" "build-tools;36.1.0" > /dev/null
+
+    - name: Install the Android build template (~200 MB)
+      shell: bash
+      run: |
+        V="$(tr -d '[:space:]' < GODOT_VERSION)"
+        T="$HOME/.local/share/godot/export_templates/${V}.stable/android_source.zip"
+        rm -rf android && mkdir -p android/build
+        unzip -q "$T" -d android/build
+        echo "${V}.stable" > android/.build_version
+        touch android/build/.gdignore
+        M=android/build/src/main/AndroidManifest.xml
+        sed -i 's/android:allowBackup="false"/android:allowBackup="true"/' "$M"
+        grep -q 'android:allowBackup="true"' "$M"
+        grep -E "compileSdk|targetSdk|minSdk" android/build/config.gradle | head -3
+
+    - name: Godot editor settings (SDK + JDK paths)
+      shell: bash
+      run: |
+        godot --headless --editor --quit --path . || true
+        python3 - <<'PY'
+        import glob, os, re
+        path = sorted(glob.glob(os.path.expanduser("~/.config/godot/editor_settings-*.tres")))[-1]
+        s = open(path).read()
+        vals = {
+            "export/android/android_sdk_path": os.environ["ANDROID_HOME"],
+            "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+        }
+        for k, v in vals.items():
+            line = f'{k} = "{v}"'
+            if re.search(rf"^{re.escape(k)} = .*$", s, flags=re.M):
+                s = re.sub(rf"^{re.escape(k)} = .*$", line, s, flags=re.M)
+            else:
+                s = s.rstrip("\n") + "\n" + line + "\n"
+        open(path, "w").write(s)
+        print("patched", path)
+        PY

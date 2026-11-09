@@ -8,9 +8,10 @@ extends Node
 ##
 ## The backend is picked at startup. On web, desktop and in tests the stub is
 ## used: it shows a fake "ad" overlay and always rewards, so flows can be
-## playtested. The real AdMob backend (Android) is added in a later milestone
-## as scripts/autoload/ads/admob_backend.gd implementing the same methods, and
-## is only selected when the AdMob plugin singleton exists.
+## playtested. On Android with the AdMob plugin (addons/admob, Gradle builds)
+## the real backend (admob_backend.gd: UMP consent, test IDs unless the store
+## build injects real ones) is loaded instead. The game's audio is muted while
+## a real ad plays.
 
 signal ad_started(kind: String, placement: String)
 signal ad_finished(kind: String, placement: String, rewarded: bool)
@@ -21,7 +22,10 @@ var busy := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	backend = StubAdBackend.new()
+	if OS.get_name() == "Android" and Engine.has_singleton("PoingGodotAdMob"):
+		backend = load("res://scripts/autoload/admob_backend.gd").new()  # loaded by path: web/desktop never parse it
+	else:
+		backend = StubAdBackend.new()
 	add_child(backend)
 	print("AdService backend: ", backend.get_backend_name())
 
@@ -37,7 +41,9 @@ func show_rewarded(placement: String, on_done: Callable) -> void:
 	busy = true
 	ad_started.emit("rewarded", placement)
 	Analytics.event("ad_rewarded_start", {"placement": placement})
+	_mute(true)
 	backend.show_rewarded(placement, func(rewarded: bool) -> void:
+		_mute(false)
 		busy = false
 		ad_finished.emit("rewarded", placement, rewarded)
 		Analytics.event("ad_rewarded_end", {"placement": placement, "rewarded": rewarded})
@@ -52,8 +58,26 @@ func show_interstitial(placement: String, on_done: Callable = Callable()) -> voi
 	busy = true
 	ad_started.emit("interstitial", placement)
 	Analytics.event("ad_interstitial", {"placement": placement})
+	_mute(true)
 	backend.show_interstitial(placement, func() -> void:
+		_mute(false)
 		busy = false
 		ad_finished.emit("interstitial", placement, false)
 		if on_done.is_valid():
 			on_done.call())
+
+
+## GDPR (UMP): when consent applies, players must be able to change it later.
+func privacy_options_required() -> bool:
+	return backend.has_method("privacy_options_required") and backend.privacy_options_required()
+
+
+func show_privacy_options() -> void:
+	if backend.has_method("show_privacy_options"):
+		backend.show_privacy_options()
+
+
+func _mute(on: bool) -> void:
+	if backend.get_backend_name() != "stub":
+		AudioServer.set_bus_mute(0, on)  # the existing Master bus (no runtime buses: web audio)
+

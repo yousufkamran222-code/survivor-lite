@@ -880,7 +880,11 @@ func _show_menu() -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(gap)
-	top.add_child(_gold_pill())
+	var gold_pill := _gold_pill()
+	var ad_chip := _menu_ad_chip(gold_pill)
+	if ad_chip != null:
+		top.add_child(ad_chip)
+	top.add_child(gold_pill)
 	col.add_child(top)
 	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
 	col.add_child(title)
@@ -1353,6 +1357,54 @@ func _menu_toast(text: String, life: float = 1.8, border: Color = Color(0, 0, 0,
 	tw.tween_interval(life)
 	tw.tween_property(p, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(p.queue_free)
+
+
+## A small optional "watch an ad for gold" chip beside the gold counter:
+## only when an ad is ready, after the first runs, a few times a day
+## (balance.ads.menu_gold). Never pops up or nags.
+func _menu_ad_chip(gold_pill: Control) -> Control:
+	var cfg: Dictionary = bal.ads.get("menu_gold", {})
+	var today := Time.get_date_string_from_system()
+	var per_day := int(cfg.get("per_day", 0))
+	if per_day <= 0 or not Onboarding.ads_allowed(data, Save.profile) or not Ads.is_rewarded_available():
+		return null
+	if Save.profile.menu_ads_left(today, per_day) <= 0:
+		return null
+	var amount := int(cfg.get("amount", 50))
+	var b := Button.new()
+	b.text = "+%d" % amount
+	b.custom_minimum_size = Vector2(0, 58)
+	b.focus_mode = Control.FOCUS_NONE
+	UiKit.style_button(b, "secondary", 22)
+	UiKit.press_feedback(b)
+	b.icon = _play_icon()
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		Ads.show_rewarded("menu_gold", func(ok: bool) -> void:
+			if not ok or not is_instance_valid(b):
+				return
+			var paid := Save.profile.claim_menu_ad(Time.get_date_string_from_system(), per_day, amount, Save.now())
+			if paid <= 0:
+				return
+			Save.write()
+			Sfx.play("upgrade", 0.0)
+			Analytics.event("menu_ad_gold", {"gold": paid})
+			for l in gold_pill.find_children("*", "Label", true, false):
+				l.text = str(Save.gold)
+			if Save.profile.menu_ads_left(Time.get_date_string_from_system(), per_day) <= 0:
+				b.queue_free()))
+	return b
+
+
+## A small white "play" triangle (the ad chip's icon).
+func _play_icon() -> Texture2D:
+	var img := Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	for y in 24:
+		for x in 24:
+			var inside := x >= 6 and x <= 20 and absf(y - 11.5) <= (x - 6) * 0.0 + (20 - x) * 0.62
+			img.set_pixel(x, y, Color(1, 1, 1, 1) if inside else Color(0, 0, 0, 0))
+	return ImageTexture.create_from_image(img)
 
 
 func _gold_pill(shown: int = -1) -> Control:
