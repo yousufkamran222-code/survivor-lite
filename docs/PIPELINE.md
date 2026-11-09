@@ -377,3 +377,10 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - Saves: an unreadable main file is copied to `profile.corrupt` and never copied over the backup; a save from a newer version is copied to `profile.newer` first.
 - Frame rate defaults to 60 (Settings still offers Max and 30).
 - 306 tests.
+
+### 2026-11-09 M3 step 2: AdMob with consent (test ads)
+- Poing Studios AdMob v5.1.0 installed (5.2 isn't released; v5.1.0 ships a build for Godot 4.7.2). Its Android AARs are committed so CI never downloads; the Google Mobile Ads SDK comes from Maven via Gradle.
+- `AdmobBackend` behind `Ads`: UMP consent → SDK init → rewarded + interstitial kept loaded (retry 5/15/45/120 s), reward only on `on_user_earned_reward`, audio muted while an ad shows, `ad_paid` analytics (value micros + currency).
+- Settings → "Privacy options (ads)" when required. Menu "+75" ad chip (3/day, after 3 runs, only when an ad is ready).
+- Test APK switched to the Gradle build (ads included). Store build injects real AdMob IDs from secrets when they exist.
+- Web export unchanged (stub ads; plugin art/C#/mocks/iOS excluded). 307 tests.

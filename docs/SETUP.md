@@ -69,3 +69,12 @@ Phone model, fps, time and enemy count let me pin down whether the drawing or th
 - Firebase project, with `google-services.json` added as a CI secret (not committed).
 - A Play Console service account JSON as a CI secret, so CI can upload to closed testing (after your first manual upload).
 - App icon and store art from an image tool (512x512 icon, 1024x500 feature graphic).
+
+## 6. AdMob (when your account is ready, M3 step 2 is built)
+The game shows Google's **test ads** until you add these. Never tap your own live ads.
+1. In AdMob: **Apps → Add app** → Android, not yet on Play → name "Petri Panic". Copy the **App ID** (`ca-app-pub-…~…`).
+2. **Ad units → Add**: one **Rewarded** ("rewarded") and one **Interstitial** ("between runs"). Copy each **Ad unit ID** (`ca-app-pub-…/…`).
+3. GitHub → Settings → Secrets and variables → Actions → add `ADMOB_APP_ID`, `ADMOB_REWARDED_ID`, `ADMOB_INTERSTITIAL_ID`.
+4. The next **Store build (AAB)** uses them. Test APKs keep test ads on purpose.
+5. In AdMob → **Privacy & messaging**, create a **GDPR message** (and the US states message) for the app, so the consent form appears for EU/UK players.
+
