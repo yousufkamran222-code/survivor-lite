@@ -78,7 +78,8 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 ## Builds and CI (.github/workflows)
 - `test.yml`: on every push and PR it runs the tests and a 4-run balance smoke, written to the job summary.
 - **Web playtest build = itch.io** (`light213/petri`, channel `html5`; GitHub Pages dropped 2026-11-04, its deploy kept timing out). After each change the cloud session runs `tools/web_push.sh <butler>` (export + butler push; needs the web export templates, butler from broth.itch.zone, and `BUTLER_API_KEY` in the environment). `web.yml` is the manual backup (same push from Actions, repo secret `BUTLER_API_KEY`). The menu shows the build SHA. `pages.yml` (manual only, added 2026-11-05) updates the secondary GitHub Pages link https://yousufkamran222-code.github.io/survivor-lite/ when Yousuf asks for it.
-- `android.yml`: manual run or a `v*` tag builds an APK artifact. Signed release if the keystore secrets exist, otherwise debug. An AAB via the Gradle build comes in M3.
+- `android.yml`: manual run or a `v*` tag builds a **test APK** artifact (preset "Android", no Gradle; keeps dev tools). Signed release if the keystore secrets exist, otherwise debug.
+- `store.yml` (M3 step 1, 2026-11-09): manual run or a `v*` tag builds the **Play AAB** (preset "Android Store": Gradle build, `export_format` AAB, custom feature `store` → `GameData.apply_store_build` forces `debug.dev_tools/show_perf/invincible` off). CI unpacks the Android build template into `android/` (gitignored, ~200 MB), flips `allowBackup` to true (Auto Backup), installs SDK 36, and fails if an arm64 `.so` isn't 16 KB aligned. Signed with the upload key from secrets, else a throwaway key (artifact name says so; never upload it).
 
 ## Direction
 `docs/ROADMAP.md` holds the plan: "you are the infection" = territory (B) + conversion (A).

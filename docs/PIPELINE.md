@@ -369,3 +369,11 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 - A hit resets streak power (`streak_power_breaks_on_hit` true; the streak itself goes on). Overdrive speed ×2.6 → ×2.0 (so you can aim through specific germs). Perfect Loop now only gives ×2 claim XP (no wipe of the inside).
 - Simple teaching: one-time tips (hints.json, `"skill": true`, shown even after the prologue): first dash → Perfect Dodge; first Perfect Dodge → Overdrive; first streak power → "without getting hit"; Infection first claim → Perfect Loop; trail starts flashing (new `trail_red` event) → Clutch Claim. Patient Zero lines: "DASH right before it hits!", "Dash 4x fast for OVERDRIVE!".
 - Sims, seeds 600/700/800 × 8 (original, before any skill moves → now): Classic win 0/0/0 → 0/0/0, p10 103-162 → 69-172, p50 140-202 → 201-247, p90 190-248 → 243-263, level 7-11 → 8-11; Infection 0/0/0 → 25/13/13, p50 148-201 → 173-239, level 15-19 → 18-26; Swarm 0/0/0 → 25/25/13, p50 137-140 → 163-234, level 7-12 → 9-14; Nucleus 63/13/13 → 50/63/13, level 9-14 → 10-15. 304 tests.
+
+### 2026-11-09 M3 step 1: release-ready build
+- `store.yml` + preset "Android Store" → AAB (Gradle, target API 36 from Godot 4.7.2's template, min 24), Auto Backup on, 16 KB alignment check, `store` feature strips dev tools/perf readout/invincibility (`GameData.apply_store_build`). The test APK workflow is unchanged.
+- Android Back no longer quits (`config/quit_on_go_back=false`): pause in a run, Later on the picker, close the chest, sub-screen → menu (Abilities → Lab), "QUIT?" confirm on the menu.
+- Run gold and the double-gold bonus are credited and saved when results open (the coin fly-in is display only), so an ad or a killed app can't lose them.
+- Saves: an unreadable main file is copied to `profile.corrupt` and never copied over the backup; a save from a newer version is copied to `profile.newer` first.
+- Frame rate defaults to 60 (Settings still offers Max and 30).
+- 306 tests.
