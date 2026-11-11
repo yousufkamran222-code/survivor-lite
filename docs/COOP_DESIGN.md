@@ -2,6 +2,8 @@
 
 **Status:** idea / design draft (2026-11-05). **Not before launch:** planned as a post-launch update, once the game is on Google Play. Nothing here is built. Open decisions are marked **[decide]**.
 
+**2026-11-11 (D-043):** Yousuf wants online co-op **as soon as possible after launch**. An **AI partner** (the balance bot as a teammate, so the co-op modes can be played without another person) ships **at the same time** as real co-op, not as an earlier release; it is still built first internally because it tests the per-player refactor without networking. The game design (§4-5) stays open for now. Since this draft, `world.gd` grew to ~4,000 lines and gained more single-player state (skill moves, streak buffs, abilities, tutorial), and Main's slow motion (MEGA KILL, boss kill, tutorial) scales the whole World's dt, so in co-op it must be off or presentation only. Tooling: host and client can run as two headless Godot instances over ENet on localhost, so sync can be tested in the cloud before any phone test.
+
 ## 1. Pitch
 2-4 friends in the same dish. A simple Classic or Infection run at **Virulence 1** with co-op modifiers: shared XP, a down/revive system, and each player bringing a different Lab ability as their role. A separate **Tethered** mode links players with a tether that hurts germs (and, in Infection, claims land when you loop it).
 
