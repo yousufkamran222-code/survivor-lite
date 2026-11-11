@@ -1,10 +1,17 @@
 # Session handoff: Petri Panic (read this first in a new session)
 
-Last updated **2026-11-06** at the end of the third long session (Lab phase 1 + abilities → dash/Virulence scaling fix → Lab middle-node rework + shop tier split → balance report + campaign sim → economy fixes → LAUNCH_READINESS + COOP_DESIGN docs → elite/boss threats, lulls/surges → elite/boss HP floors + health bars → evolution-strength shop upgrades → UI overhaul steps 1-6 ("glossy chunky": design system, motion, level-up, HUD, results, art) → evolution tiers bias level-up offers → kill feel (CC0 sounds, hit squash, gold crits, MEGA KILL)). It is the complete working context: who the owner is, how we work, how the code is built, every gotcha we hit, the current balance, the feedback history, and what comes next. `CLAUDE.md` is the short rulebook; this is the long version. `docs/HANDOFF.md` is the **original** planning handoff from before any code existed. It is historical context only; where they differ, this file wins.
+Last updated **2026-11-11** at the end of the fourth long session (cosmetics → new-player start → fewer-screens rework → menu carousel + mode picker → skill moves → M3 steps 1-2: store AAB, AdMob + consent). Before that, the third session (Lab phase 1 + abilities → dash/Virulence scaling fix → Lab middle-node rework + shop tier split → balance report + campaign sim → economy fixes → LAUNCH_READINESS + COOP_DESIGN docs → elite/boss threats, lulls/surges → elite/boss HP floors + health bars → evolution-strength shop upgrades → UI overhaul steps 1-6 ("glossy chunky": design system, motion, level-up, HUD, results, art) → evolution tiers bias level-up offers → kill feel (CC0 sounds, hit squash, gold crits, MEGA KILL)). It is the complete working context: who the owner is, how we work, how the code is built, every gotcha we hit, the current balance, the feedback history, and what comes next. `CLAUDE.md` is the short rulebook; this is the long version. `docs/HANDOFF.md` is the **original** planning handoff from before any code existed. It is historical context only; where they differ, this file wins.
 
-**Newest (2026-11-07):** the **new-player start** is built (D-039: Patient Zero prologue, staged unlocks with popups, mode coaches, medals; Profile v8), waiting for his playtest. To see it: a private browser window on itch.io, or Settings → Developer → "Replay new-player start" then reload. Next agreed: **M3** + Instagram/marketing plan.
+**Newest (2026-11-11): where we stopped.** Everything is pushed (`03b57f0` + this doc commit) and on itch.io; last APK runs #52-#61, store AAB runs #1-#2 (throwaway-signed: never upload). Built this session, all **waiting for his playtest**:
+- **Cosmetics** (D-038): STYLE screen, 45 items (skins, weapon styles, pop styles with their own kill sounds, dash trails).
+- **New-player start** (D-039 → D-040 "seamless", his pick "fewer screens only"): Patient Zero prologue (14 beats: build paths, dash timing, Overdrive, elite/chest, evolution, streak, Outbreak, Mother Cell; medals, Gold = Prototype skin), staged menu unlocks announced by a fading banner + NEW badges (no popups), short coaches on the first Infection/Swarm/Nucleus run, build hints on level-up cards for 15 runs, ad prompts after 3 runs.
+- **Menu redesign**: a swipeable mode carousel with page dots; tapping the centre mode card opens a clean mode picker; Virulence pill on the card; no full-menu fade when changing Virulence.
+- **Skill moves** (D-041, `balance.skill`): Perfect Dodge, Overdrive (4 quick dashes → ×2 speed + invulnerable, keeps Slipstream ramming), streak buffs (a hit restarts the power), Perfect Loop (×2 claim XP only), Clutch Claim (stun inside). Taught by one-time skill hints.
+- **M3 step 1** (store build) and **step 2** (AdMob with UMP consent, test IDs, menu "+75" chip 3/day). D-042 holds his M3 choices.
 
-**Before that (2026-11-06, later):** **Cosmetics** built (D-038: STYLE screen, 44 items in 4 categories incl. dash Trails and 12 distinct kill sounds, challenge/gold/prestige unlocks, dev toggle), waiting for his playtest. Agreed order after it: **new-player start** (Classic first, progressive mode unlocks, hide Virulence until the first clear, no early ad prompts), then **M3** (AAB, AdMob + UMP, Firebase, cloud save, Play Billing for paid cosmetics), alongside an **Instagram account + marketing plan**.
+**Next agreed: M3 step 3** (Firebase Analytics + Crashlytics behind `Analytics`; he must create the Firebase project and add `google-services.json` as a CI secret first; check a Godot 4.7-compatible plugin), then **step 4** Play Games behind `Online` (needs his Play Console account). Play Billing after launch. Alongside: Instagram account + marketing plan (not started). Open with: ask for his playtest notes on the items above (questions in §10).
+
+**Earlier (2026-11-06, later):** **Cosmetics** built (D-038: STYLE screen, 44 items in 4 categories incl. dash Trails and 12 distinct kill sounds, challenge/gold/prestige unlocks, dev toggle), waiting for his playtest. Agreed order after it: **new-player start** (Classic first, progressive mode unlocks, hide Virulence until the first clear, no early ad prompts), then **M3** (AAB, AdMob + UMP, Firebase, cloud save, Play Billing for paid cosmetics), alongside an **Instagram account + marketing plan**.
 
 **Where we stopped before that (2026-11-06):** everything Yousuf asked for is built, pushed (`926f154` and later doc commits) and on itch.io; the last APK is run #51 (before the kill-feel commit, so build a new one when he asks). He said **"balancing seems fine for now"** (early game maybe a bit hard; his idea: a "watch an ad for gold" button on the main menu later). The newest work, waiting for his playtest: the **kill feel** pass (CC0 squelch sounds, hit squash, gold crits, MEGA KILL) and the **UI overhaul**. No new feature is agreed yet: ask him what's next (open kill-feel ideas he hasn't picked are in §10).
 
@@ -14,9 +21,9 @@ Last updated **2026-11-06** at the end of the third long session (Lab phase 1 + 
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **290 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **307 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
 4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
-5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests. Nothing big is agreed as the next feature (see the "Where we stopped" note above and §10).
+5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests. The next agreed work is M3 step 3 (Firebase), see the "Newest" note above and §10.
 6. For web builds and the APK, see §3 "CI and builds": install butler + the web export templates, push with `tools/web_push.sh` after every change, dispatch `android.yml`, and give him the run URL without waiting on CI.
 
 ---
@@ -48,16 +55,19 @@ Last updated **2026-11-06** at the end of the third long session (Lab phase 1 + 
 | Content | 8 enemy types, 4 weapons, 16 shared cards (incl. 5 dash cards, Volatile) + 3 Swarm-only passives, 4 evolutions (with a frozen evolution sequence), elites every 40 s (20 s in the final minute) with chests, 3 rare pickups (vacuum/heal/bomb) |
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
 | Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak; the run pauses while the fan is open), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
-| Meta | **Gold shop**: 19 permanent upgrades, 237 tiers, 39,736 gold to max (tiers split in two in Profile v6; 4 of them are evolution strength, which also bias level-up offers). **The Lab** (Genes from Virulence wins/minutes): 4 branches × 8 nodes (play-changing nodes, a fork, a keystone, an ability node), respec for gold. **Abilities**: Stasis / Engulf / Cloak / Mitosis, one equipped (Abilities screen), button left of DASH. **Virulence 1-10** difficulty ladder per mode (selector on the mode card). **Cosmetics** (STYLE screen): 12 cell skins, 10 weapon styles, 14 pop styles, 8 dash trails; gold / challenge / prestige unlocks; visual only |
-| Progress | `Profile` (v8: cosmetics bought, onboarding flags): lifetime stats incl. best kill streak, per-mode Virulence cleared/selected, Genes + Lab + equipped ability, per-mode records, 23 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
+| Meta | **Gold shop**: 19 permanent upgrades, 237 tiers, 39,736 gold to max (tiers split in two in Profile v6; 4 of them are evolution strength, which also bias level-up offers). **The Lab** (Genes from Virulence wins/minutes): 4 branches × 8 nodes (play-changing nodes, a fork, a keystone, an ability node), respec for gold. **Abilities**: Stasis / Engulf / Cloak / Mitosis, one equipped (Abilities screen), button left of DASH. **Virulence 1-10** difficulty ladder per mode (selector on the mode card). **Cosmetics** (STYLE screen): 13 cell skins, 10 weapon styles, 14 pop styles, 8 dash trails; gold / challenge / prestige unlocks; visual only |
+| Progress | `Profile` (v8: cosmetics bought, onboarding flags, menu-ad count in settings): lifetime stats incl. best kill streak, per-mode Virulence cleared/selected, Genes + Lab + equipped ability, per-mode records, 23 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
 | Polish | **"Glossy chunky" UI** (2026-11-06): glossy 9-slice buttons with press squash, Lilita One display font, cards, staggered entrances; redesigned level-up (category frames, now→next stats, slide-in, pick animation), HUD (top panel, weapon strip, glossy disc buttons), results (banner, count-up tiles, rewards card); art pass (shaded germs, new floor, glows). Vector icons (IconArt), chest slot-machine, paused build overlay (`BuildScreen`), animated main menu. **Kill feel**: CC0 squelch/impact sounds, hit squash, gold crits, MEGA KILL. Elites have affixes + health bars; the Mother Cell has phases, slam, pull, spiral |
-| Ads/analytics | `Ads` facade with stub (fake ad overlay); `Analytics.event` prints only. AdMob/Firebase not wired yet (M3) |
-| CI | Tests + 4-run balance smoke on every push; web build → itch.io via `tools/web_push.sh` from the session (`web.yml` = manual backup); Android debug/release APK on manual dispatch or `v*` tag |
+| Onboarding | Patient Zero prologue on first launch (replayable from the menu, medals), staged unlocks (banner + NEW badges), mode coaches, level-up build hints (D-039/D-040) |
+| Menu | Mode carousel (swipe/arrows, page dots), tap the card → mode picker, Virulence pill, tiles (Upgrades, Style, Lab, Profile...), gated tiles show how to unlock, Android Back opens a QUIT? confirm |
+| Skill moves | Perfect Dodge, Overdrive, streak buffs, Perfect Loop, Clutch Claim (`balance.skill`, D-041) |
+| Ads/analytics | `Ads`: real AdMob on Android (`admob_backend.gd`, Poing v5.1.0, UMP consent, Google test IDs unless the store build injects secrets), stub elsewhere; placements revive, double_gold, reroll, between-runs interstitial, menu "+75" chip. `Analytics.event` still prints only (Firebase = M3 step 3) |
+| CI | Tests + 4-run balance smoke on every push; web build → itch.io via `tools/web_push.sh` from the session (`web.yml` = manual backup); test APK (`android.yml`, Gradle, test ads, dev tools on) and Play AAB (`store.yml`, dev tools forced off, 16 KB check, Auto Backup) on manual dispatch or `v*` tag; both share `.github/actions/android-gradle` |
 | Perf | 60 fps at 170+ enemies on Yousuf's phone (APK). Sim ~0.6-1.0 ms per step on desktop at peak. `debug.show_perf` and `debug.dev_tools` are ON for playtests; turn both off before release |
 | Shelved | **Boss Rift** (built 2026-11-04, then switched off: `balance.rift.enabled` false; code, tests and `tools/sim/rift_bench.gd` kept). The Rift Power button/meter is the planned base for Lab abilities |
 
-**Milestones** (`docs/PIPELINE.md`): M0 and M1 done; **M2 in progress** (feel/balance/fun/UI, which is where all the recent work has been). Next after M2: M3 release plumbing (`docs/LAUNCH_READINESS.md` lists the known blockers). M3 (release plumbing) through M6 not started.
+**Milestones** (`docs/PIPELINE.md`): M0 and M1 done; M2 (feel/balance/fun/UI) ongoing via playtests; **M3 in progress**: steps 1-2 done, step 3 Firebase next, step 4 Play Games. M4-M6 not started (`docs/LAUNCH_READINESS.md` lists the known blockers).
 
 ---
 
@@ -82,10 +92,12 @@ cd /home/user/survivor-lite && tools/web_push.sh /tmp/claude-0/dl/butler/butler 
 - Run the template download in the background (it's large).
 - **Import twice** on a fresh clone. The first pass can error on `preload()` of not-yet-imported wavs, and new `class_name` scripts aren't registered until an import runs. After adding any new `class_name` file, run `--import` before running tests, or you'll see "Could not find type X".
 - Python 3 with numpy and Pillow is available (asset pipeline). Node + Playwright + Chromium are preinstalled. `xvfb-run` is available.
+- **AdMob plugin:** `project.godot` enables the `addons/admob` editor plugin. Yousuf approved running Godot (import, tests, exports) with it enabled; it downloads nothing because the Android AARs are committed in `addons/admob/android/bin` and `addons/admob/ios/bin/package.gd` is a marker that stops its iOS download. Don't delete either. To update the plugin, the poingstudios repos are public: read them via `git clone` (the API/raw URLs may be blocked by the proxy); release assets for 5.2.0 404'd, 5.1.0 is the version for Godot 4.7.2.
+- **Android locally** isn't needed: CI unpacks the Android build template into `android/` (gitignored, ~200 MB). Build APKs/AABs through Actions.
 
 ### Everyday commands
 ```bash
-godot --headless --path . -s res://tests/run_tests.gd                      # 189 tests
+godot --headless --path . -s res://tests/run_tests.gd                      # 307 tests
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 8 --seed 600 --mode classic --json /tmp/claude-0/x.json
 godot --headless --path . -s res://tools/sim/bench.gd -- --mode swarm --loaded   # perf per subsystem
 python3 tools/build_assets.py                                               # regenerate SFX + bg tile, then --import
@@ -106,6 +118,7 @@ python3 tools/build_assets.py                                               # re
 
 ### CI and builds (GitHub)
 - There is no `gh` CLI. Use the GitHub MCP tools (load them via ToolSearch: `mcp__github__actions_run_trigger`, `actions_list`, `actions_get`, `get_job_logs`).
+- The Play AAB: dispatch `store.yml` the same way (artifact `petri-panic-aab-N-<signing>`; it says THROWAWAY until the keystore secrets exist, and that one must never be uploaded to Play).
 - After pushing, **dispatch** `android.yml` on ref `claude/bold-brown-h48pfg` (`method: run_workflow`) and give Yousuf the run URL straight away (don't sit polling: GitHub's queue has been slow). Push the web build with `tools/web_push.sh`. To check runs, use the public API:
   `curl -sS "https://api.github.com/repos/yousufkamran222-code/survivor-lite/actions/runs?per_page=4&head_sha=$(git rev-parse HEAD)"` in an `until ... all completed` loop (sleep 20).
 - `test.yml` runs automatically on push. Give Yousuf the **Android build run URL**; the APK is the artifact `petri-panic-apk-N`.
@@ -129,7 +142,7 @@ python3 tools/build_assets.py                                               # re
 CLAUDE.md                 Short rulebook (read first). Points here.
 GODOT_VERSION             4.7.2 (CI reads it)
 project.godot             Portrait 720x1280, Compatibility renderer, autoloads: Save, Analytics, Sfx, Ads, Online
-export_presets.cfg        "Web" (single-threaded, include_filter data/*.json) and "Android" (non-Gradle, arm64+armv7)
+export_presets.cfg        "Web" (single-threaded, include_filter data/*.json), "Android" (Gradle test APK) and "Android Store" (Gradle AAB, custom feature `store`); AdMob editor art/C#/mocks/iOS excluded
 scenes/main.tscn          One node "Main" with scripts/game/main.gd. Everything else is built in code.
 data/                     ALL tuning (see section 6)
 scripts/core/             Pure logic (RefCounted, no Nodes), deterministic for a seed
@@ -141,13 +154,17 @@ scripts/core/             Pure logic (RefCounted, no Nodes), deterministic for a
   progression.gd          XP curve, run gold, meta bonus/costs/text, run_summary + run_score + metric_value
   profile.gd     (226)    Persistent progress model: stats, records, achievements, merge(), legacy import
   lab.gd                  The Lab rules: tiers, forks, costs, bonus(), full_owned() (pure)
+  cosmetics.gd            Cosmetics: unlock/buy/equip rules, look() for the view (visual only)
+  tutorial.gd             Tutorial: scripted beats inside a World (start actions, until conditions, prompts)
+  onboarding.gd           Onboarding: prologue options/score/medals, staged unlocks + announcements, coaches, card hints, ads gating
   game_data.gd            Loads data/*.json, apply_mode() deep-merge, validate() cross-references
   balance_bot.gd          Sim/test "player": dodge, chase loot, loop home in territory, dash, random-ish picks
 scripts/game/
   main.gd        (885)    Screen flow and all UI screens (menu, shop, profile, level-up, chest, death, results, pause), input, event → sfx/haptics
   world_view.gd  (438)    Renderer: bg tile, territory texture, SpriteBatches, top layer (player, orbit, rings, chain, numbers, loot, trail), effects, camera shake
   sprite_batch.gd         Same-texture rect batching (NOT MultiMesh)
-  shape_textures.gd       Generated textures: enemy blob atlas (16 eye directions), ally cell, disc, diamond
+  shape_textures.gd       Generated textures: enemy blob atlas (16 eye directions), ally cell, disc, diamond, star/square/heart/coin
+  cosmetic_art.gd         CosmeticArt: skins (patterns, rainbow), weapon colours, pop bursts + pop sounds, dash trails
 scripts/ui/
   ui_kit.gd               Theme, label/button/overlay helpers, icon_card() + Pips
   hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, BUILD button (`build_rect`), Swarm order fan, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout
@@ -157,22 +174,27 @@ scripts/ui/
   lab_screen.gd           The Lab: branch columns, node popup, Genes pill, two-tap respec (LabScreen)
   abilities_screen.gd     Ability cards with EQUIP (AbilitiesScreen)
   drag_scroll.gd          ScrollContainer you drag anywhere (momentum; was_dragged() guards taps)
-  menu_background.gd      Animated menu backdrop + hero cell
+  menu_background.gd      Animated menu backdrop + hero cell (wears the equipped skin)
+  style_screen.gd         StyleScreen: cosmetics tabs, swatches, buy/equip
+  cosmetic_preview.gd     Live preview cell (moves, dashes, pops, Melody notes)
+  settings_screen.gd      Settings (sound, haptics, fps, privacy options) + Developer rows behind the keypad
 scripts/autoload/
   save_service.gd         "Save": Profile ↔ user://profile.json (+ .bak, legacy save.cfg import); old props as pass-throughs
   online_service.gd       "Online": leaderboards/achievements/cloud facade; report_run()
   stub_online_backend.gd  Local-only backend (never signed in)
   ad_service.gd           "Ads": rewarded/interstitial facade
   stub_ad_backend.gd      Fake ad overlay, always rewards
+  admob_backend.gd        Real AdMob (Android only, when the PoingGodotAdMob singleton exists): UMP consent, preload, retries, ad_paid
+addons/admob/             Poing Studios AdMob v5.1.0 (MIT), Android AARs committed
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (189 tests)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (307 tests; newest: test_cosmetics, test_onboarding, test_skill)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
 tools/sim/rift_bench.gd   Boss Rift arena harness: 24 fights, bait vs --nobait (Carrier HP tuning)
 assets/processed/         Generated wavs + bg_tile.png (+ .import files, committed). MANIFEST.md lists licences.
-.github/                  actions/setup-godot (cached Godot + templates), workflows test/web/android
+.github/                  actions/setup-godot (cached Godot + templates), actions/android-gradle (SDK 36, template, Auto Backup), workflows test/web/pages/android/store
 docs/                     SPEC (game rules), PIPELINE (milestones + dated log), ROADMAP (plan), DECISIONS (log),
                           SETUP (Yousuf's manual steps), HANDOFF (original), SESSION_HANDOFF (this)
 ```
@@ -236,16 +258,17 @@ docs/                     SPEC (game rules), PIPELINE (milestones + dated log), 
 - Glossy style: `UiKit.gloss` / `style_button(b, kind)`, `UiKit.display(label)` (Lilita One), `UiKit.card()`, `press_feedback`, `fade_in` / `reveal` / `stagger`. HUD drawn in `HudOverlay` (`_bar`, `_rrect`, `_text`, `_gloss_disc`, cached layers). Results: `_build_results`, `_stat_tile`.
 - Audio: `Sfx.play(name, jitter, pitch)`; `Sfx.GROUP` shares one rate limit across variants (the six `Sfx.KILLS`). Main `_on_kill_streak(radius)` picks a random squelch; `_on_kills` handles the multikill thump and MEGA KILL; `_start_slowmo(secs, scale)` (boss kill, mega kill).
 - **Labels inside narrow containers (HBox, Grid, pills) need `autowrap_mode = AUTOWRAP_OFF`.** `UiKit.label` turns word-wrap on by default, and those labels otherwise collapse to one character per line (this bit us twice).
-- The menu: `MenuBackground` (child 0 of the menu overlay; `show_hero` off for shop/profile), `_gold_pill`, `_mode_card`, `_tile_button`, and the pulsing PLAY tween.
+- The menu (redesigned 2026-11-08): `MenuBackground` (child 0 of the menu overlay; `show_hero` off for shop/profile), `_gold_pill` + `_menu_ad_chip`, the mode carousel (`_carousel`, `_build_mode_panel`, `_step_mode`, swipe/tap in `_on_card_input`, `_page_dots`, `_arrow_button`), the picker opened by tapping the card (`_open_mode_picker`, `_mode_row`), `_virulence_pill`, `_refresh_play` / `_on_play` (changing mode or Virulence refreshes in place, no full-menu fade), `_tile_button` / `_gated_tile` (locked tiles toast how to unlock via `_menu_toast`), `_announce_next` (unlock banner). Android Back: `_menu_back` / `_ask_quit`.
+- Patient Zero / coaches: `_start_run(prologue)`, the HUD draws `World.coach()` (`HudOverlay._draw_coach`), `_show_prologue_results` (score + medal), `_quit_prologue`.
 
 ### 5.5 Services
 - **Save/Profile:**
   - `Save.profile` is the source of truth. `Save.write()` writes JSON atomically (tmp → rename via `DirAccess.rename_absolute`) after copying the old file to `.bak` (`copy_absolute`).
-  - `load_save()` reads the main file → `.bak` → legacy `save.cfg` (then writes JSON).
-  - Run end (`_show_results`): `Progression.run_summary` → `profile.record_run(summary, achievements, now)` → `Online.report_run` → `Save.write()`. Gold is added on collect (`profile.add_gold`), after the optional double-gold ad.
+  - `load_save()` reads the main file → `profile.bak` → legacy `save.cfg` (then writes JSON). An unreadable main file is copied to `profile.corrupt` (never over the backup); a save from a newer version is copied to `profile.newer` first.
+  - Run end (`_show_results`): `Progression.run_summary` → `profile.record_run(summary, achievements, now)` → `Online.report_run` → `Save.write()`. Gold (and the double-gold bonus) is credited and saved when results open; the coin fly-in is display only.
   - **`Profile.from_dict` must cast numbers** (JSON makes everything a float); a test guards this.
 - **Online:** `submit_score`, `unlock_achievement`, `push_profile/pull_profile`, `report_run`. The stub logs only. A future `PlayGamesBackend` implements the same methods and is chosen when the plugin singleton exists. Conflict resolution is `Profile.merge(local, cloud)`.
-- **Ads:** `Ads.show_rewarded(placement, cb)` with placements `revive`, `double_gold`, `reroll`; `Ads.show_interstitial("between_runs", next)` every 3rd death after 2 runs (not right after a rewarded ad).
+- **Ads:** `Ads.show_rewarded(placement, cb)` with placements `revive`, `double_gold`, `reroll`, `menu_gold` (the menu chip, `Profile.claim_menu_ad`); no ad prompts before `onboarding.ads_from_runs` (3) runs; on Android `AdmobBackend`, else the stub; `Ads.show_interstitial("between_runs", next)` every 3rd death after 2 runs (not right after a rewarded ad).
 - **Analytics:** events include run_start, run_end (with mode, score inputs), upgrade_pick, chest_open, evolution, pickup, death, boss_spawn/killed, meta_buy, ad events. Names are snake_case, 40 characters or fewer.
 - **Sfx:** names in `SOUNDS` (preloaded from `assets/processed/sfx`). To add a sound: add a `write("name", ...)` line in `tools/build_assets.py`, run it, `--import` twice, then add it to `SOUNDS`.
 
@@ -336,7 +359,12 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 30. Evolution strength shop upgrades (4 × 12 tiers; base evolutions weaker, today's strength at ~50-60% of tiers) → built; then "whichever weapon's evolution tiers are higher shows up more at level-up, equal tiers = equal odds" → `World.offer_bias()`.
 31. UI evaluation → his pick "glossy chunky" (Kenney font, then OFL allowed → Lilita One), done in 6 steps. Fixed on the way: jittery gold animation, broken Lab scrolling, level-up cards misplaced on a second consecutive level-up, "Later" re-rolling the cards.
 32. "Kills not satisfying enough compared to other mobile games" → his picks from an idea list: CC0 sounds (2), hit feel (3), MEGA KILL (first idea of 6). Not picked yet: germ pop animations per type (1), carnage stains that build up (4), chain-reaction kills as a base rule (5), gem vacuum stream + cha-ching (6b).
-33. "Balancing seems fine for now" (2026-11-06); early game a bit difficult → his idea for later: a "watch an ad for gold" button on the main menu (goes through `Ads`).
+33. "Balancing seems fine for now" (2026-11-06); early game a bit difficult → his idea for later: a "watch an ad for gold" button on the main menu (goes through `Ads`). Built in M3 step 2 as a subtle "+75" chip.
+34. Cosmetics ("make the game ten times more fun", some paid later) → his picks: skins, weapon styles, pop styles first; challenges + gold + prestige unlocks, paid later; dev toggle to unlock all and turn it off. Then "more of each, especially kill sounds" + a dash Trails category (D-038).
+35. New-player start ("teach every major concept, fun enough that repeat players don't skip it") → Patient Zero + staged unlocks (D-039, my five picks). His playtest: buggy (unlock text cut off bottom right), only teaches joystick/dash, not playstyles/build paths/permanent upgrades → I proposed more screens; he said **"No no I don't like this approach. It needs to be seamless"** → "fewer screens only" (D-040): no popups, build paths taught in the prologue beats + one-line card hints.
+36. Menu "low quality, cluttered", whole menu faded on every Virulence change → redesign (carousel, tiles, no full fade); then "tap the selected mode to open a clean picker" → done.
+37. Skill-based moves (no new buttons; rewards "big"): his picks + his ideas (D-041). Tuning after: hits reset streak power, Overdrive ×2 speed (was 2.6) so you can aim through germs, Perfect Loop only ×2 XP (removed the kill-everything-inside), teaching "simple".
+38. M3 (D-042): start it; Billing after launch; keep all 4 modes; ad-for-gold "simple and not in your face at all". He approved running Godot with the AdMob plugin enabled ("option 1").
 
 ---
 
@@ -364,16 +392,37 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - `balance.json` `debug.show_perf` and `debug.dev_tools` (Settings → DEVELOPER → keypad code `debug.dev_password` (1289) → +10,000 gold, refund all permanent upgrades, "All Virulence levels" toggle = `settings.dev_all_virulence`, which unlocks every level in every mode without touching records/achievements; Profile.dev_grant_gold / refund_meta / dev_all_virulence) are on for playtests. **Turn both off for release builds.** `debug.invincible` must stay false.
 - **No audio buses created at runtime** (`AudioServer.add_bus`): the web build plays audio through Web Audio "samples", which never connect runtime buses to the output, so every sound on them is silent (found 2026-11-03: output peak 0.45 → 0.0). `Sfx` sets volumes per player instead. Check web audio with Playwright by tapping the output with an `AnalyserNode` (see PIPELINE 2026-11-03).
 - **`tools/build_assets.py`: append new sounds at the end of `build_sfx()`.** The noise generator is shared, so inserting a sound earlier silently changes every sound after it.
+- **Don't pipe a Godot export into `head`**: SIGPIPE kills the export mid-way. Redirect to a file and read that.
+- **Probe scripts:** the `Save` autoload loads after a SceneTree probe starts; the backup file is `user://profile.bak`.
+- **Toasts/banners over the menu** must be placed after layout (await a few frames, use `_menu_hero.global_position`); anchoring to the overlay put the unlock toast off-screen bottom right.
+- **Damage numbers:** only register one after checking `fx.size() < max_fx` (a refused number that was registered crashed). Chest reels must guard `is_instance_valid` (freed nodes).
+- **`data/hints.json`** keeps hand formatting: edit it textually, don't `json.dumps` it.
+- **Big balance swings from new buffs:** the first streak-buff version took Infection from 0% to 38-63% bot wins; ablate one stat at a time with `--set` (now supports list indices and booleans, e.g. `skill.streak_buffs.2.damage=0`).
+- Anything that drives a World with a tutorial (tests, sims, Main) must answer prompts: open banked level-ups, dash / Outbreak when asked.
 - Keep `docs/PIPELINE.md` dated entries appended at the end. Decisions go in `docs/DECISIONS.md` (newest last).
 
 ---
 
 ## 10. What's next (prioritised backlog)
 
-**Next (2026-11-06):** nothing new is agreed. Ask Yousuf what he wants next, offering the items below.
+**Next (2026-11-11), agreed:**
+- **M3 step 3: Firebase Analytics + Crashlytics** behind `Analytics` (no SDK calls elsewhere; keep the stub for web/desktop/tests; forward `ad_paid` for ROAS). First check which Godot Firebase plugin supports 4.7 with the Gradle build (e.g. godot-x/firebase), verify like AdMob (pin a release, commit its Android libs if it downloads at import). Needs from Yousuf: a Firebase project + Android app (package name from `export_presets.cfg`), `google-services.json` as a CI secret (never committed). Update the Play data-safety notes (LAUNCH_READINESS).
+- **M3 step 4: Play Games Services** behind `Online` (`PlayGamesBackend`: sign-in, Saved Games via `Profile.merge`, leaderboards from `data/online.json`, achievements). Needs his Play Console account and console entries.
+- **Play Billing** (paid cosmetics, `"paid": true` items): after launch.
+- **Instagram + marketing plan**: agreed alongside M3, not started (plan it with him; short gameplay clips of MEGA KILL / Overdrive / evolutions).
+- **His own to-do list** (remind gently): Play Console needs an account holder aged 18+ (a parent may have to own it); keystore secrets (SETUP §2); AdMob account, app + ad units, GDPR message, then the `ADMOB_*` secrets (SETUP §6); Firebase project; 12+ closed-test testers for 14 days (M5).
+
+**Playtest questions to ask him (built this session, unplayed):**
+- Cosmetics: which items feel worth chasing? Any pop sound annoying? Are gold prices fair?
+- Patient Zero after the fewer-screens rework: does it feel seamless now? Too long/short (~2.5-3 min)? Do the card hints help?
+- Menu: carousel + picker feel good? Anything still cluttered?
+- Skill moves: is the Perfect Dodge window (0.2 s) fair on a phone? Does Overdrive trigger when he wants (4 dashes, 0.5 s gaps) and is it fun with Slipstream? Do streak powers matter now that hits reset them?
+- Ads (APK only): consent form, test ads showing, the "+75" chip visible but unobtrusive.
+
+**Older open items:**
 1. **Kill feel playtest** (built 2026-11-06, `926f154`; nobody has heard the sounds yet, since the sandbox has no audio): are any of the new sounds too loud, quiet or annoying (6 squelch variants, multikill `thump`, elite `crunch`, `crit`, `hit` tap, `mega`/`bomb` explosion; volumes in `Sfx.VOLUME_DB`, gaps in `MIN_GAP_MS`)? Does the hit squash read on the phone (`juice.hit_squash` 0.3)? Is MEGA KILL too rare or too common (`juice.mega_kill_count` 25 in 0.3 s, 8 s cooldown; bot ~0-1 per run fresh, ~1 in Infection/Swarm, ~5 maxed)? **Kill-feel ideas he hasn't picked yet:** (a) germs swell then pop like water balloons, a different death per type (splitters tear, armoured ones crack, the Mother Cell bursts in stages); (b) carnage stains that build up on the dish over a run (measure WebGL cost first; long-lived low-detail stains with a higher cap is the safe version); (c) chain-reaction kills as a base rule (a germ that dies to heavy overkill splashes its neighbours; Volatile/Overkill as the big version; gameplay, so sim it); (d) gem vacuum as a stream with rising pitch and a "cha-ching" at the end. Note: in an earlier feel round (§8 item 18) he **rejected** per-type deaths and goo build-up, so mention that when offering (a)/(b).
 2. **UI overhaul playtest** (steps 1-6 done 2026-11-06, "glossy chunky"): his notes on the level-up, HUD, results, menu art. Details of what was built: CLAUDE.md "UI look" and PIPELINE 2026-11-06 entries.
-3. **Watch an ad for gold on the main menu** (his idea, 2026-11-06, for the slightly hard early game): a rewarded ad through `Ads` only, probably with a daily cap; not built.
+3. ~~Watch an ad for gold on the main menu~~: built in M3 step 2 ("+75" chip).
 4. **Elite/boss HP floors (2026-11-06)** made timed-mode V1 bot wins ~0% (the bot can't survive 3:50-5:00 with an un-burstable Mother Cell). He has since said "balancing seems fine for now", so leave it unless his playtests say otherwise. Options if needed: spawn her later (e.g. 4:20), lower `min_life_s`, or pay a big bonus / end the run early when she's killed. Tune threats via `enemies.json` boss (`hunt_mult`, `aim_every_s`, `slam_every_s`) and `waves.elites` (`hunt_mult`, affix numbers).
 5. **Balance report 2026-11-05 (`docs/BALANCE_REPORT.md`).** Done: Genes per minute survived at V3+ and per-mode gold (Classic ×2, Nucleus ×1.8). **Deferred (Yousuf, deal with later):** (a) Swarm + full Lab wins 100% even at V10: measure with `--labx feed,clot,last_stand` (sustain nodes + allies soaking hits are the suspects), then tone down per mode; (b) Nucleus V10 is 0% even with everything: Nucleus-only Lab nodes (the planned "Specialisations" row) or a lower Nucleus `ramp_scale`. Also open: V6 (Thin membrane) and V9 (Virulent) are spike levels; the economy overshoots (a fresh account reaches V10 in ~40 runs in Classic/Swarm; a softer setting was offered, not chosen).
 6. **Abilities playtest** (built 2026-11-05): do they feel like skill/utility? Are recharges (135-240 kills) right?
@@ -397,11 +446,11 @@ Done this session, for reference (details in PIPELINE): dash/ability/Lysis/Volat
 - **Strains** are replaced by Lab abilities (D-029); the "one genome tree per strain" question is moot.
 
 **Release track** (full checklist of known blockers and issues: `docs/LAUNCH_READINESS.md`, to re-assess near launch):
-- **M3 release plumbing:** Android export to the Gradle build and AAB; AdMob plugin + `AdmobBackend` behind `Ads` (Google test IDs only in code; real IDs from CI secrets); Firebase Analytics behind `Analytics`; signed release via the `ANDROID_KEYSTORE_*` secrets (Yousuf must create them; SETUP §2). **Verify plugin versions support Godot 4.7 first.**
+- **M3 release plumbing:** steps 1-2 done (Gradle AAB, AdMob + consent). Remaining: Firebase (step 3), Play Games (step 4), signed release once the `ANDROID_KEYSTORE_*` secrets exist (SETUP §2).
 - **Play Games Services** as `PlayGamesBackend` behind `Online`: sign-in, Saved Games with `Profile.merge`, leaderboards from `data/online.json`, achievements. Yousuf creates the console entries.
 - M4 store kit (icon, screenshots, 15 s clip, privacy policy, data safety), M5 closed test (12+ testers × 14 days), M6 release + small UA tests.
 - Before release: `debug.show_perf` false, `debug.dev_tools` false, `debug.invincible` false.
-- His account steps still open: keystore secrets, Play Console, AdMob, PSEB.
+- His account steps still open: keystore secrets, Play Console (18+ account holder), AdMob (SETUP §6), Firebase, PSEB.
 
 **Tech debt:**
 - Territory grid 64 → 96 for smoother edges (check flood-fill cost on the phone).

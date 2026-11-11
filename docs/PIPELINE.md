@@ -29,7 +29,7 @@
 | **M0** | Repo bootstrap: CLAUDE.md, CI, tests, sim, web build, AdService stub | **done** |
 | **M1** | Core loop playable: 8 enemies, 11 upgrades, boss, level-ups, death, results, meta shop, stub ads, SFX | **done (first pass)** |
 | M2 | Feel and balance pass from phone playtests. Low-end perf check on APK (60 fps at 170+ enemies confirmed on Yousuf's phone). Fun pass: dash, elites + chests, 4 evolutions, rare pickups (done, needs playtest). Pick the final theme and name. **The Lab** + Abilities done (2026-11-05). Elite/boss threats, HP floors, evolution-strength shop (2026-11-05/06). UI overhaul "glossy chunky" steps 1-6 + kill feel (2026-11-06), awaiting playtest. Balance "fine for now" (Yousuf, 2026-11-06) | **in progress** |
-| M3 | Android release plumbing: Gradle build and AAB, AdMob plugin and `AdmobBackend` (test IDs), Firebase Analytics, signed release via secrets | |
+| M3 | Android release plumbing (D-042): **step 1 done** (store AAB via `store.yml`, Back button, safe gold/saves, 60 fps; 2026-11-09), **step 2 done** (AdMob v5.1.0 + UMP consent, test IDs, menu "+75" chip; 2026-11-09), step 3 Firebase Analytics + Crashlytics (needs Yousuf's `google-services.json`), step 4 Play Games. Signed release once the keystore secrets exist. Billing after launch | **in progress** |
 | M4 | Store kit: icon, 4-5 screenshots, short 15 s gameplay capture, store text, privacy policy, data-safety form | |
 | M5 | Closed test: upload the AAB, 12+ testers opted in for 14 days, fix bugs, iterate on telemetry | |
 | M6 | Production release, then small paid UA tests ($50-100) to measure CPI, D1/D7 and ROAS | |

@@ -197,8 +197,8 @@ Everything below is the agreed design.
 - Sim: `--lab all` (and `--ability <id>`) so a full Lab + shop can be checked against Virulence 7-10; the bot uses the equipped ability when crowded.
 - Scope: CLAUDE.md rule 8 needs "4 Lab keystones + up to N abilities" added when this is built.
 
-## Where we are (2026-11-06)
-Built since the Lab: elite affixes + Mother Cell threats + lulls/surges (D-033), elite/boss HP floors (D-034), evolution-strength shop upgrades + offer bias (D-035), the "glossy chunky" UI overhaul in 6 steps (D-036), and the kill-feel pass (CC0 sounds, hit squash, gold crits, MEGA KILL; D-037). Yousuf: "balancing seems fine for now". **Nothing new is agreed.** Candidates: his playtest notes on the UI and kill feel; the unpicked kill-feel ideas (SPEC "Later"); a "watch an ad for gold" menu button; then M3 release plumbing (`docs/LAUNCH_READINESS.md`). Full backlog: SESSION_HANDOFF §10.
+## Where we are (2026-11-11)
+Since 2026-11-06: cosmetics (D-038), the new-player start (Patient Zero, staged unlocks, coaches; D-039, reworked to fewer screens in D-040), the menu carousel + mode picker, skill moves (Perfect Dodge, Overdrive, streak buffs, Perfect Loop, Clutch Claim; D-041), and **M3 steps 1-2** (store AAB, AdMob + consent; D-042). **Next agreed: M3 step 3** (Firebase Analytics + Crashlytics behind `Analytics`; needs Yousuf's Firebase project and `google-services.json` as a CI secret), then **step 4** (Play Games behind `Online`; needs the Play Console). Play Billing after launch. Alongside: an Instagram account + marketing plan. Full backlog: SESSION_HANDOFF §10.
 
 ## Post-launch: co-op (idea, not started)
 See `docs/COOP_DESIGN.md`: host-authoritative co-op for 2-4 friends (room codes via a relay such as EOS or W4 Cloud), V1 Classic/Infection, shared XP, down/revive, one role ability each, then a Tethered mode. Phase 1 = per-player World refactor + same-Wi-Fi play.
