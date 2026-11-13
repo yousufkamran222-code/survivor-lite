@@ -13,11 +13,11 @@ Do this once on your PC. Java is required for `keytool`; Android Studio bundles 
 keytool -genkeypair -v -keystore petri-release.keystore -alias petri -keyalg RSA -keysize 2048 -validity 10000
 ```
 It asks for a password (use a long one) and your name and country. Then:
-- **Back up `petri-release.keystore` and the password somewhere safe** (a password manager or a USB drive). If you lose it you can never update the app.
+- **Back up `petri-release.keystore` and the password somewhere safe** (a password manager or a USB drive). This is your Play **upload key** (Google keeps the real app-signing key with Play App Signing): if you lose it, Google can reset it, but that takes a support request and days of waiting. If it leaks, someone could upload as you.
 - **Never commit it.** `.gitignore` already blocks `*.keystore`.
 
 Base64-encode it for GitHub:
-- Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("petri-release.keystore")) | Set-Clipboard`
+- Windows PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path "petri-release.keystore"))) | Set-Clipboard` (`Resolve-Path` matters: without it .NET looks in a different folder)
 - Linux/macOS: `base64 -w0 petri-release.keystore`
 
 On GitHub, go to **Settings → Secrets and variables → Actions → New repository secret** and add:
