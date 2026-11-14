@@ -1549,8 +1549,38 @@ func _update_bullets(dt: float) -> void:
 		b_life[i] -= dt
 		var gone := b_life[i] <= 0.0
 		if not gone:
-			var hits: Dictionary = b_hits[i]
-			for j: int in query(b_pos[i], b_rad[i]):
+			gone = _bullet_hits(i)
+		if gone:
+			_remove_bullet(i)
+		else:
+			i += 1
+
+
+## One bullet against the germs it overlaps. Same cells, order and checks as
+## query() (so runs stay identical), without building a result array for
+## every bullet every frame (perf, 2026-11-14). Damage doesn't move germs or
+## change the grid until the next step, so hitting while scanning is safe.
+## Returns true when the bullet is used up.
+func _bullet_hits(i: int) -> bool:
+	var center := b_pos[i]
+	var radius := b_rad[i]
+	var hits: Dictionary = b_hits[i]
+	var r := radius + _max_er
+	var x0 := floori((center.x - r) / CELL)
+	var x1 := floori((center.x + r) / CELL)
+	var y0 := floori((center.y - r) / CELL)
+	var y1 := floori((center.y + r) / CELL)
+	for cx in range(x0, x1 + 1):
+		for cy in range(y0, y1 + 1):
+			var cell: Variant = _grid.get(_key(cx, cy))
+			if cell == null:
+				continue
+			for j: int in cell:
+				if e_team[j] != 0:
+					continue
+				var rr := radius + e_rad[j]
+				if e_pos[j].distance_squared_to(center) > rr * rr:
+					continue
 				if e_hp[j] <= 0.0 or hits.has(e_uid[j]):
 					continue
 				hits[e_uid[j]] = true
@@ -1558,13 +1588,9 @@ func _update_bullets(dt: float) -> void:
 				_damage(j, b_dmg[i], b_vel[i].normalized() * b_knock[i])
 				_src = "other"
 				if b_pierce[i] <= 0:
-					gone = true
-					break
+					return true
 				b_pierce[i] -= 1
-		if gone:
-			_remove_bullet(i)
-		else:
-			i += 1
+	return false
 
 
 func _update_enemy_shots(dt: float) -> void:

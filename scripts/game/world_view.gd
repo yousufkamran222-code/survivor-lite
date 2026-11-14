@@ -981,51 +981,57 @@ func _fill_bullets() -> void:
 	var glow := Color(bc, 0.22)
 	var faint := Color(bc, 0.15)
 	var white := Color(1, 1, 1, 0.9)
-	for i in world.b_pos.size():
-		var p := world.b_pos[i]
-		var r := world.b_rad[i]
-		var back := world.b_vel[i].normalized() * r
-		if evo and world.b_ally[i] == 0:
+	var b_pos := world.b_pos
+	var b_rad := world.b_rad
+	var b_vel := world.b_vel
+	var b_ally := world.b_ally
+	for i in b_pos.size():
+		var p := b_pos[i]
+		var r := b_rad[i]
+		var back := b_vel[i].normalized() * r
+		var own := b_ally[i] == 0
+		if evo and own:
 			# Evolved: a soft glow, a longer comet tail and a white-hot core.
 			_bullets.add(p, r * 4.2, glow)
 			_bullets.add(p - back * 3.2, r * 1.6, faint)
 		_bullets.add(p - back * 1.6, r * 2.2, trail)
-		if _shaped and world.b_ally[i] == 0:  # weapon style: star/heart/... heads
+		if _shaped and own:  # weapon style: star/heart/... heads
 			_bolt_heads.add(p, r * 3.0, bc)
 		else:
 			_bullets.add(p, r * 2.0, bc)
-		if evo and world.b_ally[i] == 0:
+		if evo and own:
 			_bullets.add(p, r * 0.9, white)
 	_bullets.commit()
 	_bolt_heads.commit()
 
 
 func _fill_dots() -> void:
+	# One pass over the effects for all four particle batches (it was four
+	# passes; each batch keeps its own order, so the picture is the same).
 	_dots.begin()
-	for f in fx:
-		var k: float = f.t / f.life
-		if f.kind == "dot":
-			_dots.add(f.pos, f.r * 2.0 * (1.0 - k), Color(f.color, 1.0 - k))
-		elif f.kind == "pop":
-			_dots.add(f.pos, f.r * 2.0 * (1.0 + k), Color(f.color, 0.45 * (1.0 - k)))
-	_dots.commit()
 	_pops.begin()
-	for f in fx:
-		if f.kind == "pdot":
-			var lk := CosmeticArt.pdot_look(f)
-			_pops.add(f.pos, lk[0], lk[1], 0.0, lk[2])
-	_pops.commit()
 	_trails.begin()
-	for f in fx:
-		if f.kind == "tdot":
-			var lk := CosmeticArt.pdot_look(f)
-			_trails.add(f.pos, lk[0], lk[1])
-	_trails.commit()
 	_rings.begin()
 	for f in fx:
-		if f.kind == "kring":
-			var k: float = f.t / f.life
-			_rings.add(f.pos, f.r * 2.0 * (1.0 + 1.6 * k), Color(f.color.lightened(0.3), 0.9 * (1.0 - k)))
+		match f.kind:
+			"dot":
+				var k: float = f.t / f.life
+				_dots.add(f.pos, f.r * 2.0 * (1.0 - k), Color(f.color, 1.0 - k))
+			"pop":
+				var k: float = f.t / f.life
+				_dots.add(f.pos, f.r * 2.0 * (1.0 + k), Color(f.color, 0.45 * (1.0 - k)))
+			"pdot":
+				var lk := CosmeticArt.pdot_look(f)
+				_pops.add(f.pos, lk[0], lk[1], 0.0, lk[2])
+			"tdot":
+				var lk := CosmeticArt.pdot_look(f)
+				_trails.add(f.pos, lk[0], lk[1])
+			"kring":
+				var k: float = f.t / f.life
+				_rings.add(f.pos, f.r * 2.0 * (1.0 + 1.6 * k), Color(f.color.lightened(0.3), 0.9 * (1.0 - k)))
+	_dots.commit()
+	_pops.commit()
+	_trails.commit()
 	_rings.commit()
 
 

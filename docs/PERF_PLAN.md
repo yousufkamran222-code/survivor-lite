@@ -82,3 +82,12 @@ Yousuf: "do all six, fast on web and sharp on apk. Make sure we don't lose much 
 | Fast vs Sharp at 1080×1920 (native, software GL) | 32.9 fps | 52.9 fps |
 
 Limits of what the sandbox can show: its browser and xvfb render on the CPU (no GPU), and identical runs vary ±20%, so fps there says little about draw-call savings, which pay off on real phone GPUs and WebGL drivers. **The real check is Yousuf's in-game benchmark line (web and APK) before vs after.**
+
+## 6. Round 2 (2026-11-14, after his phone lines)
+His phone (build 07a3632): **APK** `108.9 fps avg 9.18 p95 11.67, slow 3.9% | sim 1.31 view 2.15 hud 1.10 | dc 90` (120 Hz screen; ~4.6 ms of our code, ~4.6 ms engine/GPU). **Web** `43.0 fps avg 23.23 p95 33.33, slow 25.8% | sim 2.92 view 3.41 hud 2.03 | dc 97` (~8.4 ms of our code, ~15 ms browser/WebGL). He wants the APK "as optimized as physically possible" for future features.
+
+- **Benchmark v4**: `Prof` section timers (off except while the benchmark measures) and a second `PROF` line on the results screen, so the phone reports where its time goes (sim.*, view.*, hud.*, main.events).
+- Bullets hit-test without building a result array per bullet (`World._bullet_hits`, same cells/order as `query()`): sim.bullets 0.18 → 0.07 ms desktop. The 4 particle batches fill in one pass over `fx`, bullets read packed arrays as locals: view.bullets_dots 0.17 → 0.09 ms. Balance sims byte-identical in all 4 modes (only the timing field differs).
+- Desktop profile now (no single hot spot): sim.enemies 0.20, view.top_loop 0.17, hud.buttons 0.12, hud.text 0.12, view.fx_draw 0.10, everything else ≤ 0.09 ms.
+
+**The ceiling in GDScript:** what's left is spread over ~16 sections of ~0.05-0.2 ms. More GDScript tuning might take another ~20-30%. The step change would be **native code (a C++ GDExtension)** for the hot loops (germ movement/separation, the spatial grid, bullets, sprite fills): typically 5-20× faster for that kind of loop. Costs: a C++ toolchain in CI for Android (arm64 + armv7) and, for the web, the dlink export templates; a second implementation to keep in step (the GDScript one stays as the reference for tests and determinism checks). Decision for Yousuf.
