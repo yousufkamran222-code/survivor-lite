@@ -492,3 +492,57 @@ func test_outbreak_shop_tiers() -> void:
 	wm.outbreak = 1.0
 	check(wm.trigger_outbreak())
 	check_near(wm.outbreak_t, float(d.balance.outbreak.shop_tiers[3].duration_s), 0.001)
+
+
+## Side Effects (2026-11-15): offered from from_level, at most max_per_run,
+## never twice; taking one adds its power and its drawback; runs that never
+## take one play out exactly as before (own random stream).
+func test_side_effects() -> void:
+	var d := GameData.apply_mode(data(), "classic")
+	var cfg: Dictionary = d.balance.side_effects
+	d.balance.side_effects.chance = 1.0  # always offer, to test
+	var w := World.new(d, 3)
+	w.emit_events = false
+	while w.level < int(cfg.from_level):
+		w.grant_level()
+	check(w.open_banked())
+	check(w.side_offer != "", "offered from from_level")
+	var id := w.side_offer
+	var c := World.side_def(cfg, id)
+	var before := w.stats.duplicate()
+	check(w.choose_side_effect())
+	for k in c.stats:
+		check_near(float(w.stats[k]), float(before.get(k, 0.0)) + float(c.stats[k]), 0.0001, "%s %s" % [id, k])
+	check_eq(w.side_taken, [id])
+	for n in 10:
+		w.grant_level()
+		w.open_banked()
+		if w.side_offer != "":
+			check(not w.side_taken.has(w.side_offer), "never the same twice")
+			w.choose_side_effect()
+		elif w.state == "levelup":
+			w.choose_upgrade(w.offers[0])
+	check(w.side_taken.size() <= int(cfg.max_per_run), "at most max_per_run")
+	# Drawbacks apply: Gold Rush germs spawn with more HP.
+	var d2 := GameData.apply_mode(data(), "classic")
+	var plain := World.new(d2, 5)
+	var rush := World.new(d2, 5)
+	rush.side_bonus = {"enemy_hp": 0.3, "dmg_taken": 0.25}
+	rush._recompute_stats()
+	plain._add_enemy("grunt", Vector2(500, 0))
+	rush._add_enemy("grunt", Vector2(500, 0))
+	check_near(rush.e_hp[0], plain.e_hp[0] * 1.3, 0.01, "germs have 30% more HP")
+
+
+## Never offered in Patient Zero.
+func test_no_side_effects_in_the_prologue() -> void:
+	var d := data()
+	var pd := GameData.apply_prologue(d)
+	pd.balance.side_effects.chance = 1.0
+	var w := World.new(pd, 3)
+	w.emit_events = false
+	w.start_tutorial(d.onboarding.prologue.beats, Onboarding.prologue_opts(d, Profile.new()))
+	for n in 12:
+		w.grant_level()
+	w.open_banked()
+	check_eq(w.side_offer, "", "no gambles while learning")

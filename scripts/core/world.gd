@@ -89,6 +89,10 @@ var second_wind_used := false
 var slip_t := 0.0  # Slipstream: time left on the post-dash boost
 var _slip_hits := {}  # enemy uids the Slipstream wake already hit
 var mutated_offer := ""  # Mutation Lab: the offer that gives 2 levels ("" = none)
+var side_offer := ""  # Side Effects: a trade-off card offered beside the level-up cards ("" = none)
+var side_taken: Array = []  # Side Effect ids taken this run
+var side_bonus := {}  # their summed stats (+power and -drawback), merged like the shop bonus
+var _side_rng := RandomNumberGenerator.new()  # own stream: offering them never changes the run's other rolls
 var _kept_offers: Array = []  # offers put aside by "Later", shown again on reopen
 var _kept_mutated := ""
 var head_start_weapon := ""
@@ -379,6 +383,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	data = game_data
 	bal = data.balance
 	rng.seed = seed_value
+	_side_rng.seed = seed_value * 7919 + 17
 	meta_bonus = meta
 	run_length = float(bal.run_length_s)
 	_max_er = float(bal.perf.max_enemy_radius)
@@ -576,6 +581,7 @@ func choose_upgrade(id: String) -> void:
 	picks += 1
 	offers = []
 	mutated_offer = ""
+	side_offer = ""
 	state = "playing"
 	_emit({"type": "upgrade", "id": id, "level": owned[id]})
 	if pending_levelups > 0:
@@ -840,7 +846,12 @@ func _emit(ev: Dictionary) -> void:
 
 
 func _recompute_stats() -> void:
-	stats = Upgrades.global_stats(upgrade_defs, owned, meta_bonus)
+	var bonus := meta_bonus
+	if not side_bonus.is_empty():  # Side Effects ride on top of the permanent bonus
+		bonus = meta_bonus.duplicate()
+		for k in side_bonus:
+			bonus[k] = float(bonus.get(k, 0.0)) + float(side_bonus[k])
+	stats = Upgrades.global_stats(upgrade_defs, owned, bonus)
 	p_max_hp = (float(bal.player.max_hp) + float(stats.max_hp)) * maxf(0.1, 1.0 + float(stats.get("max_hp_pct", 0.0)))
 	wstats.clear()
 	for id in owned:
@@ -1012,8 +1023,9 @@ func _add_enemy(id: String, pos: Vector2, elite: bool = false) -> void:
 		hp *= float(bal.get("difficulty", {}).get("boss_hp_mult", 1.0))  # Virulence ramp
 		if def_on and free_mode:
 			hp *= 1.0 + float(dcfg.free_boss_hp_growth) * (wave - wave_count)
+	hp *= 1.0 + float(stats.get("enemy_hp", 0.0))  # Side Effects (e.g. Gold Rush)
 	var r := float(d.radius)
-	var spd := float(d.speed) * _v_speed
+	var spd := float(d.speed) * _v_speed * (1.0 + float(stats.get("enemy_speed", 0.0)))
 	if elite:
 		var el: Dictionary = data.waves.elites
 		hp *= float(el.hp_mult)
@@ -1744,7 +1756,7 @@ func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
 	amount *= float(bal.get("difficulty", {}).get("damage_taken_mult", 1.0))
 	if p_hp < p_max_hp * float(lab_cfg.get("last_stand_hp", 0.3)):
 		amount *= 1.0 - clampf(float(stats.get("last_stand", 0.0)), 0.0, 0.8)  # Lab: Last Stand
-	var taken := amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8))
+	var taken := amount * _dmg_mult() * (1.0 - clampf(float(stats.armor), 0.0, 0.8)) * (1.0 + float(stats.get("dmg_taken", 0.0)))
 	p_hp -= taken
 	if terr != null and not terr.trail_cells.is_empty():
 		_trail_hit = true  # no Perfect Loop for this trail
@@ -1934,6 +1946,7 @@ func _open_levelup() -> void:
 	if not forced_offers.is_empty():
 		offers = _forced(forced_offers.pop_front(), offers)
 	_pick_mutation()
+	_roll_side_effect()
 	if offers.is_empty():
 		pending_levelups = 0
 		p_hp = minf(p_max_hp, p_hp + p_max_hp * float(bal.upgrades.heal_when_all_maxed))
@@ -2499,6 +2512,72 @@ func _head_start() -> void:
 	head_start_weapon = pool[rng.randi() % pool.size()]
 	for k in mini(int(lab_cfg.get("head_start_level", 2)), Upgrades.max_level(upgrade_defs[head_start_weapon])):
 		_apply_level(head_start_weapon)
+
+
+# ============================================================ Side Effects
+
+## Side Effects (balance.side_effects): from from_level on, a level-up may
+## also offer one trade-off card (big power + a drawback), at most
+## max_per_run per run, never the same twice. Its own random stream, so
+## runs that never take one (the bot) play out exactly as before.
+func _roll_side_effect() -> void:
+	side_offer = ""
+	var cfg: Dictionary = bal.get("side_effects", {})
+	if not cfg.get("enabled", false) or str(bal.get("mode_id", "")) == "prologue" or tut != null:
+		return
+	if level < int(cfg.get("from_level", 6)) or side_taken.size() >= int(cfg.get("max_per_run", 2)):
+		return
+	if _side_rng.randf() >= float(cfg.get("chance", 0.0)):
+		return
+	var pool := []
+	for c in cfg.get("cards", []):
+		if not side_taken.has(str(c.id)):
+			pool.append(str(c.id))
+	if not pool.is_empty():
+		side_offer = pool[_side_rng.randi() % pool.size()]
+
+
+static func side_def(cfg: Dictionary, id: String) -> Dictionary:
+	for c in cfg.get("cards", []):
+		if str(c.id) == id:
+			return c
+	return {}
+
+
+## Takes the offered Side Effect instead of an upgrade (uses up the level).
+## Germs already on the field get the new HP/speed drawbacks too.
+func choose_side_effect() -> bool:
+	if state != "levelup" or side_offer == "":
+		return false
+	var c := side_def(bal.side_effects, side_offer)
+	var old_spd := 1.0 + float(stats.get("enemy_speed", 0.0))
+	var old_hp := 1.0 + float(stats.get("enemy_hp", 0.0))
+	var old_max := p_max_hp
+	for k in c.get("stats", {}):
+		side_bonus[k] = float(side_bonus.get(k, 0.0)) + float(c.stats[k])
+	side_taken.append(side_offer)
+	_recompute_stats()
+	if p_max_hp < old_max:
+		p_hp = minf(p_hp, p_max_hp)
+	elif p_max_hp > old_max:
+		p_hp += p_max_hp - old_max
+	var ks := (1.0 + float(stats.get("enemy_speed", 0.0))) / old_spd
+	var kh := (1.0 + float(stats.get("enemy_hp", 0.0))) / old_hp
+	for i in e_pos.size():
+		if e_team[i] == 0:
+			e_spd[i] *= ks
+			e_hp[i] *= kh
+			e_maxhp[i] *= kh
+	pending_levelups -= 1
+	picks += 1
+	offers = []
+	mutated_offer = ""
+	_emit({"type": "side_effect", "id": side_offer})
+	side_offer = ""
+	state = "playing"
+	if pending_levelups > 0:
+		_open_levelup()
+	return true
 
 
 ## Mutation Lab: one offer (that has 2+ levels left) gives 2 levels at once.

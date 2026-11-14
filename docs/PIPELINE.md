@@ -399,3 +399,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 
 ### 2026-11-14 Performance pass (docs/PERF_PLAN.md §5)
 - Animated HUD text at fixed base sizes (`_stext`), baked HUD top panel (`BakedLayer`), Settings → Graphics Sharp/Fast (Fast default on web, only when the window exceeds 720×1280), leaner view loops (packed-array locals, off-screen culling, merged elite passes), web-only visual caps (`balance.web`). Benchmark draw calls 173 → ~90, HUD CPU 0.74 → 0.46 ms desktop; same look (screenshots compared at 1× and 1.5×). No gameplay change (sims untouched). 312 tests.
+
+### 2026-11-15 Shop additions, daily missions, NEXT goals, Side Effects (D-045)
+- **Pandemic Strain** (shop, Outbreak): 5 tiers 600/1000/1600/2400/3500 merging `balance.outbreak.shop_tiers` (6.5 s + x1.4 dmg; weapons x1.85 + 260-kill meter; x1.55 dmg + 65% less damage taken; 8 s + weapons x2.1; x1.75 dmg + Plague Trail). +4 tiers on max HP (to +120), damage resist (to 20%), weapon speed (to 30%), move speed (to 30%). Full shop ~59.9k gold.
+- Sim, maxed account, Virulence 4, 24 runs, seed 600, before → after: Classic win 54% → 79% (time p10 176 → 200 s, p50 300, level_p50 37 → 44); Infection 79% → 100% (p10 239 → 300, level 45 → 46); Swarm 67% → 79% (p10 198 → 164, level 34 → 35); Nucleus 50% → 58% (level 23 → 22). Fresh accounts unchanged.
+- **Daily missions**: 17-mission pool, 3/day by tier (60/100/160 gold + 100 for all three), menu pill + page, results chips. **NEXT** card on results. **Side Effects**: 6 cards (Glass Membrane, Fever Metabolism, Gold Rush, Hunger, Rapid Division, Hyperflagella), 25% chance per level-up from level 6, max 2 per run. No-upgrade sims byte-identical in all 4 modes. 322 tests.

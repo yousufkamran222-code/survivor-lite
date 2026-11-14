@@ -1800,6 +1800,11 @@ func _show_levelup() -> void:
 		_cards.append(b)
 		_slide_in(b, 0.06 + k * 0.08)
 		k += 1
+	if world.side_offer != "":  # Side Effects: a trade-off card under the normal three
+		var sb := _side_card(world.side_offer)
+		col.add_child(_card_slot(sb))
+		buttons.append(sb)
+		_slide_in(sb, 0.06 + k * 0.08)
 	# Reroll / Later: small text buttons, so the cards stay the focus.
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1849,6 +1854,66 @@ func _text_button(text: String, on_press: Callable) -> Button:
 		Sfx.play("click", 0.0)
 		on_press.call())
 	UiKit.press_feedback(b)
+	return b
+
+
+## Side Effect card: big power, a drawback (balance.side_effects). Darker,
+## with a hazard-red frame, so it reads as a gamble, not a normal pick.
+func _side_card(id: String) -> Button:
+	var c := World.side_def(world.bal.side_effects, id)
+	var hazard := Color("#ff5a7a")
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 150)
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := UiKit.card(Color("#2a1430"), hazard, 22, 12)
+	sb.set_border_width_all(4)
+	sb.border_width_left = 12
+	var sbp := sb.duplicate()
+	sbp.bg_color = Color("#3d1c44")
+	for st in ["normal", "hover", "disabled"]:
+		b.add_theme_stylebox_override(st, sb)
+	b.add_theme_stylebox_override("pressed", sbp)
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		if world.choose_side_effect():
+			Sfx.play("boss", 0.0, 1.6)
+			Sfx.vibrate(60)
+			Analytics.event("side_effect", {"id": id, "t": int(world.time)})
+			hud.toast("SIDE EFFECT: %s" % str(c.name).to_upper(), hazard, 1.6)
+			if world.state == "levelup":
+				_show_levelup()
+			else:
+				_levelup[0].visible = false
+				_set_screen("playing"))
+	UiKit.press_feedback(b)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 14)
+	m.add_theme_constant_override("margin_left", 24)
+	b.add_child(m)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	m.add_child(v)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", 8)
+	var name := UiKit.display(UiKit.label(str(c.name), 30, Color.WHITE))
+	name.autowrap_mode = TextServer.AUTOWRAP_OFF
+	top.add_child(name)
+	top.add_child(UiKit.chip("SIDE EFFECT", hazard, Color(0.1, 0.03, 0.06), 16))
+	v.add_child(top)
+	var good := UiKit.label("+  " + str(c.good), 21, Color("#7cff9b"))
+	good.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(good)
+	var bad := UiKit.label("-  " + str(c.bad), 21, hazard)
+	bad.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(bad)
+	for n in [top, good, bad, name]:
+		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return b
 
 

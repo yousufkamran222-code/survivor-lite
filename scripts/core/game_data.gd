@@ -255,6 +255,10 @@ static func validate(d: Dictionary) -> Array:
 	_validate_cosmetics(d, errors)
 	_validate_onboarding(d, errors)
 	_validate_missions(d, errors)
+	for c in d.balance.get("side_effects", {}).get("cards", []):  # Side Effects: known stats only
+		for k in c.get("stats", {}):
+			if not Upgrades.GLOBAL_STATS.has(k):
+				errors.append("side effect %s: unknown stat '%s'" % [c.get("id", "?"), k])
 	# Virulence: 10 levels, known modifiers only.
 	var diffd: Dictionary = d.get("difficulty", {})
 	if diffd.get("levels", []).size() != 10:
