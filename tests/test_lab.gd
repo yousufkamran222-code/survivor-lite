@@ -479,7 +479,8 @@ func test_v5_shop_levels_double() -> void:
 
 
 func test_shop_caps_unchanged() -> void:
-	var old_caps := {"meta_hp": 100.0, "meta_might": 0.4, "meta_haste": 0.24, "meta_armor": 0.16, "meta_regen": 0.6, "meta_move": 0.24,
+	# 2026-11-15 (Yousuf): 4 more tiers on max HP, weapon speed, damage resist and move speed.
+	var old_caps := {"meta_hp": 120.0, "meta_might": 0.4, "meta_haste": 0.3, "meta_armor": 0.2, "meta_regen": 0.6, "meta_move": 0.3,
 		"meta_magnet": 0.96, "meta_growth": 0.4, "meta_greed": 0.64, "meta_amount": 2.0, "meta_dash_cd": 0.3, "meta_dash_charge": 1.0,
 		"meta_dash_dmg": 40.0, "meta_dash_decoy": 1.5, "meta_convert": 0.05}
 	for m in data().meta:

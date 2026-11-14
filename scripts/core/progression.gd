@@ -56,7 +56,19 @@ static func meta_total_text(meta_def: Dictionary, level: int) -> String:
 static func meta_effect_text(meta_def: Dictionary, level: int) -> String:
 	if level <= 0:
 		return "None yet"
+	if meta_def.has("tier_text"):  # tiered upgrades (Pandemic Strain): every tier owned, one per line
+		var lines := []
+		for k in mini(level, meta_def.tier_text.size()):
+			lines.append(str(meta_def.tier_text[k]))
+		return "\n".join(lines)
 	return "%s %s" % [meta_total_text(meta_def, level), meta_def.get("label", "")]
+
+
+## What one tier adds (tiered upgrades), else the usual effect text.
+static func meta_tier_text(meta_def: Dictionary, level: int) -> String:
+	if meta_def.has("tier_text") and level >= 1 and level <= meta_def.tier_text.size():
+		return str(meta_def.tier_text[level - 1])
+	return meta_effect_text(meta_def, level)
 
 
 ## Everything about a finished run that profiles, leaderboards and analytics
@@ -69,6 +81,7 @@ static func run_summary(w: World, won: bool, mode_id: String, scoring: Dictionar
 		"mode": mode_id, "won": won, "time": w.time, "kills": w.kills, "level": w.level,
 		"elites": w.elites_killed, "chests": w.chests_opened, "evolved_ids": evolved_ids,
 		"conversions": w.conversions, "dashes": w.dashes, "boss_killed": w.boss_killed, "best_streak": w.best_streak,
+		"outbreaks": w.outbreaks, "perfect_dodges": w.perfect_dodges,
 		"virulence": int(w.bal.get("virulence", 1)),
 		"kills_by_type": w.kills_by_type.duplicate(),
 		"infected_pct": roundi(w.terr.infected_fraction() * 100.0) if w.terr != null else 0,

@@ -1,0 +1,24 @@
+{
+  "_doc": "Daily missions (Missions, scripts/core/missions.gd). Each day picks one mission per tier from this pool (seeded by the date, so everyone gets the same three; a mission that needs a locked mode is skipped). stat = a key of Progression.run_summary; agg: sum = adds up over the day's runs, best = one run must reach n. won/boss_killed count as 1. Rewards are gold, paid when a run completes the mission; all_bonus is paid when the third one is done. Prologue runs never count.",
+  "per_day": 3,
+  "all_bonus": 100,
+  "pool": [
+    {"id": "kill_300", "tier": 1, "text": "Kill %d germs", "stat": "kills", "agg": "sum", "n": 300, "reward": 60},
+    {"id": "runs_3", "tier": 1, "text": "Play %d runs", "stat": "runs", "agg": "sum", "n": 3, "reward": 60},
+    {"id": "dash_40", "tier": 1, "text": "Dash %d times", "stat": "dashes", "agg": "sum", "n": 40, "reward": 60},
+    {"id": "chest_2", "tier": 1, "text": "Open %d chests", "stat": "chests", "agg": "sum", "n": 2, "reward": 60},
+    {"id": "survive_180", "tier": 1, "text": "Survive 3:00 in one run", "stat": "time", "agg": "best", "n": 180, "reward": 60},
+    {"id": "elite_5", "tier": 2, "text": "Kill %d elites", "stat": "elites", "agg": "sum", "n": 5, "reward": 100},
+    {"id": "level_15", "tier": 2, "text": "Reach level %d in one run", "stat": "level", "agg": "best", "n": 15, "reward": 100},
+    {"id": "evolve_1", "tier": 2, "text": "Evolve a weapon", "stat": "evolutions", "agg": "sum", "n": 1, "reward": 100},
+    {"id": "streak_100", "tier": 2, "text": "Hit a x%d kill streak", "stat": "best_streak", "agg": "best", "n": 100, "reward": 100},
+    {"id": "outbreak_3", "tier": 2, "text": "Trigger Outbreak %d times", "stat": "outbreaks", "agg": "sum", "n": 3, "reward": 100},
+    {"id": "kill_1200", "tier": 2, "text": "Kill %d germs", "stat": "kills", "agg": "sum", "n": 1200, "reward": 100},
+    {"id": "win_1", "tier": 3, "text": "Win a run", "stat": "won", "agg": "sum", "n": 1, "reward": 160},
+    {"id": "boss_1", "tier": 3, "text": "Defeat the Mother Cell", "stat": "boss_killed", "agg": "sum", "n": 1, "reward": 160},
+    {"id": "streak_250", "tier": 3, "text": "Hit a x%d kill streak", "stat": "best_streak", "agg": "best", "n": 250, "reward": 160},
+    {"id": "perfect_10", "tier": 3, "text": "Land %d Perfect Dodges", "stat": "perfect_dodges", "agg": "sum", "n": 10, "reward": 160},
+    {"id": "infect_50", "tier": 3, "text": "Infect %d%% of the dish in one run", "stat": "infected_pct", "agg": "best", "n": 50, "reward": 160, "requires": "infection"},
+    {"id": "convert_60", "tier": 3, "text": "Convert %d germs in one run", "stat": "conversions", "agg": "best", "n": 60, "reward": 160, "requires": "swarm"}
+  ]
+}

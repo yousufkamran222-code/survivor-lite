@@ -41,6 +41,7 @@ var _summary := {}
 var _menu_bg: MenuBackground
 var _new_achievements: Array = []
 var _new_cosmetics: Array = []  # cosmetic items this run unlocked (results screen)
+var _missions_done: Array = []  # daily missions this run completed ({id, text, reward}; results screen)
 var _pop_sound := {}  # the equipped pop style's look (kill sound + pitch)
 var _menu_toast_node: Control = null
 var _menu_hero: Control = null
@@ -964,6 +965,8 @@ func _show_menu() -> void:
 	# Top bar: settings (gear) left, gold right.
 	var top := HBoxContainer.new()
 	top.add_child(_icon_button("settings", pal.player_nucleus, _show_settings))
+	if Onboarding.prologue_done(Save.profile):
+		top.add_child(_missions_pill())
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(gap)
@@ -1508,6 +1511,153 @@ func _gold_pill(shown: int = -1) -> Control:
 	h.add_child(amount)
 	pill.add_child(h)
 	return pill
+
+
+## Up to two goals for the results screen, most useful first: the next
+## unlock, a shop upgrade you can (almost) afford, a daily mission you're
+## close to, or the time to beat.
+func _next_goals(won: bool) -> Array:
+	var out := []
+	# 1. The next locked mode or menu tile.
+	for u in data.onboarding.get("unlocks", []):
+		var id := str(u.id)
+		if not Onboarding.unlocked(data, Save.profile, id):
+			var how := Onboarding.unlock_text(data, Save.profile, id, true)
+			if how != "":
+				out.append("%s to unlock %s" % [how.left(1).to_upper() + how.substr(1), str(u.name)])
+			break
+	# 2. The cheapest shop upgrade not maxed.
+	if Onboarding.unlocked(data, Save.profile, "shop"):
+		var best: Dictionary = {}
+		var best_cost := 1 << 30
+		for md in data.meta:
+			var c := Progression.meta_next_cost(md, Save.profile.meta_level(str(md.id)))
+			if c > 0 and c < best_cost:
+				best_cost = c
+				best = md
+		if not best.is_empty():
+			if Save.gold >= best_cost:
+				out.append("You can buy %s now (%d gold)" % [str(best.name), best_cost])
+			else:
+				out.append("%d more gold for %s" % [best_cost - Save.gold, str(best.name)])
+	# 3. The daily mission closest to done.
+	if out.size() < 2 and Onboarding.prologue_done(Save.profile):
+		var st := _missions_today()
+		var near := ""
+		var near_k := -1.0
+		for id in st.ids:
+			if Missions.is_done(st, str(id)):
+				continue
+			var mdef := Missions.find(data.missions, str(id))
+			if mdef.is_empty() or str(mdef.get("agg", "sum")) != "sum":
+				continue
+			var k := float(Missions.progress(st, mdef)) / maxf(float(mdef.n), 1.0)
+			if k > near_k:
+				near_k = k
+				near = "Daily: %s (%d / %d)" % [Missions.text(mdef), Missions.progress(st, mdef), int(mdef.n)]
+		if near != "":
+			out.append(near)
+	# 4. The time to beat in this mode.
+	if out.size() < 2 and not won and not world.def_on:
+		var bt := float(Save.profile.record(str(_current_mode().id)).get("best_time", 0.0))
+		if bt > world.time + 1.0:
+			out.append("Your best here: %s. Beat it!" % UiKit.fmt_time(bt))
+	return out.slice(0, 2)
+
+
+# ------------------------------------------------------- daily missions
+
+func _today() -> String:
+	return Time.get_date_string_from_system()
+
+
+## Modes this player has open (daily missions skip ones for locked modes).
+func _open_modes() -> Array:
+	var out := []
+	for md in data.modes:
+		if Onboarding.unlocked(data, Save.profile, str(md.id)):
+			out.append(str(md.id))
+	return out
+
+
+func _missions_today() -> Dictionary:
+	return Missions.today(Save.profile, data.missions, _today(), _open_modes())
+
+
+## Menu top bar: "DAILY 1/3" (glows green when all are done).
+func _missions_pill() -> Button:
+	var st := _missions_today()
+	var n := Missions.done_count(st)
+	var total: int = st.ids.size()
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 76)
+	UiKit.style_button(b, "positive" if n >= total else "secondary")
+	UiKit.press_feedback(b)
+	b.text = "DAILY  %d/%d" % [n, total]
+	b.add_theme_font_override("font", UiKit.display_font())
+	b.add_theme_font_size_override("font_size", 24)
+	b.pressed.connect(func() -> void:
+		Sfx.play("click", 0.0)
+		_show_missions())
+	return b
+
+
+## The day's three missions with progress bars and rewards.
+func _show_missions() -> void:
+	_menu_page = "missions"
+	_menu_bg.show_hero = false
+	var col: VBoxContainer = _menu[1]
+	UiKit.clear(col)
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 16)
+	page.add_child(UiKit.label("DAILY MISSIONS", 52, pal.ui_accent))
+	var st := _missions_today()
+	var now := Time.get_datetime_dict_from_system()
+	var left_s := 86400 - (int(now.hour) * 3600 + int(now.minute) * 60 + int(now.second))
+	page.add_child(UiKit.label("New missions in %dh %02dm. Progress counts from every run." % [left_s / 3600, (left_s % 3600) / 60], 20, Color(pal.text, 0.6)))
+	for id in st.ids:
+		var mdef := Missions.find(data.missions, str(id))
+		if mdef.is_empty():
+			continue
+		var done := Missions.is_done(st, str(id))
+		var card := UiKit.panel(Color("#2a1f52") if not done else Color("#1d3a2c"), Color(Color("#7cff9b") if done else pal.ui_accent, 0.5), 22, 18)
+		var v := VBoxContainer.new()
+		v.add_theme_constant_override("separation", 8)
+		var row := HBoxContainer.new()
+		var name := UiKit.display(UiKit.label(Missions.text(mdef), 28, Color.WHITE))
+		name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name)
+		row.add_child(UiKit.chip("DONE" if done else "+%d gold" % int(mdef.reward), Color("#7cff9b") if done else pal.ui_accent, Color(0.08, 0.05, 0.12), 20))
+		v.add_child(row)
+		var bar := ProgressBar.new()
+		bar.max_value = float(mdef.n)
+		bar.value = float(Missions.progress(st, mdef))
+		bar.show_percentage = false
+		bar.custom_minimum_size = Vector2(0, 18)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Color("#7cff9b") if done else pal.xp_bar
+		fill.set_corner_radius_all(9)
+		var bg := StyleBoxFlat.new()
+		bg.bg_color = Color(0, 0, 0, 0.35)
+		bg.set_corner_radius_all(9)
+		bar.add_theme_stylebox_override("fill", fill)
+		bar.add_theme_stylebox_override("background", bg)
+		v.add_child(bar)
+		var hint := "%d / %d" % [Missions.progress(st, mdef), int(mdef.n)]
+		if str(mdef.get("agg", "sum")) == "best":
+			hint += "  (in one run)"
+		var hl := UiKit.label(hint, 18, Color(pal.text, 0.6))
+		hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(hl)
+		card.add_child(v)
+		page.add_child(card)
+	var bonus := int(data.missions.get("all_bonus", 0))
+	if bonus > 0:
+		page.add_child(UiKit.label(("Bonus collected: +%d gold" if bool(st.get("bonus", false)) else "Finish all three for +%d bonus gold") % bonus, 22, Color("#7cff9b")))
+	page.add_child(UiKit.button("BACK", _show_menu, 96))
+	col.add_child(page)
+	UiKit.fade_in(page)
 
 
 ## Square-ish button with an icon over a label (menu bottom row).
@@ -2262,6 +2412,10 @@ func _show_results(won: bool) -> void:
 	var had_cosmetics := Cosmetics.earned_ids(data.cosmetics, Save.profile)
 	_new_achievements = Save.profile.record_run(_summary, data.online.achievements, Save.now(), data.lab.genes)
 	_new_cosmetics = Cosmetics.newly_earned(data.cosmetics, had_cosmetics, Cosmetics.earned_ids(data.cosmetics, Save.profile))
+	# Daily missions: progress from this run; finished ones pay their gold now.
+	_missions_done = Missions.record_run(Save.profile, data.missions, _summary, _today(), _open_modes(), Save.now())
+	for md in _missions_done:
+		Analytics.event("mission_done", {"id": str(md.id), "reward": int(md.reward)})
 	_virulence_cleared = 0
 	if won and Save.profile.virulence_cleared(mid) > prev_cleared:
 		_virulence_cleared = Save.profile.virulence_cleared(mid)
@@ -2414,8 +2568,40 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 				UiKit.fade_in(chip, t + 1.5 + 0.2 * ck)
 			ck += 1
 		rv.add_child(cflow)
+	# Daily missions this run finished (their gold is already in the wallet).
+	if not _missions_done.is_empty():
+		var mflow := HFlowContainer.new()
+		mflow.alignment = FlowContainer.ALIGNMENT_CENTER
+		mflow.add_theme_constant_override("h_separation", 8)
+		mflow.add_theme_constant_override("v_separation", 8)
+		var mk := 0
+		for md in _missions_done:
+			var label := "DAILY BONUS +%d gold" % int(md.reward) if str(md.id) == "all" else "MISSION: %s  +%d" % [md.text, int(md.reward)]
+			var mchip := UiKit.chip(label, Color("#7cff9b"), Color(0.03, 0.12, 0.06), 19)
+			mflow.add_child(mchip)
+			if animate:
+				UiKit.fade_in(mchip, t + 1.6 + 0.2 * mk)
+			mk += 1
+		rv.add_child(mflow)
 	rewards.add_child(rv)
 	col.add_child(rewards)
+	# "What next": one or two concrete goals, so PLAY AGAIN has a reason.
+	var goals := _next_goals(won)
+	if not goals.is_empty():
+		var gp := UiKit.panel(Color(0.08, 0.05, 0.14, 0.6), Color(1, 1, 1, 0.08), 18, 12)
+		var gv := VBoxContainer.new()
+		gv.add_theme_constant_override("separation", 4)
+		var gcap := UiKit.display(UiKit.label("NEXT", 18, Color(pal.text, 0.55)), 0)
+		gcap.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		gv.add_child(gcap)
+		for gtxt in goals:
+			var gl := UiKit.label(gtxt, 22, Color.WHITE)
+			gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			gv.add_child(gl)
+		gp.add_child(gv)
+		col.add_child(gp)
+		if animate:
+			UiKit.fade_in(gp, t + 1.8)
 	_results_gold_icon = gold_icon
 	# Wallet (top-right): the run's gold flies into it on collect.
 	if is_instance_valid(_results_wallet):

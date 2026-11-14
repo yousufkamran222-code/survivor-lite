@@ -3,7 +3,7 @@ extends RefCounted
 ## Loads the JSON tables in res://data and validates cross-references.
 ## Every tunable number lives in data/, never in code.
 
-const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab", "cosmetics", "onboarding"]
+const FILES := ["balance", "enemies", "upgrades", "waves", "meta", "evolutions", "modes", "online", "towers", "hints", "difficulty", "lab", "cosmetics", "onboarding", "missions"]
 const VIRULENCE_MODS := ["enemy_speed_mult", "knock_resist_add", "budget_mult", "ranged_weight_mult", "shot_speed_mult", "iframes_mult",
 	"final_minute_s", "breather_mult", "boss_time_s", "boss_burst_mult", "damage_taken_mult", "enemy_hp_mult"]
 
@@ -254,6 +254,7 @@ static func validate(d: Dictionary) -> Array:
 	_validate_lab(d, errors)
 	_validate_cosmetics(d, errors)
 	_validate_onboarding(d, errors)
+	_validate_missions(d, errors)
 	# Virulence: 10 levels, known modifiers only.
 	var diffd: Dictionary = d.get("difficulty", {})
 	if diffd.get("levels", []).size() != 10:
@@ -473,6 +474,34 @@ static func _validate_cosmetics(d: Dictionary, errors: Array) -> void:
 		var def := Cosmetics.find(cfg, str(cfg.get("defaults", {}).get(c, "")))
 		if def.is_empty() or def.cat != c or Cosmetics.unlock_type(def) != "free":
 			errors.append("cosmetics: category %s needs a free default item" % c)
+
+
+## Daily missions (data/missions.json): known stats and aggregations, known
+## modes, positive goals and rewards, unique ids, every tier filled.
+const MISSION_STATS := ["runs", "won", "boss_killed", "evolutions", "kills", "dashes", "chests", "time", "elites", "level", "best_streak", "outbreaks", "perfect_dodges", "infected_pct", "conversions"]
+
+
+static func _validate_missions(d: Dictionary, errors: Array) -> void:
+	var cfg: Dictionary = d.get("missions", {})
+	if cfg.is_empty():
+		return
+	var mode_ids := []
+	for m in d.modes:
+		mode_ids.append(str(m.id))
+	var seen := {}
+	for m in cfg.get("pool", []):
+		var where := "missions %s" % m.get("id", "?")
+		if seen.has(m.get("id", "")):
+			errors.append("%s: duplicate id" % where)
+		seen[m.get("id", "")] = true
+		if not MISSION_STATS.has(str(m.get("stat", ""))):
+			errors.append("%s: unknown stat '%s'" % [where, m.get("stat", "")])
+		if not ["sum", "best"].has(str(m.get("agg", "sum"))):
+			errors.append("%s: agg must be sum or best" % where)
+		if int(m.get("n", 0)) <= 0 or int(m.get("reward", 0)) <= 0:
+			errors.append("%s: needs a positive n and reward" % where)
+		if m.has("requires") and not mode_ids.has(str(m.requires)):
+			errors.append("%s: requires unknown mode '%s'" % [where, m.requires])
 
 
 ## Onboarding (data/onboarding.json): known beat conditions, prompt targets,

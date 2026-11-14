@@ -207,6 +207,13 @@
     "xp_mult": 1.5,
     "ally_damage_mult": 1.5,
     "ally_speed_mult": 1.5,
+    "shop_tiers": [
+      {"duration_s": 6.5, "damage_mult": 1.4},
+      {"weapon_speed": 1.85, "kills_to_fill": 260},
+      {"damage_mult": 1.55, "damage_taken_mult": 0.35},
+      {"duration_s": 8.0, "weapon_speed": 2.1},
+      {"damage_mult": 1.75, "plague_trail": true}
+    ],
     "plague_trail": false,
     "trail_spacing": 22,
     "trail_life_s": 3.0,

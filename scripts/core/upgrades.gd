@@ -9,7 +9,9 @@ const GLOBAL_STATS := ["might", "haste", "move", "max_hp", "magnet", "amount", "
 	"streak_dmg", "overkill", "arsenal", "last_stand", "recoil", "feed", "clot", "momentum", "refuel", "evasion", "wake",
 	"free_rerolls", "start_levels", "start_meters", "treasure",
 	# Shop: evolution strength per weapon (World._recompute_stats)
-	"evo_bolt", "evo_orbit", "evo_nova", "evo_chain"]
+	"evo_bolt", "evo_orbit", "evo_nova", "evo_chain",
+	# Shop: Outbreak tiers (balance.outbreak.shop_tiers); Side Effect cards' drawbacks
+	"outbreak_tier", "enemy_speed", "enemy_hp", "dmg_taken"]
 
 
 static func max_level(def: Dictionary) -> int:

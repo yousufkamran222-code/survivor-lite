@@ -119,7 +119,7 @@ func _tile(m: Dictionary) -> Button:
 	name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(name)
 	# What one level gives, so tiles read without opening the popup.
-	var what := _fixed_label(Progression.meta_effect_text(m, 1), 18, Color(col, 0.95))
+	var what := _fixed_label(str(m.get("tile", Progression.meta_effect_text(m, 1))), 18, Color(col, 0.95))
 	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	what.clip_text = true
@@ -266,7 +266,7 @@ func _fill_popup(flash: int) -> void:
 		arrow.color = GREEN
 		arrow.custom_minimum_size = Vector2(28, 0)
 		fx.add_child(arrow)
-		fx.add_child(_effect_box("NEXT", Progression.meta_effect_text(m, lv + 1), GREEN, true))
+		fx.add_child(_effect_box("NEXT", Progression.meta_tier_text(m, lv + 1) if m.has("tier_text") else Progression.meta_effect_text(m, lv + 1), GREEN, true))
 	body.add_child(fx)
 	# The big button.
 	if maxed:

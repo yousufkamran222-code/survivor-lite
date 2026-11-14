@@ -425,6 +425,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 			boss_def = e
 	_boss_slam_cd = float(boss_def.get("slam_every_s", 6.5))
 	_recompute_stats()
+	_apply_outbreak_tiers()
 	if float(stats.get("head_start", 0.0)) > 0.0:
 		_head_start()
 	free_rerolls = int(stats.get("free_rerolls", 0.0))
@@ -3490,6 +3491,23 @@ func _streak_rewards() -> void:
 
 func outbreak_ready() -> bool:
 	return outbreak >= 1.0 and outbreak_t <= 0.0
+
+
+## Shop "Pandemic Strain" (stat outbreak_tier): the first N entries of
+## balance.outbreak.shop_tiers are merged over this run's Outbreak settings,
+## in order (later tiers override earlier numbers). The World gets its own
+## copy of the balance so the shared game data is never changed.
+func _apply_outbreak_tiers() -> void:
+	var n := int(stats.get("outbreak_tier", 0.0))
+	var tiers: Array = bal.get("outbreak", {}).get("shop_tiers", [])
+	if n <= 0 or tiers.is_empty():
+		return
+	var o: Dictionary = bal.outbreak.duplicate(true)
+	for k in mini(n, tiers.size()):
+		for key in tiers[k]:
+			o[key] = tiers[k][key]
+	bal = bal.duplicate()
+	bal["outbreak"] = o
 
 
 ## Tapped by the player: a frenzy of faster weapons and extra damage.

@@ -456,3 +456,39 @@ func test_kill_sound_tables() -> void:
 	var j: Dictionary = data().balance.juice
 	check(int(j.mega_kill_count) >= 10 and float(j.mega_kill_window_s) > 0.0, "mega kill needs a real burst")
 	check(float(j.mega_slowmo_scale) > 0.0 and float(j.mega_slowmo_scale) < 1.0, "mega kill slows time, never stops it")
+
+
+## Shop "Pandemic Strain" (2026-11-15): each tier makes Outbreak stronger,
+## tier 0 keeps today's Outbreak exactly, and the shared data is untouched.
+func test_outbreak_shop_tiers() -> void:
+	var d := GameData.apply_mode(data(), "classic")
+	var base: Dictionary = d.balance.outbreak.duplicate(true)
+	var m: Dictionary = {}
+	for e in d.meta:
+		if e.id == "meta_outbreak":
+			m = e
+	check(not m.is_empty(), "the shop has the Outbreak upgrade")
+	check_eq(int(m.costs[0]), 600, "first tier costs 600")
+	check(m.costs.size() >= 4 and m.costs.size() <= 5, "4-5 tiers")
+	check_eq(m.costs.size(), d.balance.outbreak.shop_tiers.size(), "one balance entry per tier")
+	check_eq(m.costs.size(), m.tier_text.size(), "one line of text per tier")
+	var w0 := World.new(d, 1, Progression.meta_bonus(d.meta, {}))
+	check_eq(w0.bal.outbreak.duration_s, base.duration_s, "no tiers: Outbreak unchanged")
+	var prev_dmg := float(base.damage_mult)
+	var prev_dur := float(base.duration_s)
+	for lv in range(1, m.costs.size() + 1):
+		var w := World.new(d, 1, Progression.meta_bonus(d.meta, {"meta_outbreak": lv}))
+		var o: Dictionary = w.bal.outbreak
+		check(float(o.damage_mult) >= prev_dmg and float(o.duration_s) >= prev_dur, "tier %d never weaker" % lv)
+		check(float(o.weapon_speed) >= float(base.weapon_speed) and float(o.damage_taken_mult) <= float(base.damage_taken_mult), "tier %d" % lv)
+		check_eq(float(o.get("gold_mult", 1.0)), float(base.get("gold_mult", 1.0)), "tiers buff power, not gold")
+		prev_dmg = float(o.damage_mult)
+		prev_dur = float(o.duration_s)
+	check(prev_dmg > float(base.damage_mult) * 1.3 and prev_dur > float(base.duration_s), "maxed is clearly stronger")
+	check_eq(d.balance.outbreak.duration_s, base.duration_s, "shared game data untouched")
+	# The frenzy really lasts longer in a run.
+	var wm := World.new(d, 2, Progression.meta_bonus(d.meta, {"meta_outbreak": m.costs.size()}))
+	wm.emit_events = false
+	wm.outbreak = 1.0
+	check(wm.trigger_outbreak())
+	check_near(wm.outbreak_t, float(d.balance.outbreak.shop_tiers[3].duration_s), 0.001)
