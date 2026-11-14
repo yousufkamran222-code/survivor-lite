@@ -41,7 +41,7 @@ Last updated **2026-11-11** at the end of the fourth long session (cosmetics →
 - **He decides the design; you propose.** On open design questions, give 2-4 options with a clear recommendation (AskUserQuestion works well for multi-choice). When he says "go ahead with it", implement fully. When he says "discuss"/"plan"/"don't implement", **only plan**.
 - He prefers **minimal, surgical changes** over rewrites, and data changes over code changes.
 - He playtests by playing on his phone and reports qualitative notes (e.g. "the ranged enemy seems way more powerful", "too easy once I had a swarm", "fps dropped to 20 with lots of effects"). Treat his notes as ground truth over the bot.
-- He plays the web build on itch.io (restricted page, account `light213`, project `petri`) and installs APKs from Actions artifacts. On the web build he uses Settings → DEVELOPER (code 1289) → +10,000 gold / all Virulence levels to test. He has **not** yet added the keystore secrets, a Play Console account, AdMob or PSEB (`docs/SETUP.md` §2 and §4). Remind him when relevant, but don't nag.
+- He plays the web build on itch.io (restricted page, account `light213`, project `petri`) and installs APKs from Actions artifacts. On the web build he uses Settings → DEVELOPER (code 1289) → +10,000 gold / all Virulence levels to test. He added the **keystore secrets on 2026-11-14** (signed upload-key builds now). He has **not** yet set up a Play Console account, AdMob or PSEB (`docs/SETUP.md` §2 and §4). Remind him when relevant, but don't nag.
 
 ---
 
@@ -411,7 +411,7 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - **Play Billing** (paid cosmetics, `"paid": true` items): after launch.
 - **After launch (D-043):** Daily Outbreak (fair daily board), then **online co-op ASAP** (`docs/COOP_DESIGN.md`; AI partner ships with it; design still open). Leaderboards at launch = 4 per-mode score boards in Play Games' own UI.
 - **Marketing plan**: written 2026-11-11 in `docs/MARKETING.md` ($0, ~1 h/week: the same 9:16 clip to TikTok + Shorts + Reels 3×/week, Reddit at milestones, 20 testers, store listing). Realistic launch is ~3-4 weeks after his Play Console account exists (14-day closed test). Offered: try rendering bot clips with Godot Movie Maker.
-- **His own to-do list** (remind gently): Play Console needs an account holder aged 18+ (a parent may have to own it); keystore secrets (SETUP §2); AdMob account, app + ad units, GDPR message, then the `ADMOB_*` secrets (SETUP §6); Firebase project; 12+ closed-test testers for 14 days (M5).
+- **His own to-do list** (remind gently): Play Console needs an account holder aged 18+ (a parent may have to own it); ~~keystore secrets~~ done 2026-11-14; AdMob account, app + ad units, GDPR message, then the `ADMOB_*` secrets (SETUP §6); Firebase project; 12+ closed-test testers for 14 days (M5).
 
 **Playtest questions to ask him (built this session, unplayed):**
 - Cosmetics: which items feel worth chasing? Any pop sound annoying? Are gold prices fair?
@@ -451,7 +451,7 @@ Done this session, for reference (details in PIPELINE): dash/ability/Lysis/Volat
 - **Play Games Services** as `PlayGamesBackend` behind `Online`: sign-in, Saved Games with `Profile.merge`, leaderboards from `data/online.json`, achievements. Yousuf creates the console entries.
 - M4 store kit (icon, screenshots, 15 s clip, privacy policy, data safety), M5 closed test (12+ testers × 14 days), M6 release + small UA tests.
 - Before release: `debug.show_perf` false, `debug.dev_tools` false, `debug.invincible` false.
-- His account steps still open: keystore secrets, Play Console (18+ account holder), AdMob (SETUP §6), Firebase, PSEB.
+- His account steps still open: Play Console (18+ account holder), AdMob (SETUP §6), Firebase, PSEB.
 
 **Tech debt:**
 - Territory grid 64 → 96 for smoother edges (check flood-fill cost on the phone).
