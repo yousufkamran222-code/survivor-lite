@@ -197,7 +197,7 @@ func _draw_orders() -> void:
 		draw_string_outline(font, Vector2(0, ty), "SWARM ORDERS", HORIZONTAL_ALIGNMENT_CENTER, size.x, 34, 8, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, ty), "SWARM ORDERS", HORIZONTAL_ALIGNMENT_CENTER, size.x, 34, Color.WHITE)
 		draw_string(font, Vector2(0, ty + 34), "Paused. Tap an order, or anywhere to resume.", HORIZONTAL_ALIGNMENT_CENTER, size.x, 20, Color(1, 1, 1, 0.75))
-	draw_circle(c, ORDER_R, Color(col, 0.22 if orders_open else 0.12))
+	_dot(self, c, ORDER_R, Color(col, 0.22 if orders_open else 0.12))
 	draw_arc(c, ORDER_R, 0, TAU, 40, Color(col, 0.85), 3.0)
 	if world.order_cd > 0.0:
 		var f := 1.0 - world.order_cd / maxf(float(world.bal.conversion.get("order_switch_s", 1.0)), 0.01)
@@ -210,8 +210,8 @@ func _draw_orders() -> void:
 		var oc := _order_color(k)
 		var p := c.lerp(order_option_center(k), grow)
 		var on := k == cur
-		draw_circle(p, ORDER_OPT_R + 4.0, Color(0, 0, 0, 0.45))
-		draw_circle(p, ORDER_OPT_R, Color(oc, 0.35 if on else 0.16))
+		_dot(self, p, ORDER_OPT_R + 4.0, Color(0, 0, 0, 0.45))
+		_dot(self, p, ORDER_OPT_R, Color(oc, 0.35 if on else 0.16))
 		draw_arc(p, ORDER_OPT_R, 0, TAU, 36, Color.WHITE if on else Color(oc, 0.9), 4.0 if on else 3.0)
 		_draw_order_icon("order_" + World.ORDER_IDS[k], p, ORDER_OPT_R * 1.2, oc)
 		var name := str(world.bal.conversion.orders[World.ORDER_IDS[k]].name).to_upper()
@@ -368,11 +368,11 @@ func _draw_hud() -> void:
 		return
 	# Floating joystick.
 	if stick_active:
-		draw_circle(stick_origin, stick_radius, Color(1, 1, 1, 0.08))
+		_dot(self, stick_origin, stick_radius, Color(1, 1, 1, 0.08))
 		draw_arc(stick_origin, stick_radius, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0)
 		var off := (stick_pos - stick_origin).limit_length(stick_radius)
 		var knob := stick_origin + off
-		draw_circle(knob, 34, Color(1, 1, 1, 0.35))
+		_dot(self, knob, 34, Color(1, 1, 1, 0.35))
 		# Direction marker on the base rim once you're past the dead zone.
 		if off.length() > stick_radius * 0.15:
 			var d := off.normalized()
@@ -451,12 +451,12 @@ func _draw_ability_button() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if world.ab_t > 0.0:
 		var left := clampf(world.ab_t / float(world.ab.duration_s), 0.0, 1.0)
-		draw_circle(c, POWER_R + 7.0, Color(col, 0.3))
+		_dot(self, c, POWER_R + 7.0, Color(col, 0.3))
 		_gloss_disc(self, c, POWER_R, col)
 		draw_arc(c, POWER_R - 5.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
 	elif world.ability_ready():
 		var pulse := 0.5 + 0.5 * sin(t * 7.0)
-		draw_circle(c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
+		_dot(self, c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
 		_gloss_disc(self, c, POWER_R, col)
 	else:
 		var f := clampf(world.ab_kills / world.ability_cost(), 0.0, 1.0)
@@ -464,7 +464,7 @@ func _draw_ability_button() -> void:
 		draw_arc(c, POWER_R - 5.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.95), 6.0)
 	IconArt.draw(self, world.ability, c, POWER_R * 1.1, Color.WHITE if world.ab_t > 0.0 or world.ability_ready() else col)
 	for k in world.ability_lv:
-		draw_circle(c + Vector2((k - (world.ability_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
+		_dot(self, c + Vector2((k - (world.ability_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
 
 
 func in_power_button(p: Vector2) -> bool:
@@ -481,11 +481,11 @@ func _draw_rift_power_button() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if ready:
 		var pulse := 0.5 + 0.5 * sin(t * 7.0)
-		draw_circle(c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
-		draw_circle(c, POWER_R, Color(col, 0.5 + 0.2 * pulse))
+		_dot(self, c, POWER_R + 8.0 + 6.0 * pulse, Color(col, 0.16 + 0.14 * pulse))
+		_dot(self, c, POWER_R, Color(col, 0.5 + 0.2 * pulse))
 		draw_arc(c, POWER_R, 0, TAU, 40, Color.WHITE, 3.0)
 	else:
-		draw_circle(c, POWER_R, Color(1, 1, 1, 0.06))
+		_dot(self, c, POWER_R, Color(1, 1, 1, 0.06))
 		draw_arc(c, POWER_R, 0, TAU, 40, Color(1, 1, 1, 0.14), 3.0)
 		draw_arc(c, POWER_R - 4.0, -PI / 2.0, -PI / 2.0 + TAU * f, 40, Color(col, 0.85), 6.0)
 	var key: String = POWER_ICON.get(world.rift_power, "outbreak")
@@ -494,7 +494,7 @@ func _draw_rift_power_button() -> void:
 	else:
 		IconArt.draw(self, key, c, POWER_R * 1.1, Color.WHITE)
 	for k in world.rift_power_lv:
-		draw_circle(c + Vector2((k - (world.rift_power_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
+		_dot(self, c + Vector2((k - (world.rift_power_lv - 1) / 2.0) * 13.0, POWER_R - 2.0), 4.5, col)
 
 
 ## In the arena: the time left as a bar + seconds. After an ejection: "RUN!"
@@ -693,7 +693,7 @@ func _rrect(ci: CanvasItem, r: Rect2, rad: float, col: Color) -> void:
 	ci.draw_rect(Rect2(r.position.x, r.position.y + rad, rad, r.size.y - rad * 2.0), col)
 	ci.draw_rect(Rect2(r.end.x - rad, r.position.y + rad, rad, r.size.y - rad * 2.0), col)
 	for p in [r.position + Vector2(rad, rad), Vector2(r.end.x - rad, r.position.y + rad), Vector2(r.position.x + rad, r.end.y - rad), r.end - Vector2(rad, rad)]:
-		ci.draw_circle(p, rad, col)
+		_dot(ci, p, rad, col)
 
 
 ## A chunky bar: dark outline, dark track, coloured fill with a light band.
@@ -714,15 +714,24 @@ func _text(ci: CanvasItem, pos: Vector2, txt: String, width: float, fs: int, col
 	ci.draw_string(font, pos, txt, align, width, fs, col)
 
 
+## A filled circle as one textured quad (perf: draw_circle builds a polygon
+## every call; the HUD drew ~30 a frame, ~0.5 ms on his phone). The 256 px
+## disc keeps the edge crisp at the biggest button size.
+func _dot(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+	if r <= 0.0:
+		return
+	ci.draw_texture_rect(ShapeTextures.disc_shared(256), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, col)
+
+
 ## A glossy disc button face: dark outline, a darker lower edge (3D), the
 ## face, and a soft highlight on top.
 func _gloss_disc(ci: CanvasItem, c: Vector2, r: float, face: Color) -> void:
-	ci.draw_circle(c + Vector2(0, 3), r + 4.0, Color(0, 0, 0, 0.35 * face.a))
-	ci.draw_circle(c, r + 3.0, Color(UiKit.OUTLINE, face.a))
-	ci.draw_circle(c, r, Color(face.darkened(0.35), face.a))
-	ci.draw_circle(c - Vector2(0, r * 0.1), r * 0.9, face)
+	_dot(ci, c + Vector2(0, 3), r + 4.0, Color(0, 0, 0, 0.35 * face.a))
+	_dot(ci, c, r + 3.0, Color(UiKit.OUTLINE, face.a))
+	_dot(ci, c, r, Color(face.darkened(0.35), face.a))
+	_dot(ci, c - Vector2(0, r * 0.1), r * 0.9, face)
 	ci.draw_set_transform(c - Vector2(0, r * 0.42), 0.0, Vector2(1.0, 0.5))
-	ci.draw_circle(Vector2.ZERO, r * 0.62, Color(1, 1, 1, 0.3 * face.a))
+	_dot(ci, Vector2.ZERO, r * 0.62, Color(1, 1, 1, 0.3 * face.a))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -738,8 +747,8 @@ func _draw_strip(ci: CanvasItem) -> void:
 	_text(ci, uc + Vector2(-UPGRADE_R, 8.0), "UPGRADE", UPGRADE_R * 2.0, 18, Color("#3a2200") if on else Color(1, 1, 1, 0.45), 0, HORIZONTAL_ALIGNMENT_CENTER)
 	if on:
 		var b := uc + Vector2(UPGRADE_R * 0.72, -UPGRADE_R * 0.72)
-		ci.draw_circle(b, 21.0, UiKit.OUTLINE)
-		ci.draw_circle(b, 18.0, pal.player_hurt)
+		_dot(ci, b, 21.0, UiKit.OUTLINE)
+		_dot(ci, b, 18.0, pal.player_hurt)
 		_text(ci, b + Vector2(-20, 8), str(n), 40.0, 22, Color.WHITE, 0, HORIZONTAL_ALIGNMENT_CENTER)
 
 
@@ -837,7 +846,7 @@ func _draw_dash_button() -> void:
 	if max_c > 1:
 		for k in max_c:
 			var p := c + Vector2((k - (max_c - 1) / 2.0) * 16.0, 28.0)
-			draw_circle(p, 5.0, Color(pal.xp_bar, 0.9) if k < world.p_dash_charges else Color(1, 1, 1, 0.2))
+			_dot(self, p, 5.0, Color(pal.xp_bar, 0.9) if k < world.p_dash_charges else Color(1, 1, 1, 0.2))
 
 
 func _draw_upgrade_button() -> void:
@@ -847,7 +856,7 @@ func _draw_upgrade_button() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0) if on else 0.0
 	var accent: Color = pal.ui_accent
 	if on:
-		draw_circle(c, UPGRADE_R + 8.0 + 6.0 * pulse, Color(accent, 0.14 + 0.14 * pulse))
+		_dot(self, c, UPGRADE_R + 8.0 + 6.0 * pulse, Color(accent, 0.14 + 0.14 * pulse))
 	_gloss_disc(self, c, UPGRADE_R, Color(accent, 0.95) if on else Color(0.24, 0.2, 0.38, 0.5))
 	if _notice_t > 0.0:
 		var a := clampf(_notice_t / 0.5, 0.0, 1.0)
@@ -865,12 +874,12 @@ func _draw_outbreak_button() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if world.outbreak_t > 0.0:
 		var left := world.outbreak_t / float(world.bal.outbreak.duration_s)
-		draw_circle(c, r + 8.0 + 4.0 * sin(t * 12.0), Color(col, 0.3))
+		_dot(self, c, r + 8.0 + 4.0 * sin(t * 12.0), Color(col, 0.3))
 		_gloss_disc(self, c, r, col)
 		draw_arc(c, r - 5.0, -PI / 2.0, -PI / 2.0 + TAU * left, 40, Color.WHITE, 6.0)
 	elif world.outbreak_ready():
 		var pulse := 0.5 + 0.5 * sin(t * 7.0)
-		draw_circle(c, r + 8.0 + 6.0 * pulse, Color(col, 0.18 + 0.15 * pulse))
+		_dot(self, c, r + 8.0 + 6.0 * pulse, Color(col, 0.18 + 0.15 * pulse))
 		_gloss_disc(self, c, r, col)
 	else:
 		_gloss_disc(self, c, r, Color(0.24, 0.2, 0.38, 0.6))
@@ -911,11 +920,11 @@ func _draw_owned(ci: CanvasItem) -> void:
 		var tot := Upgrades.max_level(u)
 		for k in tot:
 			var pp := c + Vector2((k - (tot - 1) / 2.0) * 7.0, px / 2.0 + 6.0)
-			ci.draw_circle(pp, 2.6, IconArt.color_for(u) if k < lv else Color(1, 1, 1, 0.22))
+			_dot(ci, pp, 2.6, IconArt.color_for(u) if k < lv else Color(1, 1, 1, 0.22))
 		x += px + 10.0
 	if passives > 0:
 		var c := Vector2(x, cy)
-		ci.draw_circle(c, px / 2.0, Color(0.18, 0.12, 0.3, 0.95))
+		_dot(ci, c, px / 2.0, Color(0.18, 0.12, 0.3, 0.95))
 		ci.draw_arc(c, px / 2.0 - 1.0, 0, TAU, 24, Color(pal.ui_accent, 0.8), 2.0)
 		_text(ci, c + Vector2(-px / 2.0, 7.0), "+%d" % passives, px, 18, Color.WHITE, 4, HORIZONTAL_ALIGNMENT_CENTER)
 
@@ -1122,7 +1131,7 @@ func _draw_streak(w: float) -> void:
 		var c := pos + Vector2(-tw / 2.0, -fs * 0.35)
 		var rk := 1.0 - _streak_burst
 		draw_arc(c, tw * 0.6 + 120.0 * rk, 0, TAU, 40, Color(col, 0.9 * _streak_burst), 6.0 * _streak_burst + 1.0)
-		draw_circle(c, tw * 0.5 + 30.0 * rk, Color(col, 0.18 * _streak_burst))
+		_dot(self, c, tw * 0.5 + 30.0 * rk, Color(col, 0.18 * _streak_burst))
 	_stext(txt, pos, 2, fs, 10.0, col)
 	var name: String = st[1]
 	if name != "":
@@ -1251,15 +1260,15 @@ func _draw_coach(w: float) -> void:
 			var base := Vector2(w * 0.5, size.y * 0.72)
 			var off := Vector2(sin(k * 2.6) * 120.0, 0.0)
 			draw_arc(base, 90.0, 0, TAU, 40, Color(1, 1, 1, 0.18), 3.0)
-			draw_circle(base + off, 34.0, Color(1, 1, 1, 0.35))
-			draw_circle(base + off, 22.0, Color(1, 1, 1, 0.6))
+			_dot(self, base + off, 34.0, Color(1, 1, 1, 0.35))
+			_dot(self, base + off, 22.0, Color(1, 1, 1, 0.6))
 		"loop":
 			# A dot circling out of the cell and back: draw a loop.
 			var c := size / 2.0
 			var r := 150.0
 			draw_arc(c, r, 0, TAU, 48, Color(col, 0.3), 4.0)
 			var a2 := fmod(k * 1.8, TAU)
-			draw_circle(c + Vector2.from_angle(a2) * r, 16.0, Color(col, 0.9))
+			_dot(self, c + Vector2.from_angle(a2) * r, 16.0, Color(col, 0.9))
 		"elite":
 			# The tutorial elite: a ring on it, or an arrow at the screen edge.
 			for i in world.e_pos.size():

@@ -546,7 +546,7 @@ func _draw_rift(ci: CanvasItem, now: float) -> void:
 		for k in 3:
 			var s := now * (2.0 + k) + TAU * k / 3.0
 			ci.draw_arc(p, 34.0 + 14.0 * k, s, s + 2.2, 16, Color(rc.lightened(0.2 * k), 0.85), 5.0 - k)
-		ci.draw_circle(p, 16.0 + 3.0 * sin(now * 8.0), Color(1, 1, 1, 0.9))
+		_dot(ci, p, 16.0 + 3.0 * sin(now * 8.0), Color(1, 1, 1, 0.9))
 		ci.draw_arc(p, 82.0, -PI / 2.0, -PI / 2.0 + TAU * left, 48, Color(1, 1, 1, 0.6), 4.0)
 	if world.rift_state == World.RIFT_ACTIVE and world.m_state > 0:
 		var mc: Dictionary = world.bal.rift.boss.missile
@@ -562,13 +562,13 @@ func _draw_rift(ci: CanvasItem, now: float) -> void:
 			3:
 				ci.draw_line(m - world.m_dir * 90.0, m, Color(rc, 0.7), 14.0)
 		ci.draw_texture_rect(_disc_tex, Rect2(m - Vector2(26, 26), Vector2(52, 52)), false, Color(rc, 0.4))
-		ci.draw_circle(m, float(mc.radius), Color(1, 1, 1) if world.m_state >= 2 else rc.lightened(0.3))
+		_dot(ci, m, float(mc.radius), Color(1, 1, 1) if world.m_state >= 2 else rc.lightened(0.3))
 	if not world.phalanx_points.is_empty():
 		var oc := _wcolor("orbit", pal.orbit)
 		var sz := float(world.bal.rift.powers.phalanx.size)
 		for p in world.phalanx_points:
-			ci.draw_circle(p, sz + 4.0, Color(oc, 0.35))
-			ci.draw_circle(p, sz, Color(1, 1, 1, 0.9))
+			_dot(ci, p, sz + 4.0, Color(oc, 0.35))
+			_dot(ci, p, sz, Color(1, 1, 1, 0.9))
 
 
 ## The claim wave's front: each tile flashes white for a moment as it appears.
@@ -818,7 +818,7 @@ func _draw_defense() -> void:
 	var pulse := 0.5 + 0.5 * sin(now * (7.0 if w.wave_state == "breather" else 3.0))
 	for v in w.vents_active:
 		var vp := w.vent_pos[v]
-		draw_circle(vp, 70.0 + 12.0 * pulse, Color(pal.vent, 0.10 + 0.12 * pulse))
+		_dot(self, vp, 70.0 + 12.0 * pulse, Color(pal.vent, 0.10 + 0.12 * pulse))
 		draw_arc(vp, 52.0, 0, TAU, 32, Color(pal.vent, 0.5 + 0.4 * pulse), 5.0)
 	var on := w.pad_under_player()
 	var ps := float(w.dcfg.pad_size)
@@ -828,19 +828,19 @@ func _draw_defense() -> void:
 		var afford := cost >= 0 and w.biomass >= float(cost)
 		var lv := w.pad_level[k]
 		if w.pad_tower[k] < 0:
-			draw_circle(pos, ps, Color(pal.pad, 0.10 if afford else 0.05))
+			_dot(self, pos, ps, Color(pal.pad, 0.10 if afford else 0.05))
 			draw_arc(pos, ps, 0, TAU, 32, Color(pal.pad, 0.75 if afford else 0.3), 4.0)
 			draw_string(font, pos + Vector2(-40, 9), str(cost), HORIZONTAL_ALIGNMENT_CENTER, 80, 26, Color(1, 1, 1, 0.9 if afford else 0.45))
 		else:
 			var t: Dictionary = w.tower_defs[w.pad_tower[k]]
 			var tc := GameData.color(t.get("color", "#ffffff"))
 			var maxed := cost < 0
-			draw_circle(pos, ps * 0.78, Color(0, 0, 0, 0.35))
-			draw_circle(pos, ps * 0.66, Color("#3d2d6b"))
+			_dot(self, pos, ps * 0.78, Color(0, 0, 0, 0.35))
+			_dot(self, pos, ps * 0.66, Color("#3d2d6b"))
 			draw_arc(pos, ps * 0.66, 0, TAU, 28, pal.ui_accent if maxed else tc, 4.0)
 			IconArt.draw(self, t.weapon, pos, ps * (0.85 + 0.1 * lv), tc)
 			for j in lv:
-				draw_circle(pos + Vector2((j - (lv - 1) / 2.0) * 13.0, ps * 0.66 + 12.0), 4.5, pal.ui_accent if maxed else tc)
+				_dot(self, pos + Vector2((j - (lv - 1) / 2.0) * 13.0, ps * 0.66 + 12.0), 4.5, pal.ui_accent if maxed else tc)
 			if k == on or w.p_pos.distance_squared_to(pos) < 160.0 * 160.0:
 				var label := "MAX" if maxed else "UP %d" % cost
 				draw_string(font, pos + Vector2(-60, -ps - 10), label, HORIZONTAL_ALIGNMENT_CENTER, 120, 22, Color(pal.pad if afford else Color(1, 1, 1, 0.5)) if not maxed else pal.ui_accent)
@@ -851,10 +851,10 @@ func _draw_defense() -> void:
 	var r := w.core_r * (1.0 + 0.025 * sin(now * 2.0))
 	var hpf := w.core_hp / maxf(w.core_max, 1.0)
 	var body: Color = pal.core.lerp(pal.player_hurt, clampf(_core_flash * 5.0, 0.0, 1.0))
-	draw_circle(c, r + 22.0, Color(pal.core, 0.10))
-	draw_circle(c, r + 8.0, Color(body, 0.35))
-	draw_circle(c, r, body)
-	draw_circle(c + Vector2(cos(now * 0.6), sin(now * 0.8)) * 5.0, r * 0.45, pal.core_nucleus.darkened(0.4 * (1.0 - hpf)))
+	_dot(self, c, r + 22.0, Color(pal.core, 0.10))
+	_dot(self, c, r + 8.0, Color(body, 0.35))
+	_dot(self, c, r, body)
+	_dot(self, c + Vector2(cos(now * 0.6), sin(now * 0.8)) * 5.0, r * 0.45, pal.core_nucleus.darkened(0.4 * (1.0 - hpf)))
 
 
 func _fill_gems(view: Rect2) -> void:
@@ -1075,26 +1075,26 @@ func _draw_top_layer() -> void:
 		if el:
 			var r := world.e_rad[i] * 1.25 + wob
 			ci.draw_arc(p, r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)
-			ci.draw_circle(p, r + 10.0, Color(elite_color, 0.12))
+			_dot(ci, p, r + 10.0, Color(elite_color, 0.12))
 		_draw_telegraph(ci, i)
 	for j in world.tower_orbs.size():
 		var tc := GameData.color(world.tower_defs[world.tower_orb_type[j]].get("color", "#ffffff"))
-		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j] + 3.0, Color(tc, 0.35))
-		ci.draw_circle(world.tower_orbs[j], world.tower_orb_r[j], tc)
+		_dot(ci, world.tower_orbs[j], world.tower_orb_r[j] + 3.0, Color(tc, 0.35))
+		_dot(ci, world.tower_orbs[j], world.tower_orb_r[j], tc)
 	var oc: Color = _wcolor("orbit", pal.orbit)
 	var orbit_evo := _evo("orbit")
 	var orb_tex := CosmeticArt.tex(CosmeticArt.weapon_shape(_wstyle)) if _shaped else null
 	for p in world.orbit_points:
 		if orbit_evo:  # evolved: a wide soft halo and a white core
 			ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2.ONE * (world.orbit_size + 12.0), Vector2.ONE * (world.orbit_size + 12.0) * 2.0), false, Color(oc, 0.3))
-		ci.draw_circle(p, world.orbit_size + 3.0, Color(oc, 0.35))
+		_dot(ci, p, world.orbit_size + 3.0, Color(oc, 0.35))
 		if orb_tex != null:  # weapon style shape
 			var os := world.orbit_size * 1.5
 			ci.draw_texture_rect(orb_tex, Rect2(p - Vector2(os, os), Vector2(os, os) * 2.0), false, oc)
 		else:
-			ci.draw_circle(p, world.orbit_size, oc)
+			_dot(ci, p, world.orbit_size, oc)
 		if orbit_evo:
-			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
+			_dot(ci, p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
 	Prof.add("view.top_loop", tp)
 	tp = Prof.t()
 	_draw_rift(ci, now)
@@ -1114,7 +1114,7 @@ func _draw_top_layer() -> void:
 				# Spike, vacuum, bomb) covers the screen and costs phones a lot
 				# of fill rate, which showed up as frame-time spikes.
 				if f.r < 160.0:
-					ci.draw_circle(f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
+					_dot(ci, f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
 				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), float(f.get("w", 5.0)))
 			"chain":
 				var pts: PackedVector2Array = f.points
@@ -1250,6 +1250,14 @@ func _draw_player(ci: CanvasItem) -> void:
 		ci.draw_rect(Rect2(pos, Vector2(w * world.p_hp / world.p_max_hp, 6)), pal.hp_bar)
 
 
+## A filled circle as one textured quad (perf: draw_circle builds a polygon
+## every call). The 256 px disc for big ones keeps their edge crisp.
+func _dot(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+	if r <= 0.0:
+		return
+	ci.draw_texture_rect(ShapeTextures.disc_shared(128 if r < 48.0 else 256), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, col)
+
+
 ## Afterimage decoy (World decoy_pos/decoy_t): a see-through copy of the
 ## cell where you dashed, with a fuse ring closing in on the burst radius, so
 ## the lure and the pop read as one thing (it used to be invisible).
@@ -1312,7 +1320,7 @@ func _draw_threats(ci: CanvasItem) -> void:
 		var d := world.boss_def
 		var k := 1.0 - world.boss_slam_t / maxf(float(d.slam_windup_s), 0.01)
 		var sr := float(d.slam_radius)
-		ci.draw_circle(world.boss_slam_at, sr * k, Color(red, 0.22))
+		_dot(ci, world.boss_slam_at, sr * k, Color(red, 0.22))
 		ci.draw_arc(world.boss_slam_at, sr, 0, TAU, 40, Color(red, 0.5 + 0.4 * sin(t * 18.0)), 4.0)
 	var bi := world.boss_index
 	if bi >= 0 and bi < world.e_pos.size() and world.boss_def.has("pull_radius"):
@@ -1329,7 +1337,7 @@ func _draw_clone(ci: CanvasItem) -> void:
 	var col := GameData.color(str(world.ab.get("color", "#7cff9b")))
 	ci.draw_texture_rect(_disc_tex, Rect2(world.clone_pos - Vector2(r, r) * 1.5, Vector2(r, r) * 3.0), false, Color(col, 0.18 * fade))
 	ci.draw_texture_rect(_cell_tex, Rect2(world.clone_pos - Vector2(q, q), Vector2(q, q) * 2.0), false, Color(pal.player.lerp(col, 0.35), 0.75 * fade))
-	ci.draw_circle(world.clone_pos, r * 0.3, Color(col, 0.9 * fade))
+	_dot(ci, world.clone_pos, r * 0.3, Color(col, 0.9 * fade))
 
 
 ## Chests (gold, bobbing, glowing) and rare pickups (simple icons).
@@ -1337,7 +1345,7 @@ func _draw_loot(ci: CanvasItem, now: float) -> void:
 	var gold: Color = pal.gem_large
 	for k in world.c_pos.size():
 		var p := world.c_pos[k] + Vector2(0, -6.0 * sin(now * 4.0 + k))
-		ci.draw_circle(p, 38.0 + 4.0 * sin(now * 6.0), Color(gold, 0.18))
+		_dot(ci, p, 38.0 + 4.0 * sin(now * 6.0), Color(gold, 0.18))
 		ci.draw_rect(Rect2(p - Vector2(20, 14), Vector2(40, 28)), gold.darkened(0.25))
 		ci.draw_rect(Rect2(p - Vector2(20, 14), Vector2(40, 10)), gold)
 		ci.draw_rect(Rect2(p - Vector2(4, 6), Vector2(8, 10)), Color(0.25, 0.15, 0.05))
@@ -1347,19 +1355,19 @@ func _draw_loot(ci: CanvasItem, now: float) -> void:
 		match kind:
 			"vacuum":
 				var c: Color = pal.gem_small
-				ci.draw_circle(p, 22.0, Color(c, 0.2))
+				_dot(ci, p, 22.0, Color(c, 0.2))
 				ci.draw_arc(p, 14.0, 0, TAU, 24, c, 4.0)
-				ci.draw_circle(p, 5.0, c)
+				_dot(ci, p, 5.0, c)
 			"heal":
 				var c: Color = pal.gem_medium
-				ci.draw_circle(p, 22.0, Color(c, 0.2))
+				_dot(ci, p, 22.0, Color(c, 0.2))
 				ci.draw_rect(Rect2(p - Vector2(12, 4), Vector2(24, 8)), c)
 				ci.draw_rect(Rect2(p - Vector2(4, 12), Vector2(8, 24)), c)
 			"bomb":
 				var c: Color = pal.enemy_shot
-				ci.draw_circle(p, 22.0, Color(c, 0.2))
-				ci.draw_circle(p, 13.0, Color(0.15, 0.1, 0.12))
-				ci.draw_circle(p + Vector2(7, -11), 5.0 + 2.0 * sin(now * 20.0), c)
+				_dot(ci, p, 22.0, Color(c, 0.2))
+				_dot(ci, p, 13.0, Color(0.15, 0.1, 0.12))
+				_dot(ci, p + Vector2(7, -11), 5.0 + 2.0 * sin(now * 20.0), c)
 
 
 ## The trail you're drawing outside your land; blinks when about to fade.
@@ -1511,8 +1519,8 @@ func _draw_telegraph(ci: CanvasItem, i: int) -> void:
 				return
 			var mouth := p + (target - p).normalized() * r * 0.9
 			var c: Color = pal.enemy_shot
-			ci.draw_circle(mouth, 4.0 + 8.0 * k, Color(c, 0.3 + 0.4 * k))
-			ci.draw_circle(mouth, 2.5 + 4.0 * k, Color(1, 1, 0.85, 0.35 + 0.6 * k))
+			_dot(ci, mouth, 4.0 + 8.0 * k, Color(c, 0.3 + 0.4 * k))
+			_dot(ci, mouth, 2.5 + 4.0 * k, Color(1, 1, 0.85, 0.35 + 0.6 * k))
 			ci.draw_arc(p, r + 4.0 + 10.0 * (1.0 - k), 0, TAU, 24, Color(c, 0.6 * k), 2.5)
 		World.BEH_BOSS:
 			var tele := float(juice.get("boss_telegraph_s", 0.7))

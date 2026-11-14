@@ -91,3 +91,9 @@ His phone (build 07a3632): **APK** `108.9 fps avg 9.18 p95 11.67, slow 3.9% | si
 - Desktop profile now (no single hot spot): sim.enemies 0.20, view.top_loop 0.17, hud.buttons 0.12, hud.text 0.12, view.fx_draw 0.10, everything else ≤ 0.09 ms.
 
 **The ceiling in GDScript:** what's left is spread over ~16 sections of ~0.05-0.2 ms. More GDScript tuning might take another ~20-30%. The step change would be **native code (a C++ GDExtension)** for the hot loops (germ movement/separation, the spatial grid, bullets, sprite fills): typically 5-20× faster for that kind of loop. Costs: a C++ toolchain in CI for Android (arm64 + armv7) and, for the web, the dlink export templates; a second implementation to keep in step (the GDScript one stays as the reference for tests and determinism checks). Decision for Yousuf.
+
+## 7. Round 3 (2026-11-14): circles as textured quads
+His phone, build c926873 (Sharp): `98.7 fps | sim 1.65 view 2.56 hud 1.24 | dc 93`, PROF `view.top_loop 0.78 | hud.buttons 0.53 | sim.enemies 0.44 | view.player_threats 0.35 | hud.text 0.34 | ...`. Fast ≈ Sharp on the APK, so the phone is CPU-bound, not GPU-bound.
+- Measured: recording `draw_circle` costs ~3.1 µs (it builds a polygon each call), `draw_arc` ~4.8 µs, a textured quad ~0.14 µs. All 61 `draw_circle` calls in HudOverlay and WorldView now go through `_dot()` (a quad of `ShapeTextures.disc_shared(128/256)`, made once; 256 px for big circles keeps edges crisp; edges are now anti-aliased).
+- Desktop PROF: hud.buttons 0.12 → 0.05, view.top_loop 0.17 → 0.11 ms; view 0.80 → 0.64, HUD 0.39 → 0.27 ms; **draw calls 93 → 63** (quads of one texture batch together). Screenshots at 1.5× identical.
+- Still open on the phone: 12% slow frames (worst ~49 ms), cause unknown (not visible in the averages); arcs remain polylines.
