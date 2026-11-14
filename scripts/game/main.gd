@@ -1953,7 +1953,7 @@ func _evolution_hint(id: String, next_level: int) -> String:
 	if _evo_by_passive.has(id):
 		var ev: Dictionary = _evo_by_passive[id]
 		if not world.evolved.has(ev.weapon):
-			return "* Evolves max %s" % world.upgrade_defs[ev.weapon].name
+			return "* Max %s + this = %s" % [world.upgrade_defs[ev.weapon].name, ev.name]
 	if _evo_by_weapon.has(id) and next_level == Upgrades.max_level(world.upgrade_defs[id]):
 		var ev: Dictionary = _evo_by_weapon[id]
 		return "* MAX: + %s = %s" % [world.upgrade_defs[ev.requires].name, ev.name]

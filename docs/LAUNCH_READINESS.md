@@ -22,8 +22,8 @@ Collected 2026-11-05 from an independent "Play Store critic" review of the whole
 - [ ] **Low-end performance unproven.** (60 fps default done 2026-11-09.) Only one real phone tested. The default frame rate was "Max" (90/120 Hz) in runs, which means heat and battery drain. → Default to 60 fps; test on a ~$100 Android Go-class phone and Firebase Test Lab / the pre-launch report; watch for ANRs when AdMob initialises.
 
 ## Minor (polish)
-- [ ] The Lab bottom bar clips the last row; "RESPEC (150 gold)" wraps.
-- [ ] The level-up card reads "Evolves max Antibodies" (unclear); the first level-up is titled "LEVEL 1".
+- [x] The Lab bottom bar clips the last row; "RESPEC (150 gold)" wraps. (Done 2026-11-14: RESPEC already fit; the tree now has 36 px of room under its last row.)
+- [x] The level-up card reads "Evolves max Antibodies" (unclear); the first level-up is titled "LEVEL 1". (Done 2026-11-14: the chip reads "Max Antibodies + this = Immune Wall"; the title already showed the real level.)
 - [ ] English only, strings hard-coded in `main.gd` and the UI (no `tr()`), so localising the store listing or game later is costly.
 - [ ] Accessibility: meaning carried by colour (germ types, branches, rarity); no colour-blind palette or text-size option; low-contrast grey-on-purple secondary text.
 - [ ] `version/code` comes from the CI run number; pin a monotonic scheme before M5.

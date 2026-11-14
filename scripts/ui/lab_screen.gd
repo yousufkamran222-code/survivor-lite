@@ -55,7 +55,11 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Calla
 	_cols = HBoxContainer.new()
 	_cols.add_theme_constant_override("separation", 10)
 	_cols.alignment = BoxContainer.ALIGNMENT_CENTER
-	scroll.add_child(_cols)
+	var pad := MarginContainer.new()  # room under the last row, so it clears the bottom buttons
+	pad.mouse_filter = Control.MOUSE_FILTER_PASS
+	pad.add_theme_constant_override("margin_bottom", 36)
+	pad.add_child(_cols)
+	scroll.add_child(pad)
 	add_child(scroll)
 	var bottom := HBoxContainer.new()
 	bottom.add_theme_constant_override("separation", 12)
