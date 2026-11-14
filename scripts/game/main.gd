@@ -391,10 +391,13 @@ func _process(delta: float) -> void:
 	hud.cam_pos = view.cam.position
 	hud.cam_zoom = view.cam_zoom
 	hud.fx_count = view.fx.size()
+	var te := Prof.t()
 	_handle_events(world.events)
 	view.consume(world.events)
 	world.events.clear()
 	Sfx.set_boss(world.boss_index >= 0)
+	Prof.add("main.events", te)
+	Prof.add_ms("view.batches", SpriteBatch.draw_ms)
 	view.cpu_ms += SpriteBatch.draw_ms  # batched sprite layers count as view too
 	SpriteBatch.draw_ms = 0.0
 	hud.view_ms = lerpf(hud.view_ms, view.cpu_ms, 0.1)
@@ -2937,7 +2940,12 @@ func _bench_frame(delta: float, sim_ms: float) -> void:
 		world.choose_upgrade(_bench_bot.pick(world))
 	if world.state == "chest":
 		world.close_chest()
-	if _bench.advance(delta):
+	var measuring := _bench.advance(delta)
+	if measuring and not Prof.on:
+		Prof.reset()
+		Prof.on = true  # section timers (Benchmark v4): only while measuring
+	if measuring:
+		Prof.frame()
 		_bench.add(delta * 1000.0, sim_ms, view.cpu_ms, hud.cpu_ms,
 			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)), world.enemy_count(), view.fx.size())
 	hud.bench_text = "BENCHMARK  %d" % _bench.seconds_left() if _bench.t > Benchmark.WARMUP_S else "BENCHMARK  warming up"
@@ -2958,7 +2966,8 @@ func _copy_text(text: String) -> bool:
 
 
 func _finish_benchmark() -> void:
-	bench_result = _bench.line()
+	Prof.on = false
+	bench_result = _bench.line() + "\n" + Prof.line()
 	print(bench_result)
 	var s := _bench.summary()
 	Analytics.event("benchmark", {"v": s.version, "fps": s.fps, "p95": s.frame_p95, "slow": s.slow_pct, "refresh": s.refresh, "sim": s.sim, "view": s.view})
@@ -2976,7 +2985,7 @@ func _finish_benchmark() -> void:
 	box.text = bench_result
 	box.editable = false
 	box.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	box.custom_minimum_size = Vector2(600, 130)
+	box.custom_minimum_size = Vector2(600, 260)
 	box.add_theme_font_size_override("font_size", 20)
 	box.add_theme_color_override("font_readonly_color", Color(pal.text, 0.95))
 	col.add_child(box)

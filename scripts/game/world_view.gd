@@ -638,6 +638,7 @@ func _process(delta: float) -> void:
 
 
 func _process_view(delta: float) -> void:
+	var tf := Prof.t()
 	var i := 0
 	while i < fx.size():
 		var f: Dictionary = fx[i]
@@ -656,6 +657,8 @@ func _process_view(delta: float) -> void:
 				f.vel *= exp(-float(f.drag) * delta)
 			f.pos += f.vel * delta
 		i += 1
+	Prof.add("view.fx_update", tf)
+	tf = Prof.t()
 	_hurt_t = maxf(0.0, _hurt_t - delta)
 	_view_t += delta
 	var wi := 0
@@ -701,13 +704,22 @@ func _process_view(delta: float) -> void:
 	var vp := get_viewport_rect().size / cam_zoom
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)
 	_view_rect = view
+	Prof.add("view.misc", tf)
+	tf = Prof.t()
 	_fill_gems(view)
 	_fill_shots()
+	Prof.add("view.gems_shots", tf)
+	tf = Prof.t()
 	_fill_enemies(view)
+	Prof.add("view.enemies", tf)
+	tf = Prof.t()
 	_fill_bullets()
 	_fill_dots()
+	Prof.add("view.bullets_dots", tf)
+	tf = Prof.t()
 	_fill_splats()
 	_fill_plague()
+	Prof.add("view.splats", tf)
 	queue_redraw()
 	_top.queue_redraw()
 
@@ -718,7 +730,9 @@ func _draw() -> void:
 	if world == null:
 		return
 	var t0 := Time.get_ticks_usec()
+	var tp := Prof.t()
 	_draw_world()
+	Prof.add("view.floor_glows", tp)
 	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
 
 
@@ -1028,6 +1042,7 @@ func _draw_top() -> void:
 func _draw_top_layer() -> void:
 	var ci := _top
 	var now := Time.get_ticks_msec() / 1000.0
+	var tp := Prof.t()
 	_draw_trail(ci, now)
 	_draw_loot(ci, now)
 	# Elite aura: pulsing ring so they read as "big target, big reward".
@@ -1074,11 +1089,15 @@ func _draw_top_layer() -> void:
 			ci.draw_circle(p, world.orbit_size, oc)
 		if orbit_evo:
 			ci.draw_circle(p, world.orbit_size * 0.45, Color(1, 1, 1, 0.85))
+	Prof.add("view.top_loop", tp)
+	tp = Prof.t()
 	_draw_rift(ci, now)
 	_draw_threats(ci)
 	_draw_clone(ci)
 	_draw_decoy(ci)
 	_draw_player(ci)
+	Prof.add("view.player_threats", tp)
+	tp = Prof.t()
 	_draw_claim_wave(ci)
 	for f in fx:
 		var k: float = f.t / f.life
@@ -1140,6 +1159,7 @@ func _draw_top_layer() -> void:
 					col = gold
 				col.a = 1.0 - maxf(0.0, (k - 0.6) / 0.4)
 				digits.draw_number(ci, int(f.value), f.pos, h, col)
+	Prof.add("view.fx_draw", tp)
 	var bi := world.boss_index
 	if bi >= 0 and bi < world.e_pos.size():
 		var p := world.e_pos[bi]

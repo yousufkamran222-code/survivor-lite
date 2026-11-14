@@ -464,7 +464,9 @@ func step(dt: float, move: Vector2) -> void:
 		_update_down(dt)
 	else:
 		_src = "dash"  # Lunge and the Afterimage decoy hit from here
+		var tp := Prof.t()
 		_update_player(dt, move)
+		Prof.add("sim.player", tp)
 		_src = "other"
 	if ability != "":
 		_update_ability(dt)
@@ -501,22 +503,30 @@ func step(dt: float, move: Vector2) -> void:
 		if state != "playing":
 			return
 	elif not frozen:
+		var ts := Prof.t()
 		_update_lull()
 		_spawn(dt)
+		Prof.add("sim.spawn", ts)
+	var tg := Prof.t()
 	_rebuild_grid()
+	Prof.add("sim.grid", tg)
+	var te := Prof.t()
 	if frozen:
 		_tick_frozen(dt)
 	else:
 		_update_enemies(dt)
+	Prof.add("sim.enemies", te)
 	if ally_count > 0 and not frozen:
 		_update_ally_combat(dt)
 	_src = "outbreak"
 	_update_plague(dt)
 	_src = "other"
 	if p_down <= 0.0:
+		var tw := Prof.t()
 		_update_weapons(dt)
 		if ability == "mitosis" and ab_t > 0.0:
 			_clone_weapons(dt)
+		Prof.add("sim.weapons", tw)
 		_src = "other"
 	else:
 		orbit_points.clear()
@@ -524,21 +534,31 @@ func step(dt: float, move: Vector2) -> void:
 		_src = "towers"
 		_update_towers(dt)
 		_src = "other"
+	var tb := Prof.t()
 	_update_bullets(dt)
+	Prof.add("sim.bullets", tb)
+	tb = Prof.t()
 	if not frozen:
 		_update_enemy_shots(dt)
+	Prof.add("sim.shots", tb)
+	tb = Prof.t()
 	_process_dead()
+	Prof.add("sim.dead", tb)
 	if not _streak_hits.is_empty():
 		_streak_rewards()
+	tb = Prof.t()
 	if not frozen and not (ability == "engulf" and ab_t > 0.0):
 		_contact_damage()
+	Prof.add("sim.contact", tb)
 	if def_on and not frozen:
 		_update_core(dt)
 	if p_down <= 0.0:
+		tb = Prof.t()
 		_update_gems(dt)
 		_src = "bomb"
 		_update_pickups()
 		_src = "other"
+		Prof.add("sim.gems", tb)
 	if pending_levelups > 0 and state == "playing" and not _banking():
 		_open_levelup()
 

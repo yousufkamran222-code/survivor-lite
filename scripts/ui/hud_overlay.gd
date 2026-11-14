@@ -237,6 +237,7 @@ func _ready() -> void:
 			var t0 := Time.get_ticks_usec()
 			_draw_bars(ci)
 			_draw_owned(ci)
+			Prof.add("hud.panel_rebake", t0 if Prof.on else 0)
 			cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0)
 	add_child(_bars_layer)
 	_edge_tex = _make_edge_texs()
@@ -306,7 +307,9 @@ func _process(delta: float) -> void:
 	if visible:
 		queue_redraw()
 		if world != null:
+			var tl := Prof.t()
 			_update_layers(delta)
+			Prof.add("hud.layer_sig", tl)
 
 
 func _draw() -> void:
@@ -321,12 +324,17 @@ func _draw_hud() -> void:
 	var w := size.x
 	if world.stasis_on():  # Lab ability: time stopped
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.6, 0.88, 1.0, 0.15))
+	var tp := Prof.t()
 	_draw_danger()
 	_draw_hurt_info()
 	_draw_xp_live(w)
 	if world.def_on:
 		_draw_defense_live(w)
+	Prof.add("hud.danger_xp", tp)
+	tp = Prof.t()
 	_draw_arrows()
+	Prof.add("hud.arrows", tp)
+	tp = Prof.t()
 	_draw_dash_button()
 	_draw_upgrade_button()
 	_draw_outbreak_button()
@@ -334,6 +342,8 @@ func _draw_hud() -> void:
 	_draw_ability_button()
 	_draw_rift_hud(w)
 	_draw_orders()
+	Prof.add("hud.buttons", tp)
+	tp = Prof.t()
 	# Toasts.
 	var ty := 290.0
 	for t in toasts:
@@ -346,6 +356,7 @@ func _draw_hud() -> void:
 	_draw_hint(w)
 	_draw_coach(w)
 	_draw_title(w)
+	Prof.add("hud.text", tp)
 	# Perf readout for playtests (balance.json debug.show_perf).
 	if show_perf:
 		draw_string(font, Vector2(0, size.y - 14), _perf_text, HORIZONTAL_ALIGNMENT_CENTER, w, 20, Color(1, 1, 0.6, 0.85))
