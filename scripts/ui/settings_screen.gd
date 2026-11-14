@@ -46,10 +46,12 @@ func _build() -> void:
 	var caps := [30, 60, 0]
 	add_child(_choice_row("Frame rate", ["Battery 30", "60", "Max"], maxi(caps.find(Save.fps_cap), 0), func(i: int) -> void:
 		Save.fps_cap = caps[i]))
+	add_child(_choice_row("Graphics", ["Sharp", "Fast"], Save.graphics, func(i: int) -> void:
+		Save.graphics = i))
 	var fps_on := Save.show_fps == 1 or (Save.show_fps == -1 and debug_fps_default)
 	add_child(_choice_row("Show FPS", ["Off", "On"], 1 if fps_on else 0, func(i: int) -> void:
 		Save.show_fps = i))
-	add_child(UiKit.label("Max uses your screen's full refresh rate (smoothest). Battery 30 saves the most power.", 19, Color(pal.text, 0.55)))
+	add_child(UiKit.label("Max uses your screen's full refresh rate (smoothest). Battery 30 saves the most power. Fast graphics draws at a lower resolution: smoother on slower phones and browsers.", 19, Color(pal.text, 0.55)))
 	var tips := UiKit.button("Show tips again", func() -> void: pass, 70)
 	tips.add_theme_font_size_override("font_size", 22)
 	tips.pressed.connect(func() -> void:

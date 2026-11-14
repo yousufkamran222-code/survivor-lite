@@ -83,6 +83,7 @@ func _ready() -> void:
 		push_error("data: " + e)
 	bal = data.balance
 	GameData.apply_store_build(data, OS.has_feature("store"))
+	GameData.apply_web_build(data, OS.has_feature("web"))
 	# The Lab was reshaped (2026-11-05): refund Genes for removed/repriced nodes.
 	var lab_back := Save.profile.migrate_lab(data.lab, Save.now())
 	Save.write()
@@ -91,6 +92,7 @@ func _ready() -> void:
 	for k in bal.palette:
 		pal[k] = GameData.color(bal.palette[k])
 	RenderingServer.set_default_clear_color(pal.background)
+	get_tree().root.size_changed.connect(_apply_graphics)  # Fast depends on the window's pixel count
 
 	view = WorldView.new()
 	add_child(view)
@@ -918,6 +920,22 @@ func _apply_settings() -> void:
 	hud.show_perf = Save.show_fps == 1 or (Save.show_fps == -1 and bool(bal.get("debug", {}).get("show_perf", false)))
 	view.shake_setting = Save.shake
 	_apply_fps()
+	_apply_graphics()
+
+
+## Settings → Graphics. Sharp draws at the screen's own resolution
+## (canvas_items stretch). Fast draws the game at its 720x1280 design size
+## and scales the picture up (viewport stretch): ~2.8x fewer pixels on a
+## typical phone browser (measured 33 → 53 fps at 1080x1920 in the software
+## renderer), slightly softer edges. Default Fast on web, Sharp elsewhere.
+## Fast only applies when the screen has more pixels than the design size:
+## on a small window (a desktop browser) it would draw more, not less.
+func _apply_graphics() -> void:
+	var px := DisplayServer.window_get_size()
+	var big := px.x * px.y > int(720 * 1280 * 1.15)
+	var mode := Window.CONTENT_SCALE_MODE_VIEWPORT if Save.graphics == 1 and big else Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	if get_tree().root.content_scale_mode != mode:
+		get_tree().root.content_scale_mode = mode
 
 
 func _hide_all() -> void:

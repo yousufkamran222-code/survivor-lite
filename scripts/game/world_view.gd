@@ -41,6 +41,7 @@ var _allies: SpriteBatch
 var _bullets: SpriteBatch
 var _dots: SpriteBatch
 var _top: Node2D
+var _view_rect := Rect2()  # the visible dish this frame (+80 px), for culling
 var evo_colors := {}  # weapon id -> Color of its evolution
 var elite_color := Color("#ffd166")
 var _hurt_t := 0.0  # blink only after real hits, not during dash iframes
@@ -699,6 +700,7 @@ func _process_view(delta: float) -> void:
 	cam.position = focus + off
 	var vp := get_viewport_rect().size / cam_zoom
 	var view := Rect2(cam.position - vp / 2.0, vp).grow(80)
+	_view_rect = view
 	_fill_gems(view)
 	_fill_shots()
 	_fill_enemies(view)
@@ -894,41 +896,59 @@ func _fill_enemies(view: Rect2) -> void:
 			ally_base = GameData.color(world.bal.conversion.orders[World.ORDER_IDS[world.ally_order]].color)
 		if world.outbreak_t > 0.0:
 			ally_base = ally_base.lerp(white, 0.25 + 0.15 * sin(world.time * 14.0))
-	for i in world.e_pos.size():
-		var p := world.e_pos[i]
-		var r := world.enemy_radius(i)
-		if p.x < view.position.x - r or p.x > view.end.x + r or p.y < view.position.y - r or p.y > view.end.y + r:
+	# Perf: the packed arrays as locals (member lookups through `world` on
+	# every germ were a big share of the view's CPU on WebAssembly).
+	var e_pos := world.e_pos
+	var e_rad := world.e_rad
+	var e_type := world.e_type
+	var e_team := world.e_team
+	var e_flash := world.e_flash
+	var e_phase := world.e_phase
+	var e_stun := world.e_stun
+	var e_gild := world.e_gild
+	var e_plague := world.e_plague
+	var e_knock := world.e_knock
+	var tbeh := world._tbeh
+	var rift_uid := world.rift_uid
+	var vx0 := view.position.x
+	var vy0 := view.position.y
+	var vx1 := view.end.x
+	var vy1 := view.end.y
+	for i in e_pos.size():
+		var p := e_pos[i]
+		var r := e_rad[i]
+		if p.x < vx0 - r or p.x > vx1 + r or p.y < vy0 - r or p.y > vy1 + r:
 			continue
-		var t := world.e_type[i]
+		var t := e_type[i]
 		var c: Color = enemy_colors[t]
-		if world.e_uid[i] == world.rift_uid:
+		if rift_uid >= 0 and world.e_uid[i] == rift_uid:
 			c = GameData.color(world.bal.rift.boss.color)  # the Phage Carrier
 			if world.rb_stun > 0.0:
 				c = c.lerp(Color.WHITE, 0.4 + 0.3 * sin(_view_t * 30.0))
-		if world.e_team[i] == 1:
+		if e_team[i] == 1:
 			# Allies: our own cell shape in our colour (type faintly hinted).
 			c = ally_base.lerp(c, 0.2)
-			if world.e_flash[i] > 0.0:
+			if e_flash[i] > 0.0:
 				c = white
 			if world.e_life[i] < 3.0 and fmod(world.time, 0.3) < 0.15:
 				c.a = 0.35
 			_allies.add(p, r * 2.0 / ShapeTextures.BLOB_OUTER, c)
 			continue
-		if world.e_flash[i] > 0.0:
+		if e_flash[i] > 0.0:
 			c = white
-		elif world.e_phase[i] == 1 and world._tbeh[t] == World.BEH_DASH:
+		elif e_phase[i] == 1 and tbeh[t] == World.BEH_DASH:
 			c = c.lerp(white, 0.5 + 0.5 * sin(world.time * 40.0))
-		elif world.e_stun[i] > 0.0:
+		elif e_stun[i] > 0.0:
 			c = Color("#bdf3ff").lerp(c, 0.15 + 0.15 * sin(_view_t * 18.0))  # Clutch Claim stun: icy flicker
-		elif world.e_gild[i] == 1:
+		elif e_gild[i] == 1:
 			c = c.lerp(pal.ui_accent, 0.7)  # coated in gold by an Outbreak
-		elif world.e_plague[i] > 0.0:
+		elif e_plague[i] > 0.0:
 			c = c.lerp(pal.outbreak, 0.7)  # infected by the Plague Trail
 		elif world.def_on and world.e_slow[i] > 0.0:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
-		var pulse := 1.0 + pulse_k * maxf(world.e_flash[i], 0.0)  # pops a little when hit
+		var pulse := 1.0 + pulse_k * maxf(e_flash[i], 0.0)  # pops a little when hit
 		var asp := 1.0
-		var kn := world.e_knock[i]
+		var kn := e_knock[i]
 		if sq_max > 0.0 and kn != Vector2.ZERO:
 			var m := minf(kn.length() * sq_ref, 1.0) * sq_max
 			var kl := absf(kn.x) + absf(kn.y)
@@ -1012,13 +1032,29 @@ func _draw_top_layer() -> void:
 	_draw_loot(ci, now)
 	# Elite aura: pulsing ring so they read as "big target, big reward".
 	# Ally ring: thin outline in our colour so the swarm reads as ours.
-	for i in world.e_pos.size():
-		if world.ally_count > 0 and world.is_ally(i):
+	# Perf: one tight pass over the packed arrays (no per-germ function
+	# calls), skipping plain chasers (nothing to draw) and anything well off
+	# screen (a Lancer's lane can reach in from ~300 px outside).
+	var epos := world.e_pos
+	var team := world.e_team
+	var elite := world.e_elite
+	var etype := world.e_type
+	var tbeh := world._tbeh
+	var vr := _view_rect.grow(300.0)
+	var wob := 4.0 * sin(now * 8.0)
+	for i in epos.size():
+		if team[i] != 0:
 			continue
-		if world.is_elite(i):
-			var r := world.enemy_radius(i) * 1.25 + 4.0 * sin(now * 8.0)
-			ci.draw_arc(world.e_pos[i], r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)
-			ci.draw_circle(world.e_pos[i], r + 10.0, Color(elite_color, 0.12))
+		var el := elite[i] == 1
+		if not el and tbeh[etype[i]] == World.BEH_CHASE:
+			continue
+		var p := epos[i]
+		if not vr.has_point(p):
+			continue
+		if el:
+			var r := world.e_rad[i] * 1.25 + wob
+			ci.draw_arc(p, r, 0, TAU, 32, Color(elite_color, 0.9), 4.0)
+			ci.draw_circle(p, r + 10.0, Color(elite_color, 0.12))
 		_draw_telegraph(ci, i)
 	for j in world.tower_orbs.size():
 		var tc := GameData.color(world.tower_defs[world.tower_orb_type[j]].get("color", "#ffffff"))
@@ -1215,11 +1251,22 @@ func _draw_threats(ci: CanvasItem) -> void:
 	var t := _cell_t
 	var red: Color = pal.player_hurt
 	var aff: Dictionary = world.elite_cfg.get("affixes", {})
-	for i in world.e_pos.size():
-		if world.e_affix[i] == World.AFFIX_NONE:
+	var elite := world.e_elite
+	var team := world.e_team
+	# Only elites carry affixes and health bars: one cheap pass finds them.
+	for i in elite.size():
+		if elite[i] != 1 or team[i] != 0:
 			continue
 		var p := world.e_pos[i]
 		var r := world.e_rad[i]
+		# Elite health bar (the boss has its own bar and the HUD one).
+		var f := clampf(world.e_hp[i] / maxf(world.e_maxhp[i], 1.0), 0.0, 1.0)
+		var bw := maxf(r * 2.0, 44.0)
+		var at := p + Vector2(-bw / 2.0, -r - 16.0)
+		ci.draw_rect(Rect2(at - Vector2(2, 2), Vector2(bw + 4, 10)), Color(0, 0, 0, 0.6))
+		ci.draw_rect(Rect2(at, Vector2(bw * f, 6)), elite_color)
+		if world.e_affix[i] == World.AFFIX_NONE:
+			continue
 		match world.affix_id(i):
 			"charge":
 				if world.e_aphase[i] == 1:
@@ -1235,17 +1282,6 @@ func _draw_threats(ci: CanvasItem) -> void:
 					ci.draw_arc(p, r * (2.2 - 0.9 * k), 0, TAU, 28, Color(1.0, 0.85, 0.3, 0.4 + 0.5 * k), 4.0)
 			"magnet":
 				ci.draw_arc(p, float(aff.magnet.radius), 0, TAU, 48, Color(0.75, 0.55, 1.0, 0.22 + 0.08 * sin(t * 4.0)), 4.0)
-	# Elite health bars (the boss has its own bar and the HUD one).
-	for i in world.e_pos.size():
-		if world.e_elite[i] != 1 or world.e_team[i] != 0:
-			continue
-		var p := world.e_pos[i]
-		var r := world.e_rad[i]
-		var f := clampf(world.e_hp[i] / maxf(world.e_maxhp[i], 1.0), 0.0, 1.0)
-		var bw := maxf(r * 2.0, 44.0)
-		var at := p + Vector2(-bw / 2.0, -r - 16.0)
-		ci.draw_rect(Rect2(at - Vector2(2, 2), Vector2(bw + 4, 10)), Color(0, 0, 0, 0.6))
-		ci.draw_rect(Rect2(at, Vector2(bw * f, 6)), elite_color)
 	if world.boss_slam == 1:
 		var d := world.boss_def
 		var k := 1.0 - world.boss_slam_t / maxf(float(d.slam_windup_s), 0.01)

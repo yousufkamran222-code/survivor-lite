@@ -60,3 +60,23 @@ func test_store_builds_force_debug_off() -> void:
 	check(d.balance.debug.dev_tools, "playtest builds keep the dev tools")
 	GameData.apply_store_build(d, true)
 	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)
+
+
+## The web build's overrides (balance.web) may only lower visual caps:
+## never a gameplay number (perf 2026-11-14).
+func test_web_overrides_are_visual_only() -> void:
+	var d := data().duplicate(true)
+	var allowed := {"perf": ["max_effects", "max_damage_numbers"], "juice": ["hit_sparks_per_frame", "splat_max"]}
+	for sec in d.balance.web:
+		if str(sec).begins_with("_"):
+			continue
+		check(allowed.has(sec), "web overrides section %s" % sec)
+		for k in d.balance.web[sec]:
+			check(allowed.get(sec, []).has(k), "web override %s.%s must be visual" % [sec, k])
+	var before: Dictionary = d.balance.perf.duplicate()
+	GameData.apply_web_build(d, true)
+	check(int(d.balance.perf.max_effects) < int(before.max_effects), "fewer effects on web")
+	check_eq(int(d.balance.perf.max_projectiles), int(before.max_projectiles), "gameplay caps untouched")
+	var d2 := data().duplicate(true)
+	GameData.apply_web_build(d2, false)
+	check_eq(int(d2.balance.perf.max_effects), int(before.max_effects), "native builds unchanged")

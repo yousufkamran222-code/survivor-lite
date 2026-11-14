@@ -257,6 +257,11 @@
     "free_boss_every": 5,
     "free_boss_hp_growth": 0.35
   },
+  "web": {
+    "_doc": "Merged into balance on the web build only (GameData.apply_web_build): slightly lower VISUAL caps (effects, hit sparks, splats); nothing that changes gameplay. Web is the slowest platform (WebAssembly + WebGL).",
+    "perf": {"max_effects": 110},
+    "juice": {"hit_sparks_per_frame": 4, "splat_max": 40}
+  },
   "perf": {
     "max_projectiles": 220,
     "max_enemy_shots": 120,

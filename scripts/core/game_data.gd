@@ -50,6 +50,13 @@ static func apply_store_build(d: Dictionary, store: bool) -> void:
 	d.balance["debug"] = dbg
 
 
+## The web build (OS feature "web"): balance.web is merged in (lower visual
+## caps only; gameplay numbers are never in it).
+static func apply_web_build(d: Dictionary, web: bool) -> void:
+	if web and d.balance.has("web"):
+		_merge(d.balance, d.balance.web)
+
+
 ## The Patient Zero prologue (data/onboarding.json): its base mode, then its
 ## own balance overrides and waves overrides (no scripted events, no
 ## timed elites: its beats spawn those). mode_id = "prologue".

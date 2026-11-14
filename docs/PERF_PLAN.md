@@ -61,3 +61,24 @@ Not worth it now: the simulation (0.5 ms/step at 150+ germs, already tuned), thr
 
 ## 4. How the web numbers were taken
 Export the web build with a temporary hook that calls `start_benchmark()` when the URL has `?bench` (not committed), serve it locally, open it in Playwright's Chromium (`--use-angle=swiftshader`, 405×720) and read the `BENCH v3 web` line from the console. Swiftshader renders on the CPU, so compare **our** CPU numbers (sim/view/HUD) and draw calls between runs, not raw fps against a phone.
+
+## 5. Done (2026-11-14): all six steps
+Yousuf: "do all six, fast on web and sharp on apk. Make sure we don't lose much quality".
+
+1. **Animated text at fixed sizes** (`HudOverlay._stext`, `TEXT_BASES`): the streak counter, streak name, toasts, evolution name, RUN!, the Nucleus countdown and the tutorial prompt render at one of 9 sizes and are scaled (down) to the exact size, so no new glyph sizes are rasterised mid-run.
+2. **Baked HUD panel** (`BakedLayer`, scripts/ui/baked_layer.gd): the top panel, weapon strip, mode readout and boss/nucleus bars render into a SubViewport only when their signature changes (as before, ≤ 20 Hz) and show as one quad. Rendered at the screen's density with matching font oversampling (checked pixel-identical at 1.5×), premultiplied-alpha blend. The DASH/UPGRADE labels stay a normal cached layer.
+3. **Settings → Graphics: Sharp / Fast** (`Save.graphics`, `Main._apply_graphics`): Fast = viewport stretch (draws at 720×1280, scales up). Default **Fast on web, Sharp on the APK**. Fast only applies when the window has more pixels than 720×1280 (+15%): on a smaller window (desktop browser) it would draw more, not less (measured: slower). Re-applied on window resize.
+4. **View CPU**: the per-germ passes in the top layer and threats use local packed arrays, skip plain chasers and anything >300 px off screen, and the elite health bar/affix passes are merged; `_fill_enemies` reads packed arrays as locals.
+5. **HUD text**: covered by 1 and 2 (the panel's text is only laid out when the panel changes).
+6. **Web-only visual caps** (`balance.web`, `GameData.apply_web_build`): effects 140 → 110, hit sparks 6 → 4/frame, splats 50 → 40. A test guards that only visual keys can go in it.
+
+### Results
+| Measure | Before | After |
+|---|---|---|
+| Draw calls, benchmark (desktop) | 173 | **90-93** |
+| Draw calls, one frame of the same scene | 175 | **75** |
+| HUD CPU (desktop) | 0.74 ms | **0.46 ms** |
+| HUD CPU (web, WebAssembly) | 1.07-2.38 ms | 0.81-1.15 ms |
+| Fast vs Sharp at 1080×1920 (native, software GL) | 32.9 fps | 52.9 fps |
+
+Limits of what the sandbox can show: its browser and xvfb render on the CPU (no GPU), and identical runs vary ±20%, so fps there says little about draw-call savings, which pay off on real phone GPUs and WebGL drivers. **The real check is Yousuf's in-game benchmark line (web and APK) before vs after.**

@@ -48,6 +48,9 @@ var shake: float:  # screen-shake strength: 0, 0.5, 1, 1.5
 var fps_cap: int:  # 0 = the screen's max, else 60 or 30 (default 60: cooler phones, longer battery)
 	get: return int(profile.settings.get("fps_cap", 60))
 	set(v): profile.settings["fps_cap"] = v
+var graphics: int:  # 0 = Sharp (draw at the screen's resolution), 1 = Fast (draw at 720x1280, scaled up); default Fast on web, Sharp elsewhere
+	get: return int(profile.settings.get("graphics", 1 if OS.has_feature("web") else 0))
+	set(v): profile.settings["graphics"] = v
 var show_fps: int:  # -1 = use balance.json debug.show_perf, 0 off, 1 on
 	get: return int(profile.settings.get("show_fps", -1))
 	set(v): profile.settings["show_fps"] = v

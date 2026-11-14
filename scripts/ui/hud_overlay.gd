@@ -46,7 +46,7 @@ var _perf_min_fps := 0.0
 # the top bars/readouts (at most 20x a second). Everything that animates every
 # frame stays in this node's own _draw.
 var _strip_layer: Control
-var _bars_layer: Control
+var _bars_layer: BakedLayer  # top panel + weapon strip, rendered to a texture when they change
 var _sig_strip := PackedInt32Array()
 var _sig_strip_drawn := PackedInt32Array()
 var _sig_bars := PackedInt32Array()
@@ -231,7 +231,14 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	font = UiKit.display_font()  # chunky HUD text (Lilita One)
 	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
-	_bars_layer = _layer(func() -> void: _draw_bars(_bars_layer))
+	_bars_layer = BakedLayer.new()
+	_bars_layer.setup(Rect2(0, 0, 720, BARS_H), func(ci: CanvasItem) -> void:
+		if world != null:
+			var t0 := Time.get_ticks_usec()
+			_draw_bars(ci)
+			_draw_owned(ci)
+			cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0)
+	add_child(_bars_layer)
 	_edge_tex = _make_edge_texs()
 	_blob_tex = _make_blob_tex()
 	_sig_strip.resize(5)
@@ -333,9 +340,7 @@ func _draw_hud() -> void:
 		var k: float = t.t / t.life
 		var pop := 1.0 + 0.25 * maxf(0.0, 1.0 - t.t * 6.0)
 		var a := clampf((1.0 - k) * 3.0, 0.0, 1.0)
-		var fs := int(40 * pop)
-		draw_string_outline(font, Vector2(0, ty), t.text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 8, Color(0, 0, 0, 0.6 * a))
-		draw_string(font, Vector2(0, ty), t.text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(t.color, a))
+		_stext(t.text, Vector2(w / 2.0, ty), 1, 40.0 * pop, 8.0, Color(t.color, a), 0.6)
 		ty += 52.0
 	_draw_streak(w)
 	_draw_hint(w)
@@ -398,10 +403,8 @@ func _draw_evolution(w: float) -> void:
 	var t1 := cy + 60.0
 	draw_string_outline(font, Vector2(0, t1), "EVOLUTION!", HORIZONTAL_ALIGNMENT_CENTER, w, 32, 8, Color(0, 0, 0, 0.7 * a))
 	draw_string(font, Vector2(0, t1), "EVOLUTION!", HORIZONTAL_ALIGNMENT_CENTER, w, 32, Color(pal.ui_accent, a))
-	var fs := int(64.0 * pop)
 	var name := str(evo_seq.name).to_upper()
-	draw_string_outline(font, Vector2(0, t1 + 76), name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 12, Color(0, 0, 0, 0.75 * a))
-	draw_string(font, Vector2(0, t1 + 76), name, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(col.lightened(0.15), a))
+	_stext(name, Vector2(w / 2.0, t1 + 76), 1, 64.0 * pop, 12.0, Color(col.lightened(0.15), a), 0.75)
 	draw_string_outline(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, 6, Color(0, 0, 0, 0.6 * a))
 	draw_string(font, Vector2(0, t1 + 122), str(evo_seq.desc), HORIZONTAL_ALIGNMENT_CENTER, w, 24, Color(1, 1, 1, 0.9 * a))
 
@@ -499,8 +502,7 @@ func _draw_rift_hud(w: float) -> void:
 	elif world.rift_grace > 0.0 and world.rift_ejected:
 		var pulse := 1.0 + 0.15 * sin(Time.get_ticks_msec() / 60.0)
 		var y := size.y * 0.32
-		draw_string_outline(font, Vector2(0, y), "RUN!", HORIZONTAL_ALIGNMENT_CENTER, w, int(84 * pulse), 12, Color(0, 0, 0, 0.7))
-		draw_string(font, Vector2(0, y), "RUN!", HORIZONTAL_ALIGNMENT_CENTER, w, int(84 * pulse), pal.player_hurt)
+		_stext("RUN!", Vector2(w / 2.0, y), 1, 84.0 * pulse, 12.0, pal.player_hurt)
 		var sub := "%.1f" % world.rift_grace
 		draw_string_outline(font, Vector2(0, y + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 40, 8, Color(0, 0, 0, 0.6))
 		draw_string(font, Vector2(0, y + 56), sub, HORIZONTAL_ALIGNMENT_CENTER, w, 40, Color.WHITE)
@@ -668,6 +670,7 @@ func _draw_bars(ci: CanvasItem) -> void:
 # ---- HUD drawing helpers (glossy chunky look, no textures)
 
 const TOP_PANEL := Rect2(10, 8, 604, 102)
+const BARS_H := 290.0  # the baked top area: panel, weapon strip, mode readout, boss / nucleus bars
 const HP_RECT := Rect2(102, 24, 262, 26)
 const XP_RECT := Rect2(102, 60, 262, 16)
 
@@ -712,9 +715,9 @@ func _gloss_disc(ci: CanvasItem, c: Vector2, r: float, face: Color) -> void:
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## Owned-upgrade strip and the DASH / UPGRADE labels (strip layer).
+## The DASH / UPGRADE labels (strip layer; the owned strip itself is baked
+## with the top panel).
 func _draw_strip(ci: CanvasItem) -> void:
-	_draw_owned(ci)
 	var dc := dash_center()
 	_text(ci, dc + Vector2(-dash_radius, 10), "DASH", dash_radius * 2.0, 28, Color(1, 1, 1, 1.0 if world.can_dash() else 0.45), 7 if world.can_dash() else 0, HORIZONTAL_ALIGNMENT_CENTER)
 	var uc := upgrade_center()
@@ -731,6 +734,7 @@ func _draw_strip(ci: CanvasItem) -> void:
 
 ## Decides which cached layers need a redraw this frame.
 func _update_layers(delta: float) -> void:
+	_bars_layer.region = Rect2(0, 0, size.x, BARS_H)
 	var fresh := world != _sig_world
 	_sig_world = world
 	var owned_sum := 0
@@ -744,6 +748,7 @@ func _update_layers(delta: float) -> void:
 	if fresh or _sig_strip != _sig_strip_drawn:
 		_sig_strip_drawn = _sig_strip.duplicate()
 		_strip_layer.queue_redraw()
+		_bars_layer.refresh()  # the owned strip lives in the baked panel
 	var w := size.x
 	_sig_bars[0] = int(clampf(world.xp / world.xp_next, 0.0, 1.0) * w)
 	_sig_bars[1] = int(_xp_flash * 20.0)
@@ -768,7 +773,7 @@ func _update_layers(delta: float) -> void:
 	if fresh or (_bars_wait <= 0.0 and _sig_bars != _sig_bars_drawn):
 		_sig_bars_drawn = _sig_bars.duplicate()
 		_bars_wait = 0.05
-		_bars_layer.queue_redraw()
+		_bars_layer.refresh()
 
 
 ## Arrows at the screen edge pointing to off-screen chests, elites and boss.
@@ -957,10 +962,9 @@ func _draw_defense_live(w: float) -> void:
 			draw_string(font, Vector2(0, 202), "MOTHER CELL INCOMING", HORIZONTAL_ALIGNMENT_CENTER, w, 34, Color(pal.player_hurt, a))
 		if wd.wave_t <= 3.0 and wd.wave_t > 0.0:
 			var frac := wd.wave_t - floorf(wd.wave_t)
-			var fs := int(96.0 * (1.0 + 0.35 * frac))
+			var fs := 96.0 * (1.0 + 0.35 * frac)
 			var num := str(ceili(wd.wave_t))
-			draw_string_outline(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, 12, Color(0, 0, 0, 0.55 * (1.0 - frac * 0.5)))
-			draw_string(font, Vector2(0, size.y * 0.3 + fs * 0.35), num, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pal.core, 1.0 - frac * 0.5))
+			_stext(num, Vector2(w / 2.0, size.y * 0.3 + fs * 0.35), 1, fs, 12.0, Color(pal.core, 1.0 - frac * 0.5), 0.55)
 	if tower_bar_visible():
 		_draw_tower_bar()
 	var pad := wd.pad_under_player()
@@ -1088,30 +1092,31 @@ func _draw_streak(w: float) -> void:
 	if _streak_end_t < 0.6 and world.streak < streak_show:
 		var k := _streak_end_t / 0.6
 		var st0 := _streak_style(_streak_end_n)
-		_rtext("x%d" % _streak_end_n, Vector2(right, base_y - 50.0 * k), _streak_font(_streak_end_n), 10, Color(st0[0], 1.0 - k))
+		_stext("x%d" % _streak_end_n, Vector2(right, base_y - 50.0 * k), 2, _streak_font(_streak_end_n), 10.0, Color(st0[0], 1.0 - k))
 	var n := world.streak
 	if n < streak_show:
 		return
 	var st := _streak_style(n)
 	var col: Color = st[0]
 	var tier: int = st[2]
-	var fs := int(_streak_font(n) * (1.0 + 0.32 * _streak_pop * _streak_pop))
+	var fs := _streak_font(n) * (1.0 + 0.32 * _streak_pop * _streak_pop)
 	var jit := Vector2.ZERO
 	if _streak_pop > 0.0:
 		jit = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * (1.0 + tier * 1.3) * _streak_pop
 	var pos := Vector2(right, base_y) + jit
 	var txt := "x%d" % n
-	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var fb := _text_base(fs)
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fb).x * fs / fb
 	if _streak_burst > 0.0:
 		var c := pos + Vector2(-tw / 2.0, -fs * 0.35)
 		var rk := 1.0 - _streak_burst
 		draw_arc(c, tw * 0.6 + 120.0 * rk, 0, TAU, 40, Color(col, 0.9 * _streak_burst), 6.0 * _streak_burst + 1.0)
 		draw_circle(c, tw * 0.5 + 30.0 * rk, Color(col, 0.18 * _streak_burst))
-	_rtext(txt, pos, fs, 10, col)
+	_stext(txt, pos, 2, fs, 10.0, col)
 	var name: String = st[1]
 	if name != "":
 		# The tier name swells on a milestone (that's the milestone call-out).
-		_rtext(name, pos + Vector2(0, 30.0 + 18.0 * _streak_burst), int(20.0 + 22.0 * _streak_burst), 6, col)
+		_stext(name, pos + Vector2(0, 30.0 + 18.0 * _streak_burst), 2, 20.0 + 22.0 * _streak_burst, 6.0, col)
 	# The streak's power (balance.skill.streak_buffs) under the bar.
 	if world.streak_buff >= 0:
 		var bt := "+%d%% DMG  +%d%% SPD" % [roundi(world.skill_buff("damage") * 100.0), roundi(world.skill_buff("speed") * 100.0)]
@@ -1134,8 +1139,39 @@ func _rtext(txt: String, pos: Vector2, fs: int, outline: int, col: Color) -> voi
 
 
 ## Bigger as the streak grows (roughly logarithmic), capped.
-func _streak_font(n: int) -> int:
-	return int(clampf(40.0 + 16.0 * log(maxf(float(n), 1.0) / 10.0) / log(2.0), 40.0, 104.0))
+func _streak_font(n: int) -> float:
+	return clampf(40.0 + 16.0 * log(maxf(float(n), 1.0) / 10.0) / log(2.0), 40.0, 104.0)
+
+
+## Font sizes text is actually rendered at. Every new size (and outline
+## width) renders all its glyphs again on the CPU and uploads them: on a
+## phone that was a stutter each time the streak counter or a toast popped
+## to a size it hadn't used yet. Animated text renders at the next size up
+## from this list and is scaled down to the exact size (downscaling keeps it
+## sharp), so only these few sizes are ever rasterised.
+const TEXT_BASES := [20, 28, 36, 44, 56, 72, 92, 116, 140]
+
+
+func _text_base(fs: float) -> int:
+	for b in TEXT_BASES:
+		if b >= fs - 0.5:
+			return b
+	return TEXT_BASES[-1]
+
+
+## Outlined text at any (animated) size: anchor is the left (align 0),
+## centre (1) or right (2) end of the baseline; the outline keeps roughly
+## its on-screen width (quantised to even pixels at the base size).
+func _stext(txt: String, anchor: Vector2, align: int, fs: float, outline_px: float, col: Color, outline_a: float = 0.7) -> void:
+	var base := _text_base(fs)
+	var s := fs / base
+	var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x
+	var x := 0.0 if align == 0 else (-tw / 2.0 if align == 1 else -tw)
+	var o := maxi(2, int(round(outline_px / s / 2.0)) * 2)
+	draw_set_transform(anchor, 0.0, Vector2(s, s))
+	draw_string_outline(font, Vector2(x, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base, o, Color(0, 0, 0, outline_a * col.a))
+	draw_string(font, Vector2(x, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base, col)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## First-run hint banner (Main queues them, one at a time).
