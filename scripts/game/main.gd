@@ -52,6 +52,7 @@ var _menu_page := "home"  # which menu page is open (Android Back goes up one le
 var _quit_pop = null  # "Quit?" confirm (UiKit.overlay array)
 var _mode_pick = null  # the mode list overlay (UiKit.overlay array), built on demand  # the hero cell spacer on the menu (toasts sit over it)
 var _prologue := false  # this run is the Patient Zero prologue (data/onboarding.json)
+var _ui_warm := false  # the level-up/chest widgets were drawn once this session (first-open hitch)
 var _coached_mode := ""  # this run carries a mode's first-run coach (marked done when it finishes)
 var _new_best := false
 var _virulence_cleared := 0  # results: the Virulence level this win cleared for the first time (0 = none)
@@ -820,6 +821,68 @@ func _start_run(prologue: bool = false) -> void:
 	_load_hints(mode_id)
 	_hide_all()
 	_set_screen("playing")
+	if not _ui_warm:
+		_warm_up_ui()
+
+
+## The first level-up (or chest) of a session used to hang for 1-2 s on the
+## phone: every new font size/outline renders its glyphs and the GPU builds
+## its draw state on first use. At the first run start, draw the same widgets
+## (a level-up card per kind, the titles, chips, text buttons, a chest card
+## and every glyph at each size those screens use) hidden under the dish for
+## a few frames, so that cost is paid before anything is on screen.
+func _warm_up_ui() -> void:
+	_ui_warm = true
+	# Drawn on a layer below the dish: the opaque floor hides it, but the
+	# renderer still draws it (a see-through copy on top showed faintly, and
+	# fully transparent items are skipped).
+	var layer := CanvasLayer.new()
+	layer.layer = -10
+	add_child(layer)
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = ui_root.theme
+	layer.add_child(root)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.position = Vector2(0, 40)
+	col.custom_minimum_size = Vector2(600, 0)
+	root.add_child(col)
+	const GLYPHS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-%()/:.,!?'×"
+	for sz in [66, 64, 32, 30, 26, 22, 21, 20, 17, 15, 14]:
+		var l := UiKit.label(GLYPHS, sz, Color.WHITE)
+		if sz == 30 or sz == 26:
+			UiKit.display(l)
+		l.autowrap_mode = TextServer.AUTOWRAP_OFF
+		col.add_child(l)
+	var chest_title := UiKit.label("CHEST!", 64, pal.gem_large)
+	chest_title.add_theme_constant_override("outline_size", 12)
+	chest_title.add_theme_color_override("font_outline_color", Color(0.15, 0.08, 0.02))
+	col.add_child(chest_title)
+	col.add_child(UiKit.chip("2 picks", pal.ui_accent, Color(0.1, 0.06, 0.15), 20))
+	col.add_child(UiKit.chip(GLYPHS, pal.ui_accent, Color(0.1, 0.06, 0.15), 17))
+	col.add_child(UiKit.chip(GLYPHS, pal.ui_accent, Color(0.1, 0.06, 0.15), 15))
+	col.add_child(_text_button("Later (keep 1)", func() -> void: pass))
+	col.add_child(UiKit.panel(Color("#2f2357"), Color(1, 1, 1, 0.15), 22, 16))
+	col.add_child(UiKit.glow_icon(str(data.upgrades[0].id), pal.ui_accent, 112))
+	var cards := VBoxContainer.new()  # a second column: everything must overlap the screen to be drawn
+	cards.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cards.position = Vector2(100, 60)
+	cards.custom_minimum_size = Vector2(600, 0)
+	root.add_child(cards)
+	var kinds := {}
+	for u in data.upgrades:  # one card per card kind (weapon, passive, dash, ...)
+		var k := str(_card_kind(u)[0])
+		if not kinds.has(k) and world.upgrade_defs.has(u.id):
+			kinds[k] = true
+			var card := _upgrade_card(str(u.id))
+			card.custom_minimum_size.x = 600
+			card.disabled = true
+			cards.add_child(card)
+	for i in 3:
+		await get_tree().process_frame
+	layer.queue_free()
 
 
 func _set_screen(s: String) -> void:

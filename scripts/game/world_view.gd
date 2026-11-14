@@ -1041,6 +1041,7 @@ func _draw_top_layer() -> void:
 	_draw_rift(ci, now)
 	_draw_threats(ci)
 	_draw_clone(ci)
+	_draw_decoy(ci)
 	_draw_player(ci)
 	_draw_claim_wave(ci)
 	for f in fx:
@@ -1185,6 +1186,26 @@ func _draw_player(ci: CanvasItem) -> void:
 		var pos := p + Vector2(-w / 2.0, r + 10.0)
 		ci.draw_rect(Rect2(pos, Vector2(w, 6)), Color(0, 0, 0, 0.55))
 		ci.draw_rect(Rect2(pos, Vector2(w * world.p_hp / world.p_max_hp, 6)), pal.hp_bar)
+
+
+## Afterimage decoy (World decoy_pos/decoy_t): a see-through copy of the
+## cell where you dashed, with a fuse ring closing in on the burst radius, so
+## the lure and the pop read as one thing (it used to be invisible).
+func _draw_decoy(ci: CanvasItem) -> void:
+	if world.decoy_t <= 0.0:
+		return
+	var p := world.decoy_pos
+	var r := world.p_radius
+	var life := maxf(float(bal.player.decoy_s), 0.01)
+	var k := clampf(1.0 - world.decoy_t / life, 0.0, 1.0)  # 0 = just left, 1 = bursting
+	var body: Color = CosmeticArt.body_color(_skin, pal.player, _cell_t)
+	var blink := 0.5 + 0.5 * sin(_cell_t * (10.0 + 30.0 * k))  # blinks faster as it is about to pop
+	var q := r / ShapeTextures.CELL_BODY * (1.0 + 0.12 * k)
+	ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(r, r) * 1.8, Vector2(r, r) * 3.6), false, Color(body, 0.12 + 0.1 * blink))
+	ci.draw_texture_rect(_cell_tex, Rect2(p - Vector2(q, q), Vector2(q, q) * 2.0), false, Color(body, 0.38 + 0.12 * blink))
+	var br := float(bal.player.decoy_blast_radius)
+	ci.draw_arc(p, br, 0, TAU, 48, Color(body, 0.18), 2.0)  # where the burst will reach
+	ci.draw_arc(p, lerpf(br, r * 1.2, k), 0, TAU, 40, Color(pal.ui_accent, 0.35 + 0.45 * k), 3.0 + 2.0 * k)  # the fuse
 
 
 ## Elite and boss telegraphs (state read from World each frame): a Rammer's
