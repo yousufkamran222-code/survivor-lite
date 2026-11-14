@@ -2945,6 +2945,18 @@ func _bench_frame(delta: float, sim_ms: float) -> void:
 		_finish_benchmark()
 
 
+## Clipboard that also works on the web inside itch.io's iframe, where the
+## async Clipboard API (DisplayServer.clipboard_set) is blocked: the old
+## execCommand("copy") path still works during the tap. Returns false when
+## the browser refused, so the caller can say so.
+func _copy_text(text: String) -> bool:
+	DisplayServer.clipboard_set(text)
+	if not OS.has_feature("web"):
+		return true
+	var js := "(function(t){var a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(a);return ok;})(%s)" % JSON.stringify(text)
+	return bool(JavaScriptBridge.eval(js, true))
+
+
 func _finish_benchmark() -> void:
 	bench_result = _bench.line()
 	print(bench_result)
@@ -2958,12 +2970,21 @@ func _finish_benchmark() -> void:
 	UiKit.clear(col)
 	col.add_child(UiKit.label("BENCHMARK DONE", 52, pal.ui_accent))
 	col.add_child(UiKit.label("%.0f fps average  (screen: %s)" % [s.fps, ("%d Hz" % s.refresh) if s.refresh > 0 else "rate unknown"], 30))
-	var l := UiKit.label(bench_result, 20, Color(pal.text, 0.85))
-	col.add_child(l)
-	col.add_child(UiKit.label("Copy this line and paste it to Claude.", 22, Color(pal.text, 0.6)))
+	# A read-only text box: if copying is blocked (itch.io's frame on the
+	# web), long-press / double-click selects the line to copy by hand.
+	var box := TextEdit.new()
+	box.text = bench_result
+	box.editable = false
+	box.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	box.custom_minimum_size = Vector2(600, 130)
+	box.add_theme_font_size_override("font_size", 20)
+	box.add_theme_color_override("font_readonly_color", Color(pal.text, 0.95))
+	col.add_child(box)
+	col.add_child(UiKit.label("Tap COPY and paste it to Claude (or select the text above).", 22, Color(pal.text, 0.6)))
 	col.add_child(UiKit.button("COPY", func() -> void:
-		DisplayServer.clipboard_set(bench_result)
-		hud.toast("Copied", pal.ui_accent, 1.0), 100))
+		var ok := _copy_text(bench_result)
+		box.select_all()
+		hud.toast("Copied" if ok else "Select the text and copy it", pal.ui_accent, 1.6), 100))
 	col.add_child(UiKit.button("DONE", _show_menu, 80))
 	_results[0].visible = true
 
