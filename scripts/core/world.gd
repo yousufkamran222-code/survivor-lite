@@ -613,6 +613,15 @@ func coach() -> Dictionary:
 	return tut.prompt if tut != null and not tut.done else {}
 
 
+## A Lancer (dash germ) near you is winding up or lunging: the tutorial's
+## "DASH now" moment.
+func lancer_lunging() -> bool:
+	for i: int in query(p_pos, 380.0):
+		if e_team[i] == 0 and _tbeh[e_type[i]] == BEH_DASH and e_phase[i] >= 1:
+			return true
+	return false
+
+
 ## One level-up for free (a tutorial beat makes sure the picker has one).
 func grant_level() -> void:
 	level += 1

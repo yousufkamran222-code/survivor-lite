@@ -9,7 +9,7 @@ extends RefCounted
 ## the HUD only read `prompt` (text, target, slowmo) to present it.
 
 ## Conditions read as an absolute value instead of "since the beat started".
-const ABSOLUTE := ["on_pad", "streak", "time"]
+const ABSOLUTE := ["on_pad", "streak", "time", "banked", "lunge"]
 
 var beats: Array = []
 var showcase := "bolt"  # the weapon this prologue evolves (rotates on replays)
@@ -67,14 +67,32 @@ func update(w: World, dt: float) -> void:
 		_finish(w, b)
 		_start(w, index + 1)
 		return
-	# Text fades after show_s (if set); slow motion only while waiting.
+	# Text fades after show_s (if set); slow motion / the pause only while
+	# waiting. A "pause" beat freezes the run pause_after_s in (the prompt
+	# pops first), or a beat with pause_after_s alone freezes only if the
+	# player still hasn't acted by then (a missed dash).
 	prompt.text = str(b.get("text", "")) if t < float(b.get("show_s", INF)) else ""
 	prompt.slowmo = bool(b.get("slowmo", false)) and not met
+	prompt.pause = b.has("pause_after_s") and t >= float(b.pause_after_s) and not met
+	if str(b.get("target", "")) == "dash" and w.p_dash_charges <= 0:
+		prompt.pause = false  # a recharging dash needs time to run (no deadlock)
 
 
 ## The run should crawl right now (a beat waits for the player to act).
 func slowmo() -> bool:
 	return not done and bool(prompt.get("slowmo", false))
+
+
+## The run should stand still right now: a button-tap beat (UPGRADE,
+## OUTBREAK, orders) waits for the tap. Main then only calls poll().
+func paused() -> bool:
+	return not done and bool(prompt.get("pause", false))
+
+
+## While paused the World doesn't step; this checks the beat's condition
+## (the tap happened outside step) and moves on.
+func poll(w: World) -> void:
+	update(w, 0.0)
 
 
 func counters(w: World) -> Dictionary:
@@ -83,6 +101,7 @@ func counters(w: World) -> Dictionary:
 		"evolved": w.evolved.size(), "streak": w.streak, "outbreaks": w.outbreaks, "boss_killed": 1 if w.boss_killed else 0,
 		"claims": w.claims, "conversions": w.conversions, "orders": w.order_changes,
 		"on_pad": 1 if w.def_on and w.empty_pad_under_player() >= 0 else 0, "towers": w.towers_built, "time": t,
+		"banked": w.pending_levelups, "lunge": 1 if w.lancer_lunging() else 0,
 	}
 
 
@@ -147,7 +166,7 @@ func _start(w: World, k: int) -> void:
 			if w.e_team[i] == 0:
 				w._damage(i, 1.0e6, Vector2.ZERO, false)
 		w._process_dead()
-	prompt = {"id": str(b.id), "index": k, "text": str(b.get("text", "")), "target": str(b.get("target", "none")), "slowmo": bool(b.get("slowmo", false))}
+	prompt = {"id": str(b.id), "index": k, "text": str(b.get("text", "")), "target": str(b.get("target", "none")), "slowmo": bool(b.get("slowmo", false)), "pause": false}
 	w._emit({"type": "coach", "id": str(b.id), "text": prompt.text, "target": prompt.target})
 
 
@@ -176,6 +195,16 @@ func _resolve(row: Array) -> Array:
 	return out
 
 
+## A tougher spawn (hp_mult): the tutorial Lancer must live long enough to
+## lunge instead of melting to auto-fire on the way in.
+func _tough(w: World, mult: float) -> void:
+	if mult == 1.0:
+		return
+	var last := w.e_pos.size() - 1
+	w.e_hp[last] *= mult
+	w.e_maxhp[last] *= mult
+
+
 func _ahead(w: World, dist: float) -> Vector2:
 	var dir := w.p_move.normalized() if w.p_move.length_squared() > 0.01 else w.p_facing.normalized()
 	return w.p_pos + dir * dist
@@ -191,6 +220,7 @@ func _spawn(w: World, list: Array) -> void:
 				var perp := dir.orthogonal()
 				for k in n:
 					w._add_enemy(sp.id, w._valid_spawn(w.p_pos + dir * dist + perp * (k - (n - 1) / 2.0) * 46.0))
+					_tough(w, float(sp.get("hp_mult", 1.0)))
 			"ring":
 				var a0 := w.rng.randf() * TAU
 				for k in n:

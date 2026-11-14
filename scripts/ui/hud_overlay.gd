@@ -58,6 +58,10 @@ var _hint_text := ""
 var coach := {}  # the tutorial's prompt this frame (World.coach(), set by Main)
 var _coach_idx := -1
 var _coach_t := 0.0  # time the current prompt has been up
+var _coach_shown := ""  # the prompt text on screen; a replaced one fades out
+var _coach_old := ""
+var _coach_old_t := 0.0  # fade-out time left for _coach_old
+const COACH_FADE_S := 0.3
 var title_t := -1.0  # first-launch title over the dish (>= 0 while showing)
 var _hint_t := 0.0  # time the current hint has been up
 const HINT_S := 4.5
@@ -267,6 +271,18 @@ func _process(delta: float) -> void:
 		_coach_idx = int(coach.get("index", -1))
 		_coach_t = 0.0
 	_coach_t += delta
+	var ctxt := str(coach.get("text", "")) if evo_seq.is_empty() else ""
+	if ctxt != _coach_shown:
+		if _coach_shown != "" and ctxt == "":
+			_coach_old = _coach_shown  # it leaves by fading up instead of vanishing
+			_coach_old_t = COACH_FADE_S
+		elif ctxt != "":
+			_coach_old_t = 0.0  # a new line replaces it outright (no overlap)
+		_coach_shown = ctxt
+		if ctxt != "":
+			_coach_t = 0.0  # a new line pops in fresh
+	if _coach_old_t > 0.0:
+		_coach_old_t = maxf(0.0, _coach_old_t - delta)
 	if title_t >= 0.0:
 		title_t += delta
 		if title_t > TITLE_S:
@@ -1162,31 +1178,21 @@ var title_sub := ""
 ## what to touch (a pulsing ring and a bouncing arrow on a button, a ghost
 ## finger for moving, a circling dot for Infection's loop, a ring on a pad).
 func _draw_coach(w: float) -> void:
+	if _coach_old_t > 0.0:  # the previous line drifts up and fades out
+		var f := _coach_old_t / COACH_FADE_S
+		_coach_line(w, _coach_old, f, 1.0, -26.0 * (1.0 - f))
 	if coach.is_empty() or not evo_seq.is_empty():
 		return
-	var txt := str(coach.get("text", ""))
+	var txt := _coach_shown
 	var k := _coach_t
 	if txt != "":
-		# Shrinks to fit one line (down to 30 px), else wraps onto two;
-		# below the streak counter, above the cell.
 		var pop := 1.0 + 0.35 * exp(-k * 9.0) * cos(k * 22.0)
-		var room := w - 60.0
-		var base := 46
-		while base > 30 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
-			base -= 2
-		var fs := int(base * pop)
-		var a := clampf(k / 0.12, 0.0, 1.0)
-		var y := 500.0
-		if font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
-			draw_multiline_string_outline(font, Vector2(30, y - fs * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, -1, 12, Color(UiKit.OUTLINE, 0.9 * a))
-			draw_multiline_string(font, Vector2(30, y - fs * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, -1, Color(1, 1, 1, a))
-		else:
-			draw_string_outline(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, 12, Color(UiKit.OUTLINE, 0.9 * a))
-			draw_string(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, fs, Color(1, 1, 1, a))
+		_coach_line(w, txt, clampf(k / 0.12, 0.0, 1.0), pop, 0.0)
 	var col: Color = pal.ui_accent
 	match str(coach.get("target", "none")):
 		"upgrade":
-			_point_at(upgrade_center(), 66.0, col)
+			if world.pending_levelups > 0:  # only while there is something to spend
+				_point_at(upgrade_center(), 66.0, col)
 		"dash":
 			_point_at(dash_center(), dash_radius, col)
 		"outbreak":
@@ -1207,6 +1213,12 @@ func _draw_coach(w: float) -> void:
 			draw_arc(c, r, 0, TAU, 48, Color(col, 0.3), 4.0)
 			var a2 := fmod(k * 1.8, TAU)
 			draw_circle(c + Vector2.from_angle(a2) * r, 16.0, Color(col, 0.9))
+		"elite":
+			# The tutorial elite: a ring on it, or an arrow at the screen edge.
+			for i in world.e_pos.size():
+				if world.is_elite(i) and world.e_team[i] == 0:
+					_point_world(world.e_pos[i], world.enemy_radius(i) * 1.6, pal.ui_accent)
+					break
 		"pad":
 			var best := -1
 			var bd := INF
@@ -1215,14 +1227,41 @@ func _draw_coach(w: float) -> void:
 					bd = world.pad_pos[i].distance_to(world.p_pos)
 					best = i
 			if best >= 0:
-				var sp: Vector2 = (world.pad_pos[best] - cam_pos) * cam_zoom + size / 2.0
-				var inner := Rect2(Vector2(60, 220), size - Vector2(120, 420))
-				if inner.has_point(sp):
-					_point_at(sp, 70.0 * cam_zoom, Color("#7cff9b"))
-				else:
-					var dir := (sp - size / 2.0).normalized()
-					var edge := size / 2.0 + dir * minf(size.x, size.y) * 0.36
-					_arrow(edge, dir, Color("#7cff9b"))
+				_point_world(world.pad_pos[best], 70.0, Color("#7cff9b"))
+
+
+## One coach line: shrinks to fit one line (down to 30 px), else wraps onto
+## two; below the streak counter, above the cell. The pop is a scale around
+## the line's centre, never a new font size (each size renders its glyphs
+## again: a hitch on the phone at every prompt).
+func _coach_line(w: float, txt: String, a: float, pop: float, dy: float) -> void:
+	var room := w - 60.0
+	var base := 46
+	while base > 30 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
+		base -= 2
+	var y := 500.0 + dy
+	var pivot := Vector2(w / 2.0, y - base * 0.35)
+	draw_set_transform(pivot * (1.0 - pop), 0.0, Vector2(pop, pop))
+	if font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
+		draw_multiline_string_outline(font, Vector2(30, y - base * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, base, -1, 12, Color(UiKit.OUTLINE, 0.9 * a))
+		draw_multiline_string(font, Vector2(30, y - base * 0.6), txt, HORIZONTAL_ALIGNMENT_CENTER, room, base, -1, Color(1, 1, 1, a))
+	else:
+		draw_string_outline(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, base, 12, Color(UiKit.OUTLINE, 0.9 * a))
+		draw_string(font, Vector2(30, y), txt, HORIZONTAL_ALIGNMENT_CENTER, room, base, Color(1, 1, 1, a))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Points at a spot in the dish: a ring on it when it is on screen, else an
+## arrow at the screen edge in its direction.
+func _point_world(at: Vector2, r: float, col: Color) -> void:
+	var sp: Vector2 = (at - cam_pos) * cam_zoom + size / 2.0
+	var inner := Rect2(Vector2(60, 220), size - Vector2(120, 420))
+	if inner.has_point(sp):
+		_point_at(sp, r * cam_zoom, col)
+	else:
+		var dir := (sp - size / 2.0).normalized()
+		var edge := size / 2.0 + dir * minf(size.x, size.y) * 0.36
+		_arrow(edge, dir, col)
 
 
 func _point_at(c: Vector2, r: float, col: Color) -> void:

@@ -474,8 +474,8 @@ static func _validate_onboarding(d: Dictionary, errors: Array) -> void:
 	var cfg: Dictionary = d.get("onboarding", {})
 	if cfg.is_empty():
 		return
-	var conds := ["moved", "kills", "picks", "dashes", "chests", "evolved", "streak", "outbreaks", "boss_killed", "claims", "conversions", "orders", "on_pad", "towers", "time"]
-	var targets := ["none", "move", "upgrade", "dash", "outbreak", "orders", "loop", "pad"]
+	var conds := ["moved", "kills", "picks", "dashes", "chests", "evolved", "streak", "outbreaks", "boss_killed", "claims", "conversions", "orders", "on_pad", "towers", "time", "banked", "lunge"]
+	var targets := ["none", "move", "upgrade", "dash", "outbreak", "orders", "loop", "pad", "elite"]
 	var enemy_ids := {}
 	for e in d.enemies:
 		enemy_ids[e.id] = true

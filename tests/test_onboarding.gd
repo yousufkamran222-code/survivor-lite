@@ -276,3 +276,77 @@ func test_card_hints_for_new_players_only() -> void:
 		var h := str(d.onboarding.card_hints.get(u.id, ""))
 		check(h != "", "%s has a card hint" % u.id)
 		check(h.length() <= 44, "%s hint fits a card (%d chars)" % [u.id, h.length()])
+
+
+## Plays the prologue (answering prompts) until beat `id` starts.
+func _until_beat(w: World, id: String, seed_value: int) -> bool:
+	var bot := BalanceBot.new(seed_value)
+	var t := 0.0
+	while t < 200.0:
+		var bid := str(w.tut.beat().get("id", ""))
+		if bid == id:
+			return true
+		if w.pending_levelups > 0 and w.state == "playing" and not bid in ["move", "fire", "gems"]:
+			w.open_banked()  # a new player doesn't know about UPGRADE before it is pointed out
+		if w.state == "levelup":
+			w.choose_upgrade(bot.pick(w))
+		elif w.state == "chest":
+			w.close_chest()
+		var c := w.coach()
+		if c.get("target", "") == "dash":
+			w.dash()
+		elif c.get("target", "") == "outbreak":
+			w.trigger_outbreak()
+		w.step(DT, bot.move(w))
+		t += DT
+	return false
+
+
+## Pass B (2026-11-14): the UPGRADE prompt came at level 3-4 because early
+## level-ups were banked silently. It now comes on the first level-up.
+func test_upgrade_prompt_on_the_first_level_up() -> void:
+	for s in [2, 4, 9]:
+		var w := _prologue(s)
+		check(_until_beat(w, "upgrade", s), "reaches the upgrade beat")
+		check_eq(w.level, 2, "seed %d: the first level-up is the one you're asked to spend" % s)
+
+
+## Tap beats freeze the run (Main only polls) until the tap, then move on.
+func test_tap_beats_pause_until_tapped() -> void:
+	var w := _prologue(4)
+	check(_until_beat(w, "upgrade", 4))
+	check(not w.tut.paused(), "the prompt pops before the pause")
+	for i in 30:
+		w.step(DT, Vector2.ZERO)
+	check(w.tut.paused(), "then the run stands still")
+	var t0 := w.time
+	for i in 60:
+		w.tut.poll(w)
+	check_eq(w.time, t0, "polling doesn't move the run")
+	check(w.open_banked())
+	w.choose_upgrade(w.offers[0])
+	w.tut.poll(w)
+	check(not w.tut.paused(), "the tap ends the pause")
+	check_eq(str(w.tut.beat().id), "lancer")
+
+
+## The dash prompt waits for the Lancer's real lunge (it used to fire on a
+## timer while the Lancer was far away and harmless).
+func test_dash_prompt_waits_for_the_lunge() -> void:
+	for s in [3, 4, 9]:
+		var w := _prologue(s)
+		check(_until_beat(w, "dash", s))
+		check(w.lancer_lunging(), "seed %d: a Lancer is winding up or lunging when DASH NOW shows" % s)
+
+
+## A missed dash pauses with a pointer, but never while the dash recharges
+## (the cooldown needs the run to keep going).
+func test_missed_dash_pause_never_deadlocks() -> void:
+	var w := _prologue(4)
+	check(_until_beat(w, "dash", 4))
+	w.p_dash_charges = 0
+	for i in 200:
+		w.step(DT, Vector2.ZERO)
+		check(not w.tut.paused() or w.p_dash_charges > 0, "no pause without a charge")
+		if str(w.tut.beat().id) != "dash":
+			break

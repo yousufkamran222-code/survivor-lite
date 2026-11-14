@@ -376,7 +376,10 @@ func _process(delta: float) -> void:
 		dt *= _slowmo_scale
 	if world.tut != null and world.tut.slowmo():
 		dt *= float(data.onboarding.prologue.get("slowmo_scale", 0.25))  # a beat waits for you
-	world.step(dt, _move_input())
+	if world.tut != null and world.tut.paused():
+		world.tut.poll(world)  # a tap beat: the run stands still until you tap (D-044)
+	else:
+		world.step(dt, _move_input())
 	hud.coach = world.coach()
 	if _coached_mode != "" and world.tut != null and world.tut.done:
 		Onboarding.mark_coached(Save.profile, _coached_mode)
