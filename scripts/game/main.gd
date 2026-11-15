@@ -12,6 +12,8 @@ var hud_layer: CanvasLayer
 var hud: HudOverlay
 var ui_root: Control
 var pause_btn: Button
+var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
+var crazygames := OS.has_feature("crazygames")  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
 var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
 var hitstop := 0.0
 const MAX_STEP_DT := 1.0 / 30.0
@@ -84,6 +86,7 @@ func _ready() -> void:
 		push_error("data: " + e)
 	bal = data.balance
 	GameData.apply_store_build(data, OS.has_feature("store"))
+	GameData.apply_crazygames_build(data, crazygames)
 	GameData.apply_web_build(data, OS.has_feature("web"))
 	# The Lab was reshaped (2026-11-05): refund Genes for removed/repriced nodes.
 	var lab_back := Save.profile.migrate_lab(data.lab, Save.now())
@@ -143,6 +146,14 @@ func _ready() -> void:
 	pause_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	pause_btn.position = Vector2(-90, 28)
 	ui_root.add_child(pause_btn)
+	if crazygames:
+		skip_btn = _text_button("SKIP TUTORIAL", _quit_prologue)
+		skip_btn.add_theme_font_size_override("font_size", 22)
+		skip_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		skip_btn.position = Vector2(-230, 104)
+		skip_btn.size = Vector2(210, 48)
+		skip_btn.visible = false
+		ui_root.add_child(skip_btn)
 
 	_menu = UiKit.overlay(ui_root, 0.0)
 	_menu_bg = MenuBackground.new()
@@ -179,7 +190,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if screen != "playing" or not _evo_seq.is_empty():
 		return
 	if hud.orders_open and event is InputEventKey and event.pressed and not event.echo and not (event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_3):
-		if event.physical_keycode == KEY_ESCAPE:
+		if event.physical_keycode == KEY_ESCAPE and not crazygames:  # Esc is reserved there (it leaves fullscreen)
 			hud.set_orders_open(false)
 		return  # paused in the order fan: only 1-3 (pick) and Esc (close)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
@@ -363,6 +374,7 @@ func _process(delta: float) -> void:
 		hud.cpu_ms = 0.0
 		return  # the world is frozen for the whole sequence
 	_update_heartbeat(delta)
+	_update_skip_btn()
 	if hud.orders_open:
 		# The Swarm order fan pauses the run while it's open.
 		view.cpu_ms = 0.0
@@ -907,6 +919,7 @@ func _set_screen(s: String) -> void:
 	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build"]
 	hud.visible = in_run
 	pause_btn.visible = s == "playing"
+	_update_skip_btn()
 	view.visible = s != "menu"
 	if s != "playing":
 		_release_stick()
@@ -2711,6 +2724,16 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	col.add_child(menu)
 	if not _results[0].visible:
 		UiKit.reveal(_results)
+
+
+## CrazyGames build: a first-time Patient Zero can be skipped from the run
+## itself after balance.crazygames.prologue_skip_after_s (portal players
+## expect skippable onboarding). Other builds never create the button.
+func _update_skip_btn() -> void:
+	if skip_btn == null:
+		return
+	var after := float(bal.get("crazygames", {}).get("prologue_skip_after_s", 6.0))
+	skip_btn.visible = screen == "playing" and _prologue and world != null and world.time >= after and not Onboarding.prologue_done(Save.profile)
 
 
 ## Leaving the prologue from the pause menu. The first time it counts as

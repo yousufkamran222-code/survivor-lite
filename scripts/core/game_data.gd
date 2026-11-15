@@ -56,6 +56,14 @@ static func apply_store_build(d: Dictionary, store: bool) -> void:
 	d.balance["debug"] = dbg
 
 
+## The CrazyGames web build (export preset "CrazyGames", custom feature
+## "crazygames"): the same debug flags as a store build are forced off, so the
+## portal never gets dev tools. Its own settings live in balance.crazygames
+## (read by Main only on that build). docs/CRAZYGAMES_PLAN.md.
+static func apply_crazygames_build(d: Dictionary, crazygames: bool) -> void:
+	apply_store_build(d, crazygames)
+
+
 ## The web build (OS feature "web"): balance.web is merged in (lower visual
 ## caps only; gameplay numbers are never in it).
 static func apply_web_build(d: Dictionary, web: bool) -> void:

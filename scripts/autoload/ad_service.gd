@@ -24,6 +24,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if OS.get_name() == "Android" and Engine.has_singleton("PoingGodotAdMob"):
 		backend = load("res://scripts/autoload/admob_backend.gd").new()  # loaded by path: web/desktop never parse it
+	elif OS.has_feature("crazygames"):
+		backend = NoAdBackend.new()  # CrazyGames Basic Launch: no ads, no ad buttons
 	else:
 		backend = StubAdBackend.new()
 	add_child(backend)

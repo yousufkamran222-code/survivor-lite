@@ -1,4 +1,4 @@
-# CrazyGames build plan (draft 2026-11-15, not started)
+# CrazyGames build plan (2026-11-15; A1 done, the rest not started)
 
 Goal: ship Petri Panic on CrazyGames as a **parallel web launch** while the Play Store verification and 14-day closed test run. Play Store launch prep stays the priority; this fits into the waiting weeks.
 Decisions so far (Yousuf, 2026-11-15): do both; **name stays "Petri Panic"**; on desktop the **dish widens to fill landscape** (no letterbox).
@@ -30,7 +30,7 @@ So the work splits into **Phase A (Basic Launch build)** and **Phase B (Full Lau
 
 ## Phase A: Basic Launch build (no SDK)
 
-**A1. Separate "CrazyGames" export + cleanup** (small, data-first)
+**A1. Separate "CrazyGames" export + cleanup** (**done 2026-11-15**, PIPELINE; Skip tutorial from A4 done with it)
 - New export preset `CrazyGames` (Web, same filters as `Web`, custom feature `crazygames`), output `build/crazygames/` zipped for upload.
 - `GameData.apply_crazygames_build()` (like `apply_store_build`): forces `debug.dev_tools/show_perf/invincible` off, merges a `balance.crazygames` block (overrides that apply only to this build; empty to start).
 - `Ads`: a `NoAdsBackend` on this build (nothing ever ready), so revive, double gold, reroll and the "+75" menu chip are all hidden. **Check that every placement hides itself when no ad is ready** (and that no screen waits on an ad).

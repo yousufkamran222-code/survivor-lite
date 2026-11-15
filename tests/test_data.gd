@@ -62,6 +62,53 @@ func test_store_builds_force_debug_off() -> void:
 	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)
 
 
+## The CrazyGames build (feature "crazygames") forces the debug flags off;
+## every other build is untouched by it.
+func test_crazygames_build_forces_debug_off() -> void:
+	var d := data().duplicate(true)
+	d.balance.debug.dev_tools = true
+	d.balance.debug.show_perf = true
+	d.balance.debug.invincible = true
+	GameData.apply_crazygames_build(d, false)
+	check(d.balance.debug.dev_tools and d.balance.debug.show_perf, "other builds keep their debug flags")
+	GameData.apply_crazygames_build(d, true)
+	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)
+	check(float(d.balance.crazygames.prologue_skip_after_s) >= 0.0, "balance.crazygames.prologue_skip_after_s")
+
+
+## Basic Launch on CrazyGames: no ads, so nothing is ever ready (every ad
+## button hides) and a stray call never rewards.
+func test_no_ad_backend_never_rewards() -> void:
+	var b := NoAdBackend.new()
+	check(not b.is_rewarded_ready() and not b.is_interstitial_ready())
+	var got := [true, false]
+	b.show_rewarded("revive", func(ok: bool) -> void: got[0] = ok)
+	b.show_interstitial("between_runs", func() -> void: got[1] = true)
+	check(not got[0], "no reward")
+	check(got[1], "interstitial finishes at once")
+	b.free()
+
+
+## Only the CrazyGames preset carries the "crazygames" feature, so the itch
+## web build, the APK and the store AAB never take that path.
+func test_crazygames_preset_is_separate() -> void:
+	var cfg := ConfigFile.new()
+	check(cfg.load("res://export_presets.cfg") == OK, "export_presets.cfg loads")
+	var found := false
+	for sec in cfg.get_sections():
+		if not sec.begins_with("preset.") or sec.ends_with(".options"):
+			continue
+		var feats := str(cfg.get_value(sec, "custom_features", ""))
+		if str(cfg.get_value(sec, "name", "")) == "CrazyGames":
+			found = true
+			check(feats == "crazygames", "CrazyGames preset feature")
+			check(str(cfg.get_value(sec, "platform", "")) == "Web", "CrazyGames is a web export")
+			check(not bool(cfg.get_value(sec + ".options", "variant/thread_support", true)), "no threads (no COOP/COEP headers on portals)")
+		else:
+			check(not feats.contains("crazygames"), "preset %s must not carry crazygames" % cfg.get_value(sec, "name", sec))
+	check(found, "a CrazyGames preset exists")
+
+
 ## The web build's overrides (balance.web) may only lower visual caps:
 ## never a gameplay number (perf 2026-11-14).
 func test_web_overrides_are_visual_only() -> void:

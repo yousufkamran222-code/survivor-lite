@@ -1,0 +1,41 @@
+name: CrazyGames build
+
+# Exports the CrazyGames web build (preset "CrazyGames", custom feature
+# "crazygames": no ads, dev tools forced off, SKIP TUTORIAL in Patient Zero)
+# and uploads the zip as an artifact to upload in the CrazyGames developer
+# portal by hand. Manual only. Plan: docs/CRAZYGAMES_PLAN.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-godot
+        with:
+          templates: "true"
+
+      - name: Tests
+        run: godot --headless --path . -s res://tests/run_tests.gd
+
+      - name: Stamp build info
+        run: |
+          echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
+
+      - name: Export CrazyGames build
+        run: |
+          mkdir -p build/crazygames
+          godot --headless --path . --export-release "CrazyGames" build/crazygames/index.html
+          rm -f build/crazygames/*.import
+          ls -la build/crazygames
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: petri-panic-crazygames-${{ github.run_number }}
+          path: build/crazygames
