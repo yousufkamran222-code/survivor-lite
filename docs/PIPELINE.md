@@ -408,3 +408,8 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-15 Genes fix + Infection/Nucleus harder
 - Bug (Yousuf): the per-minute Genes (V3+) were meant only as a consolation for a loss, but every win also got them (+5 per V3+ clear on top of the clear reward). `Profile.record_run` now pays a win its clear only, a loss its minutes only. Test `test_wins_get_no_minute_genes`. This was a big part of the fast V10 climb in ECONOMY_REPORT (Lab too fast).
 - Infection: `damage_taken_mult` 2.0 (same as Swarm). Nucleus: `enemy_hp_mult` 1.2 (like Classic). Sims not re-run (Yousuf: no lengthy runs unless asked); re-run economy_sim/campaign_sim when he asks.
+
+### 2026-11-15 Symptoms readable, Side Effects in the build screen, Infection/Classic tweaks
+- Symptoms: warning 2.5 → 4 s; a big banner for the whole warning ("FEVER IN 3" + what it does), then a card under the top panel with name, what it does, a time bar and seconds left (`HudOverlay._draw_symptom`, one colour per event). In the dish: Fever turns germs orange and gives you a hot aura, Swarm Burst draws a red ring where they'll come in, Nutrient Bloom a green ring blooming outward, Antibiotics the beam. The fading toast is gone; a sound marks the start.
+- BuildScreen lists Side Effects taken (name, power, drawback).
+- Infection: spitter (shooter) spawn weight 3 → 3.75 via the new per-mode `spawn_weights` in modes.json (`GameData.apply_mode`, validated). Classic gold ×2.0 → ×1.85. Sims not re-run (Yousuf: no lengthy runs unless asked). 326 tests.

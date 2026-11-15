@@ -1150,7 +1150,13 @@ func _draw_streak(w: float) -> void:
 	draw_rect(Rect2(br.position + Vector2(bw * (1.0 - left), 0), Vector2(bw * left, 6)), Color(col, 0.9))
 
 
-## Symptoms: what's happening and for how long, under the top panel.
+## Symptoms: while one is announced, a big banner (name + what it does +
+## a countdown) mid-screen; while it runs, a compact card under the top
+## panel with the name, what it does and the time left. Each event has its
+## own colour (SYM_COLORS), matching its look in the dish.
+const SYM_COLORS := {"fever": Color("#ff7a3d"), "antibiotics": Color("#9be7ff"), "burst": Color("#ff5a7a"), "bloom": Color("#7cff9b")}
+
+
 func _draw_symptom(w: float) -> void:
 	if world.sym_state == 0 or world.sym_id == "":
 		return
@@ -1158,10 +1164,24 @@ func _draw_symptom(w: float) -> void:
 	for e in world.bal.symptoms.events:
 		if str(e.id) == world.sym_id:
 			ev = e
-	var col := Color("#ff9e5a")
-	var txt := ("%s  %ds" % [str(ev.get("name", "")), ceili(world.sym_t)]) if world.sym_state == 2 else ("%s INCOMING" % str(ev.get("name", "")))
-	var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 120.0) if world.sym_state == 1 else 1.0
-	_stext(txt, Vector2(w / 2.0, 214.0), 1, 30.0, 7.0, Color(col, pulse))
+	var col: Color = SYM_COLORS.get(world.sym_id, Color("#ff9e5a"))
+	var name := str(ev.get("name", ""))
+	var desc := str(ev.get("desc", ""))
+	var t := Time.get_ticks_msec() / 1000.0
+	if world.sym_state == 1:
+		# The warning: big and centred, with the seconds until it starts.
+		var cy := size.y * 0.3
+		_rrect(self, Rect2(40.0, cy - 78.0, w - 80.0, 150.0), 26.0, Color(0.05, 0.02, 0.1, 0.78))
+		_rrect(self, Rect2(40.0, cy - 78.0, w - 80.0, 6.0), 3.0, col)
+		_stext("%s IN %d" % [name, ceili(world.sym_t)], Vector2(w / 2.0, cy - 6.0), 1, 52.0 * (1.0 + 0.04 * sin(t * 9.0)), 10.0, col)
+		_stext(desc, Vector2(w / 2.0, cy + 46.0), 1, 28.0, 6.0, Color.WHITE)
+	else:
+		# Running: a compact card under the panel.
+		var r := Rect2(w / 2.0 - 220.0, 190.0, 440.0, 74.0)
+		_rrect(self, r, 18.0, Color(0.05, 0.02, 0.1, 0.7))
+		_rrect(self, Rect2(r.position, Vector2(r.size.x * clampf(world.sym_t / maxf(float(ev.get("s", 1.0)), 0.01), 0.0, 1.0), 5.0)), 2.5, col)
+		_stext("%s  %ds" % [name, ceili(world.sym_t)], Vector2(w / 2.0, 228.0), 1, 30.0, 7.0, col)
+		_stext(desc, Vector2(w / 2.0, 255.0), 1, 20.0, 4.0, Color(1, 1, 1, 0.85))
 
 
 ## Right-aligned outlined text ending at pos.x (draw_string's RIGHT alignment

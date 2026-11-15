@@ -537,4 +537,6 @@ func test_mode_gold_mult() -> void:
 	var i: Dictionary = GameData.apply_mode(d, "infection").balance
 	var gc := Progression.run_gold(c, 200, 120.0, false, false, 0.0)
 	var gi := Progression.run_gold(i, 200, 120.0, false, false, 0.0)
-	check_eq(gc, int(floor(float(gi) * 2.0)) if gi > 0 else gc, "Classic pays x2")
+	var cm := float(c.economy.mode_gold_mult)  # 2.0 until 2026-11-15, then 1.85
+	check(cm > 1.0, "Classic pays more than the base modes")
+	check_eq(gc, int(floor(float(gi) * cm)) if gi > 0 else gc, "Classic pays its multiplier")

@@ -1,7 +1,8 @@
 [
   {"id": "infection", "name": "Infection", "tag": "", "icon": "mode_infection", "color": "#5ce1e6", "special": "best_infected_pct", "special_label": "Best %d%% infected",
    "desc": "A bounded dish. Loop out and back to claim land; your land slows and burns germs.",
-   "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}, "difficulty": {"damage_taken_mult": 2.0}}},
+   "overrides": {"territory": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}, "difficulty": {"damage_taken_mult": 2.0}},
+   "spawn_weights": {"spitter": 3.75}},
   {"id": "swarm", "name": "Swarm", "tag": "", "icon": "mode_swarm", "color": "#7cff9b", "special": "best_conversions", "special_label": "Best %d converted",
    "desc": "Kills can convert germs into your allies. Grow an army that fights for you.",
    "overrides": {"territory": {"enabled": false}, "conversion": {"enabled": true}, "xp": {"linear": 4, "quad": 0.27}, "difficulty": {"damage_taken_mult": 2.0}}},
@@ -10,5 +11,5 @@
    "overrides": {"territory": {"enabled": false}, "defense": {"enabled": true}, "xp": {"linear": 4, "quad": 0.17}, "economy": {"mode_gold_mult": 1.8}, "difficulty": {"enemy_hp_mult": 1.2}}},
   {"id": "classic", "name": "Classic", "tag": "", "icon": "mode_classic", "color": "#ffd166", "special": "best_kills", "special_label": "Best %d kills",
    "desc": "An endless field. Kite, build, survive 5:00.",
-   "overrides": {"territory": {"enabled": false}, "difficulty": {"enemy_hp_mult": 1.2}, "economy": {"mode_gold_mult": 2.0}}}
+   "overrides": {"territory": {"enabled": false}, "difficulty": {"enemy_hp_mult": 1.2}, "economy": {"mode_gold_mult": 1.85}}}
 ]

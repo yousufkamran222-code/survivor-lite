@@ -624,9 +624,11 @@ func _handle_events(events: Array) -> void:
 				Sfx.vibrate(50)
 			"symptom_warn":
 				Sfx.play("boss", 0.0, 1.3)
-				Sfx.vibrate(60)
-				hud.toast("%s!  %s" % [str(ev.name), str(ev.desc)], Color("#ff9e5a"), 2.4)
+				Sfx.vibrate(60)  # the HUD shows a big banner for the whole warning
 				Analytics.event("symptom", {"id": str(ev.id), "t": int(world.time)})
+			"symptom_start":
+				Sfx.play("elite", 0.0, 1.2)
+				Sfx.vibrate(40)
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				var an := str(data.waves.elites.get("affixes", {}).get(str(ev.get("affix", "")), {}).get("name", ""))

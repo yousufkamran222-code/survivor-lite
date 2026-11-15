@@ -924,6 +924,8 @@ func _fill_enemies(view: Rect2) -> void:
 	var e_knock := world.e_knock
 	var tbeh := world._tbeh
 	var rift_uid := world.rift_uid
+	var fever := world.sym_state == 2 and world.sym_id == "fever"
+	var fever_col := Color("#ff7a3d")
 	var vx0 := view.position.x
 	var vy0 := view.position.y
 	var vx1 := view.end.x
@@ -960,6 +962,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = c.lerp(pal.outbreak, 0.7)  # infected by the Plague Trail
 		elif world.def_on and world.e_slow[i] > 0.0:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
+		if fever:  # Symptoms: Fever turns the germs hot
+			c = c.lerp(fever_col, 0.45 + 0.15 * sin(_view_t * 9.0 + float(i)))
 		var pulse := 1.0 + pulse_k * maxf(e_flash[i], 0.0)  # pops a little when hit
 		var asp := 1.0
 		var kn := e_knock[i]
@@ -1259,10 +1263,32 @@ func _dot(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	ci.draw_texture_rect(ShapeTextures.disc_shared(128 if r < 48.0 else 256), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, col)
 
 
-## Symptoms: the Antibiotics beam, a long band across the dish. While it is
-## announced, a faint outline shows where it will come from.
+## Symptoms in the dish: Fever = a hot pulsing aura on you (the germs turn
+## orange in _fill_enemies); Swarm Burst = a red ring where the germs will
+## pour in; Nutrient Bloom = a green ring blooming outward; Antibiotics = the
+## beam (a faint outline while announced).
 func _draw_beam(ci: CanvasItem, now: float) -> void:
-	if world.sym_id != "antibiotics" or world.sym_state == 0:
+	if world.sym_state == 0:
+		return
+	var p0 := world.p_pos
+	match world.sym_id:
+		"fever":
+			var fr := world.p_radius * (2.4 + 0.3 * sin(now * 10.0))
+			var fa := 0.18 if world.sym_state == 1 else 0.32
+			_dot(ci, p0, fr, Color("#ff7a3d", fa * (0.7 + 0.3 * sin(now * 6.0))))
+			return
+		"burst":
+			var dist := 420.0
+			for e in world.bal.symptoms.events:
+				if str(e.id) == "burst":
+					dist = float(e.get("dist", 420.0))
+			ci.draw_arc(p0, dist, 0, TAU, 64, Color("#ff5a7a", 0.35 + 0.3 * sin(now * 12.0)), 6.0)
+			return
+		"bloom":
+			var k := fmod(now * 0.8, 1.0)
+			ci.draw_arc(p0, 80.0 + 360.0 * k, 0, TAU, 64, Color("#7cff9b", 0.6 * (1.0 - k)), 5.0)
+			return
+	if world.sym_id != "antibiotics":
 		return
 	var along := world.beam_dir.orthogonal()
 	var half := world.beam_w / 2.0

@@ -44,7 +44,30 @@ func setup(palette: Dictionary, w: World, evo_by_weapon: Dictionary, evo_by_pass
 		list.add_child(_note("None yet. Level up and tap UPGRADE to pick some."))
 	for u in passives:
 		list.add_child(_passive_row(u, evo_by_passive))
+	# Side Effects taken this run: the power and the drawback, in red/green.
+	if not w.side_taken.is_empty():
+		list.add_child(_section("SIDE EFFECTS  %d" % w.side_taken.size()))
+		for id in w.side_taken:
+			list.add_child(_side_row(World.side_def(w.bal.side_effects, str(id))))
 	add_child(UiKit.button("RESUME", resume, 100))
+
+
+func _side_row(c: Dictionary) -> Control:
+	var hazard := Color("#ff5a7a")
+	var p := UiKit.panel(Color("#2a1430"), Color(hazard, 0.7), 18, 14)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var name := UiKit.display(UiKit.label(str(c.get("name", "?")), 26, Color.WHITE))
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(name)
+	var good := UiKit.label("+  " + str(c.get("good", "")), 20, Color("#7cff9b"))
+	good.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(good)
+	var bad := UiKit.label("-  " + str(c.get("bad", "")), 20, hazard)
+	bad.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	v.add_child(bad)
+	p.add_child(v)
+	return p
 
 
 func _section(text: String) -> Label:

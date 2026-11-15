@@ -34,6 +34,12 @@ static func apply_mode(d: Dictionary, mode_id: String) -> Dictionary:
 		if m.id == mode_id:
 			_merge(out.balance, m.get("overrides", {}))
 			out.balance["mode_id"] = mode_id
+			# Per-mode spawn mix: {"spitter": 3.75} sets that enemy's weight in
+			# the timed-mode spawn pool (waves.pool).
+			var sw: Dictionary = m.get("spawn_weights", {})
+			for row in out.waves.get("pool", []):
+				if sw.has(row.enemy):
+					row["weight"] = float(sw[row.enemy])
 	return out
 
 
@@ -255,6 +261,10 @@ static func validate(d: Dictionary) -> Array:
 	_validate_cosmetics(d, errors)
 	_validate_onboarding(d, errors)
 	_validate_missions(d, errors)
+	for m in d.get("modes", []):  # per-mode spawn weights name known enemies
+		for k in m.get("spawn_weights", {}):
+			if not d.enemies.any(func(e: Dictionary) -> bool: return e.id == k):
+				errors.append("mode %s: spawn_weights names unknown enemy '%s'" % [m.id, k])
 	for ev in d.balance.get("symptoms", {}).get("events", []):  # Symptoms: known event ids and enemies
 		if not ["fever", "antibiotics", "burst", "bloom"].has(str(ev.get("id", ""))):
 			errors.append("symptom: unknown event '%s'" % ev.get("id", "?"))
