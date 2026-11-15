@@ -271,10 +271,10 @@
     "from_level": 6,
     "max_per_run": 2,
     "cards": [
-      {"id": "glass", "name": "Glass Membrane", "good": "+40% damage", "bad": "-30% max HP", "stats": {"might": 0.4, "max_hp_pct": -0.3}},
+      {"id": "glass", "name": "Glass Membrane", "good": "+30% damage", "bad": "-30% max HP", "stats": {"might": 0.3, "max_hp_pct": -0.3}},
       {"id": "fever", "name": "Fever Metabolism", "good": "+30% weapon speed", "bad": "Germs move 15% faster", "stats": {"haste": 0.3, "enemy_speed": 0.15}},
-      {"id": "gold_rush", "name": "Gold Rush", "good": "+100% gold this run", "bad": "Germs have 30% more HP", "stats": {"gold_gain": 1.0, "enemy_hp": 0.3}},
-      {"id": "hunger", "name": "Hunger", "good": "+50% XP", "bad": "-40% pickup range", "stats": {"xp_gain": 0.5, "magnet": -0.4}},
+      {"id": "gold_rush", "name": "Gold Rush", "good": "+50% gold this run", "bad": "Germs have 30% more HP", "stats": {"gold_gain": 0.5, "enemy_hp": 0.3}},
+      {"id": "hunger", "name": "Hunger", "good": "+40% XP", "bad": "-50% pickup range", "stats": {"xp_gain": 0.4, "magnet": -0.5}},
       {"id": "division", "name": "Rapid Division", "good": "+1 extra shot for every weapon", "bad": "Take 25% more damage", "stats": {"amount": 1, "dmg_taken": 0.25}},
       {"id": "hyper", "name": "Hyperflagella", "good": "+25% move speed, dash recharges 30% faster", "bad": "-20% max HP", "stats": {"move": 0.25, "dash_cd": 0.3, "max_hp_pct": -0.2}}
     ]
