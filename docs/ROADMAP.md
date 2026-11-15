@@ -200,6 +200,8 @@ Everything below is the agreed design.
 ## Where we are (2026-11-11)
 Since 2026-11-06: cosmetics (D-038), the new-player start (Patient Zero, staged unlocks, coaches; D-039, reworked to fewer screens in D-040), the menu carousel + mode picker, skill moves (Perfect Dodge, Overdrive, streak buffs, Perfect Loop, Clutch Claim; D-041), and **M3 steps 1-2** (store AAB, AdMob + consent; D-042). **Next agreed: M3 step 3** (Firebase Analytics + Crashlytics behind `Analytics`; needs Yousuf's Firebase project and `google-services.json` as a CI secret), then **step 4** (Play Games behind `Online`; needs the Play Console). Play Billing after launch. Alongside: an Instagram account + marketing plan. Full backlog: SESSION_HANDOFF §10.
 
+Since 2026-11-14 (fifth session; D-044, D-045, D-046): polish passes (tutorial pauses + threat-timed dash, decoy drawn, first-open warm-up, UI bugs), performance rounds 1-3 (PERF_PLAN), **daily missions**, a **NEXT** card on results, **Side Effects** (trade-off cards), **Pandemic Strain** + extra shop tiers, **Symptoms** (Virulence 5+ dish events), the economy study (ECONOMY_REPORT), the Genes-on-win fix and per-mode tweaks (Infection damage ×2 + more shooters, Nucleus HP ×1.2, Classic gold ×1.85). Launch prep (store kit, Firebase, Play Games) deliberately waits until the game work is done (D-045).
+
 ## Post-launch: co-op (idea, not started)
 See `docs/COOP_DESIGN.md`: host-authoritative co-op for 2-4 friends (room codes via a relay such as EOS or W4 Cloud), V1 Classic/Infection, shared XP, down/revive, one role ability each, then a Tethered mode. Phase 1 = per-player World refactor + same-Wi-Fi play.
 

@@ -1,8 +1,15 @@
 # Session handoff: Petri Panic (read this first in a new session)
 
-Last updated **2026-11-14** at the end of the fourth long session (cosmetics → new-player start → fewer-screens rework → menu carousel + mode picker → skill moves → M3 steps 1-2: store AAB, AdMob + consent). Before that, the third session (Lab phase 1 + abilities → dash/Virulence scaling fix → Lab middle-node rework + shop tier split → balance report + campaign sim → economy fixes → LAUNCH_READINESS + COOP_DESIGN docs → elite/boss threats, lulls/surges → elite/boss HP floors + health bars → evolution-strength shop upgrades → UI overhaul steps 1-6 ("glossy chunky": design system, motion, level-up, HUD, results, art) → evolution tiers bias level-up offers → kill feel (CC0 sounds, hit squash, gold crits, MEGA KILL)). It is the complete working context: who the owner is, how we work, how the code is built, every gotcha we hit, the current balance, the feedback history, and what comes next. `CLAUDE.md` is the short rulebook; this is the long version. `docs/HANDOFF.md` is the **original** planning handoff from before any code existed. It is historical context only; where they differ, this file wins.
+Last updated **2026-11-15** at the end of the fifth long session (see "Fifth session" below). Before that, the fourth session (cosmetics → new-player start → fewer-screens rework → menu carousel + mode picker → skill moves → M3 steps 1-2: store AAB, AdMob + consent). Before that, the third session (Lab phase 1 + abilities → dash/Virulence scaling fix → Lab middle-node rework + shop tier split → balance report + campaign sim → economy fixes → LAUNCH_READINESS + COOP_DESIGN docs → elite/boss threats, lulls/surges → elite/boss HP floors + health bars → evolution-strength shop upgrades → UI overhaul steps 1-6 ("glossy chunky": design system, motion, level-up, HUD, results, art) → evolution tiers bias level-up offers → kill feel (CC0 sounds, hit squash, gold crits, MEGA KILL)). It is the complete working context: who the owner is, how we work, how the code is built, every gotcha we hit, the current balance, the feedback history, and what comes next. `CLAUDE.md` is the short rulebook; this is the long version. `docs/HANDOFF.md` is the **original** planning handoff from before any code existed. It is historical context only; where they differ, this file wins.
 
-**Newest (2026-11-15): game work during the Play Console wait (D-045).** He wants to keep improving the game first and do launch prep (store kit, Firebase, name) later. Built: daily missions (`data/missions.json`, `Missions`), a NEXT card on results, Side Effects (trade-off level-up cards, `balance.side_effects`), the Pandemic Strain shop upgrade (Outbreak, 5 tiers 600-3500) and +4 tiers on max HP / damage resist / weapon speed / move speed. Perf rounds 1-3 done (PERF_PLAN; his phone: APK ~99-109 fps on 120 Hz, CPU-bound, Fast ≈ Sharp). Ask for his playtest notes on all of it; Virulence 5+ may need retuning since maxed accounts are stronger.
+**Fifth session (2026-11-14 → 2026-11-15): where we stopped.** All work is committed and pushed to **`ccr-122e1e16-0x1u2g`** (the branch this cloud session was assigned) and is on itch.io; APK runs #62-#72 are signed with his upload key (they update in place; the Play Store version won't update over them, uninstall once when switching). **His main branch `claude/bold-brown-h48pfg` was still at `116c6c6` at the end of the session** (this branch is a fast-forward of it): check §0 step 4 before starting work. In order:
+- **Launch admin:** marketing plan (`docs/MARKETING.md`), leaderboard/co-op direction (D-043), keystore secrets done (SETUP §2 rewritten for Windows), Play Console account created and **waiting on Google's verification**. Store kit / privacy policy / name / Firebase deliberately **after** the game work (D-045). A story/campaign idea was discussed and **dropped** ("maybe for a different game"); the mindless-fun concept stays.
+- **Polish A-C** (PIPELINE 2026-11-14): Afterimage decoy drawn (it worked, it was just invisible); first-open UI warm-up (the first level-up hung 1-2 s on his phone); tutorial pass B (D-044: tap beats pause instead of slow-mo, UPGRADE taught on the first level-up, the dash prompt waits for the Lancer's real lunge, elite pointer, fading text); UI bugs (Lab last row, evolution chip text).
+- **Performance** (`docs/PERF_PLAN.md`): round 1 (HUD panel baked into a texture via `BakedLayer`, fixed-size animated text `_stext`, Settings → Graphics Sharp/Fast, leaner view loops, `balance.web` caps), benchmark v4 with a `PROF` line (`Prof`), round 2 (allocation-free bullet hits, one-pass particles), round 3 (all `draw_circle` → `_dot` textured quads). His phone (APK, 120 Hz): ~99-109 fps, CPU-bound (Fast ≈ Sharp); web ~43 fps (browser-bound). Native C++ (GDExtension) was offered as the next step and **not** chosen (headroom is fine).
+- **Game work** (D-045/D-046): daily missions (`data/missions.json`, `Missions`), NEXT card on results, Side Effects (trade-off level-up cards, tuned once by him), Pandemic Strain (Outbreak shop upgrade) + 4 extra tiers on HP/resist/weapon speed/move, Symptoms (V5+ only, made readable after his feedback), Side Effects listed in the BUILD screen.
+- **Economy:** `tools/sim/economy_sim.gd` + `economy_report.py` → `docs/ECONOMY_REPORT.md` (gold budgets × buying strategies × Virulence, plus campaign runs-to-budget). Findings led to his fixes: per-minute Genes now **losses only** (wins used to get both), Infection damage ×2.0 + spitter weight 3.75, Nucleus HP ×1.2, Classic gold ×1.85. The report was **re-run at the end of the session** with all of this in (see the report's date header).
+- **Working preference (new):** don't run complex or lengthy tests/sims unless he asks (unit tests before commits are fine). He wants numbers on request.
+- **Open decisions for him:** Lab/Virulence pacing after the re-run (does V10 still come too fast?), smoothing uneven Virulence steps, and his playtest notes on everything above (questions in §10).
 
 **Before that (2026-11-14): polish while Play Console verification runs.** He set up the keystore secrets and has started the Play Console account (waiting on Google; store kit/privacy policy on hold until then). He asked for a polish pass; agreed plan: **A** quick fixes (done: decoy drawn, first-open UI warm-up; PIPELINE 2026-11-14), **B** tutorial pass (done 2026-11-14, D-044; he tests A and B together), **C** UI bugs (done 2026-11-14). Then he asked for a **performance analysis** (web felt slow even early): `docs/PERF_PLAN.md` (HUD is ~125 of ~170 draw calls; animated font sizes cause hitches; native-resolution drawing; a 6-step plan, **all six built 2026-11-14**: fixed-size animated text, baked HUD panel (`BakedLayer`), Settings → Graphics Sharp/Fast (Fast default on web only), leaner view loops, web-only visual caps. Draw calls 173 → ~90. Needs his phone benchmark lines (web + APK) to confirm). He skipped the HUD tidy and the balance check ("balancing is fine": he can't win Classic V1 with no upgrades but wins after 2-3 runs, doubling gold with ads). **Pass B brief (his words + probe):** "the tutorial is kinda bad and unsynchronized", "doesn't teach the game properly", and the UPGRADE prompt only comes at level 3-4 (natural level-ups during the `fire` beat are banked silently before the `upgrade` beat). Slow-mo: his pick **(b)**: a short full pause for button-tap beats (UPGRADE, OUTBREAK), no slow-mo for the dash; time the dash prompt to a real threat (`_perfect_threat()`), so it doubles as a Perfect Dodge; fade prompt text; point at the elite; tighten dead stretches. Also D-043 (leaderboards: 4 boards in Play Games UI; Daily Outbreak after launch; co-op ASAP after launch with the AI partner shipping alongside).
 
@@ -25,8 +32,8 @@ Last updated **2026-11-14** at the end of the fourth long session (cosmetics →
 
 1. Read `CLAUDE.md`, then this file, then skim `docs/PIPELINE.md` (dated log) and `docs/ROADMAP.md` (plan).
 2. Set up the tools (section 3). Godot 4.7.2 + export templates, then `godot --headless --path . --import` **twice**.
-3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **307 tests, 0 failure(s)**. Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
-4. `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
+3. Run the tests: `godot --headless --path . -s res://tests/run_tests.gd` should report **326 tests, 0 failure(s)** (as of 2026-11-15). Some `ERROR: Parse JSON failed` lines are expected: one test deliberately corrupts a save file.
+4. **Branch check (important):** the fifth session's work (2026-11-14/15, 20+ commits) was pushed to `ccr-122e1e16-0x1u2g`, not to his main branch. If `origin/claude/bold-brown-h48pfg` doesn't contain commit `87d8af1` or later (`git merge-base --is-ancestor 87d8af1 origin/claude/bold-brown-h48pfg`), ask him before doing anything else whether to fast-forward his main branch to `origin/ccr-122e1e16-0x1u2g` (it was a clean fast-forward). Then: `git status` / `git log --oneline` should show the branch `claude/bold-brown-h48pfg`: **Yousuf's main branch** (the default branch). A new cloud session may be checked out on a session branch (e.g. `ccr-...`); Yousuf wants all work on `claude/bold-brown-h48pfg`, so check it out (`git fetch origin claude/bold-brown-h48pfg && git checkout -B claude/bold-brown-h48pfg origin/claude/bold-brown-h48pfg`) and push there.
 5. Ask Yousuf for his latest playtest notes if he hasn't given any. Work is driven by his phone playtests. The next agreed work is M3 step 3 (Firebase), see the "Newest" note above and §10.
 6. For web builds and the APK, see §3 "CI and builds": install butler + the web export templates, push with `tools/web_push.sh` after every change, dispatch `android.yml`, and give him the run URL without waiting on CI.
 
@@ -40,12 +47,13 @@ Last updated **2026-11-14** at the end of the fourth long session (cosmetics →
   - Concise and concrete. Lead with what changed and what he should test.
   - Use tables for options and for "your note → change".
   - End with numbered questions for his next playtest.
-  - After every change: push the **web build to itch.io** (`tools/web_push.sh`; he plays at light213.itch.io/petri and checks the build SHA at the bottom of the menu) and give the **APK link** (the Actions run URL; say "uninstall the old one first": debug builds are signed with a fresh key each time until he adds the keystore secrets). Don't sit waiting on CI: GitHub's queue has been slow; he asked why a task took 15 minutes once.
-  - Quote sim numbers before and after any balance change, briefly.
+  - After every change: push the **web build to itch.io** (`tools/web_push.sh`; he plays at light213.itch.io/petri and checks the build SHA at the bottom of the menu) and give the **APK link** (the Actions run URL; since run #62 APKs are signed with his upload key and install as updates). Don't sit waiting on CI: GitHub's queue has been slow; he asked why a task took 15 minutes once.
+  - Quote sim numbers before and after any balance change, briefly, **but don't start complex or lengthy sims/tests unless he asks** (2026-11-15; unit tests before commits are fine). Say what you didn't run.
+  - APKs are now signed with his upload key (since run #62): they install as updates, no uninstall needed.
 - **He decides the design; you propose.** On open design questions, give 2-4 options with a clear recommendation (AskUserQuestion works well for multi-choice). When he says "go ahead with it", implement fully. When he says "discuss"/"plan"/"don't implement", **only plan**.
 - He prefers **minimal, surgical changes** over rewrites, and data changes over code changes.
 - He playtests by playing on his phone and reports qualitative notes (e.g. "the ranged enemy seems way more powerful", "too easy once I had a swarm", "fps dropped to 20 with lots of effects"). Treat his notes as ground truth over the bot.
-- He plays the web build on itch.io (restricted page, account `light213`, project `petri`) and installs APKs from Actions artifacts. On the web build he uses Settings → DEVELOPER (code 1289) → +10,000 gold / all Virulence levels to test. He added the **keystore secrets on 2026-11-14** (signed upload-key builds now). He has **not** yet set up a Play Console account, AdMob or PSEB (`docs/SETUP.md` §2 and §4). Remind him when relevant, but don't nag.
+- He plays the web build on itch.io (restricted page, account `light213`, project `petri`) and installs APKs from Actions artifacts. On the web build he uses Settings → DEVELOPER (code 1289) → +10,000 gold / all Virulence levels to test. He added the **keystore secrets on 2026-11-14** (signed upload-key builds now) and created his **Play Console account** (waiting on Google's identity verification as of 2026-11-15). He has **not** yet set up AdMob, Firebase or PSEB (`docs/SETUP.md` §2 and §4). Remind him when relevant, but don't nag.
 
 ---
 
@@ -59,7 +67,7 @@ Last updated **2026-11-14** at the end of the fourth long session (cosmetics →
 | Content | 8 enemy types, 4 weapons, 16 shared cards (incl. 5 dash cards, Volatile) + 3 Swarm-only passives, 4 evolutions (with a frozen evolution sequence), elites every 40 s (20 s in the final minute) with chests, 3 rare pickups (vacuum/heal/bomb) |
 | Dash | Button bottom-right / second-finger tap / Space. 2.0 s cooldown, charges, Lunge/Afterimage/Adrenaline/Double Flagella cards; Afterimage decoy has its own 6 s cooldown |
 | Game modes | **Infection** (bounded dish, loop-claim territory), **Swarm** (kills convert into allies you command: Guard / Hunt / Harvest from a fan-out button left of Outbreak; the run pauses while the fan is open), **Nucleus** (tower defence), **Classic** (open field). Picked on the menu via mode cards |
-| Meta | **Gold shop**: 19 permanent upgrades, 237 tiers, 39,736 gold to max (tiers split in two in Profile v6; 4 of them are evolution strength, which also bias level-up offers). **The Lab** (Genes from Virulence wins/minutes): 4 branches × 8 nodes (play-changing nodes, a fork, a keystone, an ability node), respec for gold. **Abilities**: Stasis / Engulf / Cloak / Mitosis, one equipped (Abilities screen), button left of DASH. **Virulence 1-10** difficulty ladder per mode (selector on the mode card). **Cosmetics** (STYLE screen): 13 cell skins, 10 weapon styles, 14 pop styles, 8 dash trails; gold / challenge / prestige unlocks; visual only |
+| Meta | **Gold shop**: 20 permanent upgrades (incl. Pandemic Strain, 2026-11-15), 59,886 gold to max (was 39,736) (tiers split in two in Profile v6; 4 of them are evolution strength, which also bias level-up offers). **The Lab** (Genes from Virulence wins/minutes): 4 branches × 8 nodes (play-changing nodes, a fork, a keystone, an ability node), respec for gold. **Abilities**: Stasis / Engulf / Cloak / Mitosis, one equipped (Abilities screen), button left of DASH. **Virulence 1-10** difficulty ladder per mode (selector on the mode card). **Cosmetics** (STYLE screen): 13 cell skins, 10 weapon styles, 14 pop styles, 8 dash trails; gold / challenge / prestige unlocks; visual only |
 | Progress | `Profile` (v8: cosmetics bought, onboarding flags, menu-ad count in settings): lifetime stats incl. best kill streak, per-mode Virulence cleared/selected, Genes + Lab + equipped ability, per-mode records, 23 achievements, run score, NEW BEST, Profile screen. Versioned JSON save with backup and legacy import |
 | Online | `Online` facade + stub (leaderboards/achievements/cloud API). **Play Games not connected yet**, planned for after M3 |
 | Polish | **"Glossy chunky" UI** (2026-11-06): glossy 9-slice buttons with press squash, Lilita One display font, cards, staggered entrances; redesigned level-up (category frames, now→next stats, slide-in, pick animation), HUD (top panel, weapon strip, glossy disc buttons), results (banner, count-up tiles, rewards card); art pass (shaded germs, new floor, glows). Vector icons (IconArt), chest slot-machine, paused build overlay (`BuildScreen`), animated main menu. **Kill feel**: CC0 squelch/impact sounds, hit squash, gold crits, MEGA KILL. Elites have affixes + health bars; the Mother Cell has phases, slam, pull, spiral |
@@ -68,7 +76,8 @@ Last updated **2026-11-14** at the end of the fourth long session (cosmetics →
 | Skill moves | Perfect Dodge, Overdrive, streak buffs, Perfect Loop, Clutch Claim (`balance.skill`, D-041) |
 | Ads/analytics | `Ads`: real AdMob on Android (`admob_backend.gd`, Poing v5.1.0, UMP consent, Google test IDs unless the store build injects secrets), stub elsewhere; placements revive, double_gold, reroll, between-runs interstitial, menu "+75" chip. `Analytics.event` still prints only (Firebase = M3 step 3) |
 | CI | Tests + 4-run balance smoke on every push; web build → itch.io via `tools/web_push.sh` from the session (`web.yml` = manual backup); test APK (`android.yml`, Gradle, test ads, dev tools on) and Play AAB (`store.yml`, dev tools forced off, 16 KB check, Auto Backup) on manual dispatch or `v*` tag; both share `.github/actions/android-gradle` |
-| Perf | 60 fps at 170+ enemies on Yousuf's phone (APK). Sim ~0.6-1.0 ms per step on desktop at peak. `debug.show_perf` and `debug.dev_tools` are ON for playtests; turn both off before release |
+| Retention / variety (2026-11-15) | Daily missions (menu DAILY n/3 + page, results chips), NEXT card on results, Side Effects (trade-off cards, BUILD screen lists them), Symptoms at Virulence 5+ (Fever, Antibiotics beam, Swarm Burst, Nutrient Bloom) |
+| Perf | APK ~99-109 fps on his 120 Hz phone in the benchmark fight (CPU-bound), web ~43 fps; benchmark (tap the build label 5×) prints BENCH + PROF lines; `docs/PERF_PLAN.md`. 60 fps at 170+ enemies on Yousuf's phone (APK). Sim ~0.6-1.0 ms per step on desktop at peak. `debug.show_perf` and `debug.dev_tools` are ON for playtests; turn both off before release |
 | Shelved | **Boss Rift** (built 2026-11-04, then switched off: `balance.rift.enabled` false; code, tests and `tools/sim/rift_bench.gd` kept). The Rift Power button/meter is the planned base for Lab abilities |
 
 **Milestones** (`docs/PIPELINE.md`): M0 and M1 done; M2 (feel/balance/fun/UI) ongoing via playtests; **M3 in progress**: steps 1-2 done, step 3 Firebase next, step 4 Play Games. M4-M6 not started (`docs/LAUNCH_READINESS.md` lists the known blockers).
@@ -161,6 +170,8 @@ scripts/core/             Pure logic (RefCounted, no Nodes), deterministic for a
   cosmetics.gd            Cosmetics: unlock/buy/equip rules, look() for the view (visual only)
   tutorial.gd             Tutorial: scripted beats inside a World (start actions, until conditions, prompts)
   onboarding.gd           Onboarding: prologue options/score/medals, staged unlocks + announcements, coaches, card hints, ads gating
+  missions.gd             Missions: daily missions (pick by date, progress from run summaries, pay gold; state in settings.missions)
+  prof.gd                 Prof: section timers, on only while the benchmark measures (the PROF line)
   game_data.gd            Loads data/*.json, apply_mode() deep-merge, validate() cross-references
   balance_bot.gd          Sim/test "player": dodge, chase loot, loop home in territory, dash, random-ish picks
 scripts/game/
@@ -171,7 +182,8 @@ scripts/game/
   cosmetic_art.gd         CosmeticArt: skins (patterns, rainbow), weapon colours, pop bursts + pop sounds, dash trails
 scripts/ui/
   ui_kit.gd               Theme, label/button/overlay helpers, icon_card() + Pips
-  hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, BUILD button (`build_rect`), Swarm order fan, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout
+  hud_overlay.gd (221)    XP bar, timer, % infected / swarm count, BUILD button (`build_rect`), Swarm order fan, arrows, toasts, notice, DASH and UPGRADE buttons, joystick, perf readout, Symptoms banner/card; `_stext` (animated text), `_dot` (circles as quads)
+  baked_layer.gd          BakedLayer: the HUD top panel + weapon strip rendered to a SubViewport texture only when they change
   icon_art.gd    (170)    All vector icons (upgrades, meta, modes, trophy, sound, gold)
   upgrade_icon.gd         Control wrapper for one icon
   meta_shop.gd            Permanent-upgrade shop: tile grid + per-upgrade popup, buy VFX/sfx (MetaShop)
@@ -192,9 +204,10 @@ scripts/autoload/
 addons/admob/             Poing Studios AdMob v5.1.0 (MIT), Android AARs committed
   analytics.gd            "Analytics": event(name, params) → print + ring buffer
   sfx.gd                  "Sfx": preloaded synthesised wavs, player pool, rate limits
-tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (307 tests; newest: test_cosmetics, test_onboarding, test_skill)
+tests/                    run_tests.gd (runner), test_case.gd (asserts), test_*.gd (326 tests as of 2026-11-15; newest: test_missions, plus Side Effects / Symptoms / Outbreak tiers in test_world)
 tools/build_assets.py     Synthesises all SFX (sfxr-style) + bg_tile.png (deterministic)
 tools/sim/balance_sim.gd  Bot balance runs → JSON report
+tools/sim/economy_sim.gd  Gold budget → shop build (cheapest/offense/defense/value) → bot win rate per Virulence; economy_report.py → docs/ECONOMY_REPORT.md
 tools/sim/bench.gd        Per-subsystem ms/step during a kiting run (--mode, --loaded)
 tools/sim/rift_bench.gd   Boss Rift arena harness: 24 fights, bait vs --nobait (Carrier HP tuning)
 assets/processed/         Generated wavs + bg_tile.png (+ .import files, committed). MANIFEST.md lists licences.
@@ -403,13 +416,34 @@ Yousuf's feel overrides the bot; use the bot for relative comparisons and catchi
 - **`data/hints.json`** keeps hand formatting: edit it textually, don't `json.dumps` it.
 - **Big balance swings from new buffs:** the first streak-buff version took Infection from 0% to 38-63% bot wins; ablate one stat at a time with `--set` (now supports list indices and booleans, e.g. `skill.streak_buffs.2.damage=0`).
 - Anything that drives a World with a tutorial (tests, sims, Main) must answer prompts: open banked level-ups, dash / Outbreak when asked.
+- **Perf rules learned 2026-11-14/15:** `draw_circle` records ~3.1 µs (builds a polygon), `draw_arc` ~4.8 µs, a textured quad ~0.14 µs: use `_dot()` (HUD/WorldView) for circles. Every new font size or outline width rasterises glyphs (a phone hitch): animate text with `HudOverlay._stext`. The HUD top panel is a `BakedLayer` (SubViewport at screen density, premultiplied alpha, `oversampling_override`): add panel content to `_draw_bars` + its signature. Fully transparent canvas items are skipped by the renderer (a warm-up must be drawn behind something opaque).
+- **Optional features get their own RNG stream** (Side Effects `_side_rng`, Symptoms `_sym_rng`) so runs that don't use them stay byte-identical; verify with 4-run sims (seed 100) diffed without the `sim_ms_per_run` field.
+- **Measuring perf in the cloud:** xvfb Godot is capped near 60 fps and CPU-rendered; Playwright Chromium uses SwiftShader (CPU), so draw-call and fill savings barely show in fps there. Compare draw calls and the sim/view/HUD ms, and ask him for the phone benchmark lines (BENCH + PROF).
+- **The container can restart mid-session** (uptime resets, /tmp/claude-0 survived): don't compare numbers across restarts, and never run two benchmarks at once.
+- **Clipboard on web:** itch.io's iframe blocks the Clipboard API; `Main._copy_text` falls back to `execCommand("copy")` and the benchmark line sits in a selectable TextEdit.
+- **Sims and edits:** a running sim loads data/scripts per process, so don't edit game files while a multi-mode sim batch is running (later modes would pick up half-done changes). `economy_sim`/`campaign_sim` batches: run with `xargs -P 4` (4 cores), ~1 h for the full study.
 - Keep `docs/PIPELINE.md` dated entries appended at the end. Decisions go in `docs/DECISIONS.md` (newest last).
 
 ---
 
 ## 10. What's next (prioritised backlog)
 
-**Next (2026-11-11), agreed:**
+**Next (2026-11-15), in his order of preference:**
+1. **His playtest notes** on everything from the fifth session (questions below). He tests web + APK together.
+2. **Economy decisions** from `docs/ECONOMY_REPORT.md` (re-run 2026-11-15 after the Genes fix): if V10 still comes too fast, options are fewer Genes, pricier Lab nodes, or a steeper ramp from V6 (recommended: the V6+ ramp, `difficulty.json`), plus smoothing uneven Virulence steps. Re-run the study only when he asks (~1 h, `xargs -P 4`).
+3. **More game work** he may pick next (offered 2026-11-15, not chosen yet): HUD tidy + left-handed layout; Daily Outbreak (offline version now, leaderboards later); a new germ type or elite affix (within the 8-type cap); kill-feel extras (overkill splash chain, gem stream with a rising pitch).
+4. **Launch prep, after the game work (D-045):** lock the name (package name is permanent at first upload), store kit (icon, 8 screenshots, trailer, text), privacy policy (GitHub Pages), Families/age settings, a monotonic version code across APK/AAB, hide leaderboard/achievement UI until Play Games, then M3 step 3 Firebase (he creates the project) and step 4 Play Games (needs Play Console verified). Then closed test (12+ testers × 14 days; `docs/MARKETING.md` covers recruiting).
+
+**Playtest questions for the fifth-session work:**
+- Polish/tutorial: does the first upgrade menu still hang? Is the decoy readable? Does DASH NOW feel timed? Is the pause on UPGRADE/OUTBREAK clear?
+- Daily missions: are goals/rewards right (60/100/160 + 100)? Too grindy or too easy?
+- Side Effects: fun gamble? Any must-pick or never-pick card after his nerfs?
+- Pandemic Strain: worth its price? Is the tier-5 Plague Trail exciting?
+- Symptoms: readable now? Too frequent (every 40-60 s from 0:45)? Which one is unfun?
+- Infection after damage ×2 + more shooters, Nucleus after HP ×1.2, Classic gold ×1.85: too much?
+- Performance: any stutter left on the APK? (Benchmark line + PROF line if so.)
+
+**Earlier agreed (2026-11-11), still open:**
 - **M3 step 3: Firebase Analytics + Crashlytics** behind `Analytics` (no SDK calls elsewhere; keep the stub for web/desktop/tests; forward `ad_paid` for ROAS). First check which Godot Firebase plugin supports 4.7 with the Gradle build (e.g. godot-x/firebase), verify like AdMob (pin a release, commit its Android libs if it downloads at import). Needs from Yousuf: a Firebase project + Android app (package name from `export_presets.cfg`), `google-services.json` as a CI secret (never committed). Update the Play data-safety notes (LAUNCH_READINESS).
 - **M3 step 4: Play Games Services** behind `Online` (`PlayGamesBackend`: sign-in, Saved Games via `Profile.merge`, leaderboards from `data/online.json`, achievements). Needs his Play Console account and console entries.
 - **Play Billing** (paid cosmetics, `"paid": true` items): after launch.
@@ -447,7 +481,7 @@ Done this session, for reference (details in PIPELINE): dash/ability/Lysis/Volat
 - **Sacrifice order** (Swarm): parked; overlaps Outbreak.
 - Swarm extras offered but not chosen: type roles per order, one Swarm card per order.
 - Nucleus step 3: build/upgrade VFX, best-wave record + leaderboard/achievements, nucleus-repair ad, smoothing the wave 6-7 spike.
-- Ideas never picked: Mutations (trade-off cards), Symptoms (timed dish events), combining Swarm + Infection (ROADMAP Step 3), organ chapters (Bloodstream/Lungs/Gut), Daily Outbreak (seeded + leaderboard), daily missions/cosmetics, more maps/evolutions, iOS.
+- Ideas never picked: combining Swarm + Infection (ROADMAP Step 3), organ chapters (Bloodstream/Lungs/Gut), daily cosmetics, more maps/evolutions, iOS. (Built 2026-11-15: Mutations as **Side Effects**, **Symptoms**, **daily missions**. Daily Outbreak: after launch, D-043. A story/campaign "inside a patient" was discussed and dropped for this game.)
 - **Strains** are replaced by Lab abilities (D-029); the "one genome tree per strain" question is moot.
 
 **Release track** (full checklist of known blockers and issues: `docs/LAUNCH_READINESS.md`, to re-assess near launch):
@@ -459,7 +493,7 @@ Done this session, for reference (details in PIPELINE): dash/ability/Lysis/Volat
 
 **Tech debt:**
 - Territory grid 64 → 96 for smoother edges (check flood-fill cost on the phone).
-- `main.gd` is ~1,900 lines; splitting screens into scripts would help (ask first; he prefers minimal changes).
+- `main.gd` is ~3,340 lines and `world.gd` ~4,270; splitting screens into scripts would help (ask first; he prefers minimal changes).
 - Hint entries for the shelved rift (`rift`, `rift_bait` in `data/hints.json`) never fire while it's off; harmless.
 
 **Open questions for Yousuf:**

@@ -126,9 +126,16 @@ Camera look-ahead in the direction you move, a slow zoom-out as the crowd grows,
 - Unlocks: free defaults; **gold** (1,200-4,000, a sink once the shop is full); **challenges** (lifetime/best stats, e.g. 5,000 kills, a x250 streak, win every mode); **prestige** (Virulence 5 / 8 / 10 cleared in any mode). Past play counts. Paid packs later (Play Billing, M3).
 - STYLE screen (menu): live preview of the selected item (even locked ones), BUY / EQUIP / challenge progress. Results show newly unlocked styles. No cosmetic changes a stat.
 
+## Retention and run variety (built 2026-11-15, D-045/D-046)
+- **Daily missions** (`data/missions.json`): three a day (easy / medium / hard: 60 / 100 / 160 gold, +100 for all three), the same for everyone that day, from a 17-mission pool (kills, runs, dashes, chests, elites, level, evolutions, streaks, Outbreaks, Perfect Dodges, wins, the Mother Cell, Infection %, Swarm conversions; locked modes skipped). Menu "DAILY n/3" button and page; results chips.
+- **NEXT card** on results: up to two goals (next unlock, cheapest shop upgrade, nearest mission, time to beat).
+- **Side Effects:** from level 6, a level-up may also offer a red trade-off card (25%, max 2 per run, never twice): Glass Membrane (+30% damage / -30% max HP), Fever Metabolism (+30% weapon speed / germs 15% faster), Gold Rush (+50% gold / germs +30% HP), Hunger (+40% XP / -50% pickup range), Rapid Division (+1 shot / take 25% more damage), Hyperflagella (+25% move, dash 30% faster / -20% max HP). Listed in the BUILD screen.
+- **Pandemic Strain** (shop): 5 tiers (600-3,500 gold) that make Outbreak stronger (longer, more damage, faster weapons, less damage taken, then a Plague Trail). Plus 4 more tiers on max HP, damage resist, weapon speed and move speed.
+- **Symptoms** (Virulence 5+ only, every mode): a dish event 45 s in and then every 40-60 s, announced 4 s ahead with a big banner: Fever (everything faster, orange germs), Antibiotics (a beam sweeps across: dodge it; it hurts germs badly), Swarm Burst (rings of fast germs, red ring warning), Nutrient Bloom (free XP, hungrier germs, green ring).
+
 ## Later (not v1)
 - **Co-op multiplayer (post-launch):** 2-4 players, V1 Classic/Infection, down/revive, abilities as roles, a Tethered mode. Design and feasibility: `docs/COOP_DESIGN.md`.
-More characters and maps, endless mode, daily challenge, more evolutions, cosmetics, leaderboards, iOS.
+More characters and maps, endless mode, daily challenge (Daily Outbreak, after launch: D-043), more evolutions, leaderboards (Play Games, M3 step 4), iOS.
 - **Streak upgrades/abilities (hook built 2026-11-04):** e.g. a card "at x100: a free Fever Pulse" or "every x50: heal 10%". Add a reward kind in `World._streak_rewards()` and an entry in `balance.streak.rewards` (or have an upgrade add entries).
 - **The Lab + Abilities: built 2026-11-05** (see "The Lab" / "Abilities" above). Still later: a Lab node to switch abilities mid-run; more abilities (Fever Aura, Antigen Mark, Repulse, Hijack); a Nucleus "Specialisations" row.
 - **Kill-feel ideas not picked yet (2026-11-06):** per-type germ pop deaths; carnage stains that build up over a run; chain-reaction kills as a base rule; gem vacuum stream with a "cha-ching". (He rejected per-type deaths and goo build-up in an earlier feel round; ask again before building.)
