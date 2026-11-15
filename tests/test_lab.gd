@@ -133,6 +133,20 @@ func test_genes_first_clear_then_repeat() -> void:
 	check_eq(int(p.stats.genes_earned), p.genes)
 
 
+## 2026-11-15 fix: per-minute Genes are for losses only; a win pays just
+## its clear (it used to add +per_minute_max on every V3+ win).
+func test_wins_get_no_minute_genes() -> void:
+	var p := Profile.new()
+	var fc: Array = _cfg().genes.first_clear
+	for v in [1, 2, 3, 4]:
+		_win(p, v)
+		check_eq(p.last_genes, int(fc[v - 1]), "V%d first clear pays only the clear" % v)
+	_win(p, 4)
+	check_eq(p.last_genes, int(_cfg().genes.repeat_win), "a repeat win pays only repeat_win")
+	_win(p, 5, false)
+	check(p.last_genes > 0, "a V5 loss still pays its minutes")
+
+
 func test_no_genes_without_cfg() -> void:
 	var p := Profile.new()
 	var s := {"mode": "classic", "won": true, "time": 300.0, "kills": 1, "level": 1, "elites": 0, "chests": 0,

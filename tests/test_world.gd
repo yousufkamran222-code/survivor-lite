@@ -366,7 +366,7 @@ func test_outbreak_gilds_nearby_germs_which_pay_more_gold() -> void:
 
 
 func test_mode_difficulty_knobs() -> void:
-	var base := World.new(GameData.apply_mode(data(), "infection"), 4)
+	var base := World.new(data(), 4)  # plain data: every mode may carry its own difficulty
 	var d := data().duplicate(true)
 	d.balance.difficulty = {"enemy_hp_mult": 1.5, "damage_taken_mult": 2.0}
 	var hard := World.new(d, 4)

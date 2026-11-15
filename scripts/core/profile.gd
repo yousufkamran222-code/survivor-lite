@@ -329,8 +329,12 @@ func _record(mode: String) -> Dictionary:
 ## amount is left in last_genes for the results screen.
 ## Returns the achievement definitions newly unlocked by this run.
 func record_run(s: Dictionary, achievement_defs: Array, now: int, genes_cfg: Dictionary = {}) -> Array:
-	last_genes = genes_for_win(genes_cfg, str(s.mode), int(s.get("virulence", 1))) if s.won else 0
-	last_genes += genes_for_time(genes_cfg, int(s.get("virulence", 1)), float(s.time))
+	# A win pays the clear (first or repeat); the per-minute Genes are the
+	# consolation for a loss only (a win used to get both: +5 on every clear).
+	if s.won:
+		last_genes = genes_for_win(genes_cfg, str(s.mode), int(s.get("virulence", 1)))
+	else:
+		last_genes = genes_for_time(genes_cfg, int(s.get("virulence", 1)), float(s.time))
 	genes += last_genes
 	stats.genes_earned = int(stats.genes_earned) + last_genes
 	stats.runs += 1
