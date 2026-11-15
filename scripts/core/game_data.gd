@@ -255,6 +255,11 @@ static func validate(d: Dictionary) -> Array:
 	_validate_cosmetics(d, errors)
 	_validate_onboarding(d, errors)
 	_validate_missions(d, errors)
+	for ev in d.balance.get("symptoms", {}).get("events", []):  # Symptoms: known event ids and enemies
+		if not ["fever", "antibiotics", "burst", "bloom"].has(str(ev.get("id", ""))):
+			errors.append("symptom: unknown event '%s'" % ev.get("id", "?"))
+		if ev.has("enemy") and not d.enemies.any(func(e: Dictionary) -> bool: return e.id == ev.enemy):
+			errors.append("symptom %s: unknown enemy '%s'" % [ev.id, ev.enemy])
 	for c in d.balance.get("side_effects", {}).get("cards", []):  # Side Effects: known stats only
 		for k in c.get("stats", {}):
 			if not Upgrades.GLOBAL_STATS.has(k):

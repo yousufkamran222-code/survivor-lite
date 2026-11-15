@@ -546,3 +546,60 @@ func test_no_side_effects_in_the_prologue() -> void:
 		w.grant_level()
 	w.open_banked()
 	check_eq(w.side_offer, "", "no gambles while learning")
+
+
+## Symptoms (2026-11-15): only from Virulence 5, in every mode; each event
+## warns first, runs for its time and ends; below V5 nothing changes.
+func test_symptoms_only_from_v5() -> void:
+	for mode in ["classic", "infection", "swarm", "nucleus"]:
+		var low := World.new(GameData.apply_virulence(GameData.apply_mode(data(), mode), 4), 1)
+		check(not low.sym_on, "%s V4: no symptoms" % mode)
+		var high := World.new(GameData.apply_virulence(GameData.apply_mode(data(), mode), 5), 1)
+		check(high.sym_on, "%s V5: symptoms" % mode)
+
+
+func test_symptom_events_run() -> void:
+	var base := GameData.apply_virulence(GameData.apply_mode(data(), "classic"), 6)
+	for ev in base.balance.symptoms.events:
+		var d := base.duplicate(true)
+		d.balance.symptoms.events = [ev]
+		d.balance.symptoms.first_s = 1.0
+		d.balance.debug.invincible = true
+		var w := World.new(d, 7)
+		w.emit_events = true
+		var seen := {}
+		var gems0 := -1
+		for i in 60 * 30:
+			w.step(1.0 / 60.0, Vector2.ZERO)
+			for e in w.events:
+				seen[e.type] = true
+			w.events.clear()
+			if w.state == "levelup":
+				w.choose_upgrade(w.offers[0])
+			if w.sym_state == 2 and str(ev.id) == "fever":
+				check_near(w.sym_enemy_speed, float(ev.enemy_speed), 0.001, "fever speeds germs")
+			if gems0 < 0 and w.sym_state == 2:
+				gems0 = w.g_pos.size()
+		for t in ["symptom_warn", "symptom_start", "symptom_end"]:
+			check(seen.has(t), "%s: %s" % [ev.id, t])
+		check_eq(w.sym_enemy_speed, 1.0, "%s: speeds back to normal after" % ev.id)
+
+
+func test_antibiotics_hits_germs() -> void:
+	var d := GameData.apply_virulence(GameData.apply_mode(data(), "classic"), 5)
+	for ev in d.balance.symptoms.events:
+		if ev.id == "antibiotics":
+			d.balance.symptoms.events = [ev]
+	d.balance.symptoms.first_s = 0.5
+	var w := World.new(d, 3)
+	w.emit_events = false
+	w._add_enemy("grunt", Vector2(300, 0))
+	var hp0 := w.e_hp[0]
+	var hit := false
+	for i in 60 * 12:
+		w.step(1.0 / 60.0, Vector2.ZERO)
+		if w.e_pos.size() > 0 and w.e_uid[0] == 0 and w.e_hp[0] < hp0 * 0.7:
+			hit = true
+		if w.state != "playing":
+			break
+	check(hit or w.kills > 0, "the beam hurts the germs it crosses")

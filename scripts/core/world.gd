@@ -93,6 +93,24 @@ var side_offer := ""  # Side Effects: a trade-off card offered beside the level-
 var side_taken: Array = []  # Side Effect ids taken this run
 var side_bonus := {}  # their summed stats (+power and -drawback), merged like the shop bonus
 var _side_rng := RandomNumberGenerator.new()  # own stream: offering them never changes the run's other rolls
+
+# --- Symptoms (balance.symptoms, Virulence 5+): timed dish events ---
+var sym_on := false
+var sym_state := 0  # 0 none, 1 warning, 2 active
+var sym_id := ""
+var sym_t := 0.0  # time left in the warning / the event
+var sym_next := 0.0  # run time of the next event
+var sym_enemy_speed := 1.0
+var sym_player_speed := 1.0
+var sym_weapon_speed := 1.0
+var beam_pos := Vector2.ZERO  # antibiotics: a point on the beam's centre line
+var beam_dir := Vector2.RIGHT  # its travel direction
+var beam_w := 0.0
+var _sym: Dictionary = {}
+var _sym_rng := RandomNumberGenerator.new()
+var _sym_hit := {}
+var _sym_player_hit := false
+var _sym_wave := 0
 var _kept_offers: Array = []  # offers put aside by "Later", shown again on reopen
 var _kept_mutated := ""
 var head_start_weapon := ""
@@ -384,6 +402,7 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	bal = data.balance
 	rng.seed = seed_value
 	_side_rng.seed = seed_value * 7919 + 17
+	_sym_rng.seed = seed_value * 104729 + 31
 	meta_bonus = meta
 	run_length = float(bal.run_length_s)
 	_max_er = float(bal.perf.max_enemy_radius)
@@ -431,6 +450,9 @@ func _init(game_data: Dictionary, seed_value: int, meta: Dictionary = {}) -> voi
 	_boss_slam_cd = float(boss_def.get("slam_every_s", 6.5))
 	_recompute_stats()
 	_apply_outbreak_tiers()
+	var sc: Dictionary = bal.get("symptoms", {})
+	sym_on = not sc.is_empty() and int(bal.get("virulence", 1)) >= int(sc.get("from_virulence", 99)) and str(bal.get("mode_id", "")) != "prologue"
+	sym_next = float(sc.get("first_s", 45.0))
 	if float(stats.get("head_start", 0.0)) > 0.0:
 		_head_start()
 	free_rerolls = int(stats.get("free_rerolls", 0.0))
@@ -513,6 +535,8 @@ func step(dt: float, move: Vector2) -> void:
 		_update_lull()
 		_spawn(dt)
 		Prof.add("sim.spawn", ts)
+	if sym_on and not frozen and tut == null:
+		_update_symptoms(dt)
 	var tg := Prof.t()
 	_rebuild_grid()
 	Prof.add("sim.grid", tg)
@@ -934,7 +958,7 @@ func _update_player(dt: float, move: Vector2) -> void:
 		# Leave the dash still moving that way (eases out instead of a dead stop).
 		p_vel = p_dash_dir * float(bal.player.speed) * (1.0 + float(stats.move))
 	else:
-		var spd := float(bal.player.speed) * (1.0 + float(stats.move) + skill_buff("speed"))
+		var spd := float(bal.player.speed) * (1.0 + float(stats.move) + skill_buff("speed")) * sym_player_speed
 		if overdrive_t > 0.0:
 			spd *= float(skill.overdrive.get("speed_mult", 2.0))
 		if slip_t > 0.0:
@@ -1191,6 +1215,7 @@ func _update_enemies(dt: float) -> void:
 				spd *= 1.0 - float(dcfg.fever_slow)
 			if final_minute:
 				spd *= final_speed
+			spd *= sym_enemy_speed  # Symptoms: Fever, Bloom
 			if (e_elite[i] == 1 or beh == BEH_BOSS) and e_uid[i] != rift_uid:
 				# Elites and bosses hunt you down: far away they close in fast,
 				# so keeping your distance isn't a free win.
@@ -2580,6 +2605,109 @@ func choose_side_effect() -> bool:
 	return true
 
 
+# ============================================================ Symptoms
+
+## Symptoms (balance.symptoms, Virulence from_virulence+ in every mode): a
+## warning, then a timed event, then a gap. Own random stream, and nothing
+## here runs below the threshold, so lower levels play exactly as before.
+func _update_symptoms(dt: float) -> void:
+	var sc: Dictionary = bal.symptoms
+	if sym_state == 0:
+		if time < sym_next:
+			return
+		var events: Array = sc.events
+		_sym = events[_sym_rng.randi() % events.size()]
+		sym_id = str(_sym.id)
+		sym_state = 1
+		sym_t = float(sc.get("warn_s", 2.5))
+		if sym_id == "antibiotics":
+			beam_dir = Vector2.from_angle(_sym_rng.randf() * TAU)
+			beam_w = float(_sym.width)
+			beam_pos = p_pos - beam_dir * (float(_sym.speed) * float(_sym.s) / 2.0)
+		_emit({"type": "symptom_warn", "id": sym_id, "name": str(_sym.name), "desc": str(_sym.get("desc", ""))})
+		return
+	sym_t -= dt
+	if sym_state == 1:
+		if sym_t <= 0.0:
+			_start_symptom()
+		return
+	match sym_id:
+		"antibiotics":
+			beam_pos += beam_dir * float(_sym.speed) * dt
+			_beam_hits()
+		"burst":
+			var waves := int(_sym.get("waves", 1))
+			var due := int(floor((1.0 - sym_t / float(_sym.s)) * waves)) + 1
+			if _sym_wave < mini(due, waves):
+				_sym_wave += 1
+				_burst_ring()
+	if sym_t <= 0.0:
+		_end_symptom()
+
+
+func _start_symptom() -> void:
+	sym_state = 2
+	sym_t = float(_sym.s)
+	_sym_hit = {}
+	_sym_player_hit = false
+	_sym_wave = 0
+	sym_enemy_speed = float(_sym.get("enemy_speed", 1.0))
+	sym_player_speed = float(_sym.get("player_speed", 1.0))
+	sym_weapon_speed = float(_sym.get("weapon_speed", 1.0))
+	match sym_id:
+		"burst":
+			_sym_wave = 1
+			_burst_ring()
+		"bloom":
+			for k in int(_sym.get("gems", 0)):
+				var a := _sym_rng.randf() * TAU
+				var r := sqrt(_sym_rng.randf()) * float(_sym.radius)
+				_drop_gem(_valid_spawn(p_pos + Vector2(cos(a), sin(a)) * maxf(r, 60.0)), float(_sym.gem_value))
+	_emit({"type": "symptom_start", "id": sym_id, "name": str(_sym.name)})
+
+
+func _end_symptom() -> void:
+	sym_state = 0
+	sym_enemy_speed = 1.0
+	sym_player_speed = 1.0
+	sym_weapon_speed = 1.0
+	var sc: Dictionary = bal.symptoms
+	sym_next = time + _sym_rng.randf_range(float(sc.get("gap_min_s", 40.0)), float(sc.get("gap_max_s", 60.0)))
+	_emit({"type": "symptom_end", "id": sym_id})
+	sym_id = ""
+
+
+## Antibiotics: everything the beam's band crosses is hit once.
+func _beam_hits() -> void:
+	var half := beam_w / 2.0
+	var frac := float(_sym.germ_dmg_frac)
+	var prev := _src
+	_src = "symptom"
+	for i in e_pos.size():
+		if e_team[i] != 0 or e_hp[i] <= 0.0 or _sym_hit.has(e_uid[i]):
+			continue
+		if absf((e_pos[i] - beam_pos).dot(beam_dir)) <= half + e_rad[i]:
+			_sym_hit[e_uid[i]] = true
+			var m := float(_sym.get("boss_mult", 0.05)) if _tbeh[e_type[i]] == BEH_BOSS else (float(_sym.get("elite_mult", 0.2)) if e_elite[i] == 1 else 1.0)
+			_damage(i, e_maxhp[i] * frac * m, beam_dir * 160.0)
+	_src = prev
+	if not _sym_player_hit and p_down <= 0.0 and absf((p_pos - beam_pos).dot(beam_dir)) <= half + p_radius:
+		_sym_player_hit = true
+		if p_iframes <= 0.0:
+			_hurt(float(_sym.player_dmg), "antibiotics", beam_pos)
+
+
+## Swarm Burst: a ring of fast germs around you.
+func _burst_ring() -> void:
+	var n := int(_sym.n)
+	var a0 := _sym_rng.randf() * TAU
+	for k in n:
+		var a := a0 + TAU * k / n
+		_add_enemy(str(_sym.enemy), _valid_spawn(p_pos + Vector2(cos(a), sin(a)) * float(_sym.dist)))
+		var last := e_pos.size() - 1
+		e_spd[last] *= float(_sym.get("speed_mult", 1.0))
+
+
 ## Mutation Lab: one offer (that has 2+ levels left) gives 2 levels at once.
 func _pick_mutation() -> void:
 	mutated_offer = ""
@@ -3620,6 +3748,7 @@ func trigger_outbreak() -> bool:
 func _frenzy_speed() -> float:
 	var f := float(bal.outbreak.weapon_speed) if outbreak_t > 0.0 else 1.0
 	f *= 1.0 + skill_buff("haste")  # streak buffs
+	f *= sym_weapon_speed  # Symptoms: Fever
 	if perfect_t > 0.0:
 		f *= float(skill.perfect_dodge.get("haste_mult", 1.0))
 	return f

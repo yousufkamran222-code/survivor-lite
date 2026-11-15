@@ -353,6 +353,7 @@ func _draw_hud() -> void:
 		_stext(t.text, Vector2(w / 2.0, ty), 1, 40.0 * pop, 8.0, Color(t.color, a), 0.6)
 		ty += 52.0
 	_draw_streak(w)
+	_draw_symptom(w)
 	_draw_hint(w)
 	_draw_coach(w)
 	_draw_title(w)
@@ -1147,6 +1148,20 @@ func _draw_streak(w: float) -> void:
 	var br := Rect2(right - bw, base_y + 44.0 + 18.0 * _streak_burst, bw, 6)
 	draw_rect(br, Color(0, 0, 0, 0.45))
 	draw_rect(Rect2(br.position + Vector2(bw * (1.0 - left), 0), Vector2(bw * left, 6)), Color(col, 0.9))
+
+
+## Symptoms: what's happening and for how long, under the top panel.
+func _draw_symptom(w: float) -> void:
+	if world.sym_state == 0 or world.sym_id == "":
+		return
+	var ev: Dictionary = {}
+	for e in world.bal.symptoms.events:
+		if str(e.id) == world.sym_id:
+			ev = e
+	var col := Color("#ff9e5a")
+	var txt := ("%s  %ds" % [str(ev.get("name", "")), ceili(world.sym_t)]) if world.sym_state == 2 else ("%s INCOMING" % str(ev.get("name", "")))
+	var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 120.0) if world.sym_state == 1 else 1.0
+	_stext(txt, Vector2(w / 2.0, 214.0), 1, 30.0, 7.0, Color(col, pulse))
 
 
 ## Right-aligned outlined text ending at pos.x (draw_string's RIGHT alignment

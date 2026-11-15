@@ -622,6 +622,11 @@ func _handle_events(events: Array) -> void:
 			"rift_power_used":
 				Sfx.play("nova", 0.0, 0.8)
 				Sfx.vibrate(50)
+			"symptom_warn":
+				Sfx.play("boss", 0.0, 1.3)
+				Sfx.vibrate(60)
+				hud.toast("%s!  %s" % [str(ev.name), str(ev.desc)], Color("#ff9e5a"), 2.4)
+				Analytics.event("symptom", {"id": str(ev.id), "t": int(world.time)})
 			"elite_spawn":
 				Sfx.play("elite", 0.0)
 				var an := str(data.waves.elites.get("affixes", {}).get(str(ev.get("affix", "")), {}).get("name", ""))
@@ -2917,7 +2922,7 @@ func _gold_fly_in(amount: int) -> void:
 ## Results highlights: damage share per weapon/source as animated bars, plus
 ## chips for the biggest hit, the best streak and the most-killed germ.
 const DMG_LABELS := {"allies": ["Swarm allies", "mode_swarm"], "towers": ["Towers", "mode_nucleus"], "dash": ["Dash", "lunge"],
-	"land": ["Infected land", "mode_infection"], "bomb": ["Bombs", "volatile"], "outbreak": ["Plague", "outbreak"]}
+	"land": ["Infected land", "mode_infection"], "bomb": ["Bombs", "volatile"], "outbreak": ["Plague", "outbreak"], "symptom": ["Antibiotics", "outbreak"]}
 
 
 func _dmg_label(src: String) -> Array:

@@ -1098,6 +1098,7 @@ func _draw_top_layer() -> void:
 	Prof.add("view.top_loop", tp)
 	tp = Prof.t()
 	_draw_rift(ci, now)
+	_draw_beam(ci, now)
 	_draw_threats(ci)
 	_draw_clone(ci)
 	_draw_decoy(ci)
@@ -1256,6 +1257,23 @@ func _dot(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	if r <= 0.0:
 		return
 	ci.draw_texture_rect(ShapeTextures.disc_shared(128 if r < 48.0 else 256), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, col)
+
+
+## Symptoms: the Antibiotics beam, a long band across the dish. While it is
+## announced, a faint outline shows where it will come from.
+func _draw_beam(ci: CanvasItem, now: float) -> void:
+	if world.sym_id != "antibiotics" or world.sym_state == 0:
+		return
+	var along := world.beam_dir.orthogonal()
+	var half := world.beam_w / 2.0
+	var p := world.beam_pos
+	var col := Color("#9be7ff")
+	var a := 0.18 + 0.12 * sin(now * 10.0) if world.sym_state == 1 else 0.32
+	var pts := PackedVector2Array([p - along * 1600.0 - world.beam_dir * half, p + along * 1600.0 - world.beam_dir * half,
+		p + along * 1600.0 + world.beam_dir * half, p - along * 1600.0 + world.beam_dir * half])
+	ci.draw_colored_polygon(pts, Color(col, a * 0.6))
+	ci.draw_line(p - along * 1600.0 + world.beam_dir * half, p + along * 1600.0 + world.beam_dir * half, Color(col, 0.9), 4.0)
+	ci.draw_line(p - along * 1600.0 - world.beam_dir * half, p + along * 1600.0 - world.beam_dir * half, Color(col, 0.5), 2.0)
 
 
 ## Afterimage decoy (World decoy_pos/decoy_t): a see-through copy of the
