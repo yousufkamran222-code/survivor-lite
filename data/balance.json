@@ -301,7 +301,28 @@
   "crazygames": {
     "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
     "prologue_skip_after_s": 6,
-    "landscape_ui_height": 960
+    "landscape_ui_height": 960,
+    "landscape_view_height": 960,
+    "landscape": {"perf": {"spawn_min_distance": 1000, "spawn_max_distance": 1100, "despawn_distance": 1600}},
+    "_desktop_text": "Tutorial/coach/hint lines swapped for key wording when the HUD shows keys (desktop landscape). Exact matches only.",
+    "desktop_text": {
+      "Drag anywhere to move": "WASD or arrow keys to move",
+      "LEVEL UP! Tap UPGRADE": "LEVEL UP! Press E",
+      "DASH NOW!": "SPACE: DASH NOW!",
+      "Tap UPGRADE: pick cards that work together": "Press E: pick cards that work together",
+      "Surrounded! DASH through them": "Surrounded! SPACE to dash through",
+      "OUTBREAK is ready! Tap it": "OUTBREAK is ready! Press Q",
+      "Tap the swarm button to give orders": "Press 1, 2 or 3 to give orders",
+      "Guard you, Hunt germs, Harvest XP": "1 Guard you, 2 Hunt germs, 3 Harvest XP",
+      "Tap a tower to build it": "Press 1-4 (or click a tower) to build it",
+      "Drag anywhere to move. Your weapons fire on their own.": "WASD or arrow keys to move. Your weapons fire on their own.",
+      "Tap DASH (or tap with a second finger) to zip through danger.": "Press SPACE to dash through danger.",
+      "Level up! Tap UPGRADE whenever you're ready to pick.": "Level up! Press E whenever you're ready to pick.",
+      "Tap BUILD (top left) to pause and see every upgrade you own.": "Press B to pause and see every upgrade you own.",
+      "OUTBREAK is ready! Tap it: faster weapons, half damage, and nearby germs turn to gold.": "OUTBREAK is ready! Press Q: faster weapons, half damage, and nearby germs turn to gold.",
+      "Tap the swarm button by OUTBREAK to give orders: Guard you, Hunt germs, or Harvest XP.": "Press 1, 2 or 3 to give orders: 1 Guard you, 2 Hunt germs, 3 Harvest XP.",
+      "Stand on a green pad, then tap a tower to build it.": "Stand on a green pad, then press 1-4 to build a tower."
+    }
   },
   "perf": {
     "max_projectiles": 220,

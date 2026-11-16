@@ -56,6 +56,8 @@ var _sig_world: World = null
 var icon_atlas: IconAtlas  # set by Main; baked icons for the strip
 var _hint_text := ""
 var coach := {}  # the tutorial's prompt this frame (World.coach(), set by Main)
+var show_keys := false  # desktop (CrazyGames landscape): key chips on the buttons + hover rings
+var hover_pos := Vector2(-9999, -9999)  # the mouse (desktop), for the hover ring; set by Main
 var _coach_idx := -1
 var _coach_t := 0.0  # time the current prompt has been up
 var _coach_shown := ""  # the prompt text on screen; a replaced one fades out
@@ -342,6 +344,8 @@ func _draw_hud() -> void:
 	_draw_ability_button()
 	_draw_rift_hud(w)
 	_draw_orders()
+	if show_keys:
+		_draw_keys()
 	Prof.add("hud.buttons", tp)
 	tp = Prof.t()
 	# Toasts.
@@ -734,6 +738,45 @@ func _gloss_disc(ci: CanvasItem, c: Vector2, r: float, face: Color) -> void:
 	ci.draw_set_transform(c - Vector2(0, r * 0.42), 0.0, Vector2(1.0, 0.5))
 	_dot(ci, Vector2.ZERO, r * 0.62, Color(1, 1, 1, 0.3 * face.a))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Desktop (show_keys): a small key chip under each button and a soft ring
+## around the one under the mouse. Fixed font size, a handful of quads.
+func _draw_keys() -> void:
+	var btns := [[dash_center(), dash_radius, "SPACE"], [upgrade_center(), UPGRADE_R, "E"]]
+	if outbreak_on():
+		btns.append([outbreak_center(), OUTBREAK_R, "Q"])
+	if world.ability != "":
+		btns.append([ability_center(), POWER_R, "R"])
+	if orders_on() and not orders_open:
+		btns.append([order_center(), ORDER_R, "1-3"])
+	for b in btns:
+		var c: Vector2 = b[0]
+		var r: float = b[1]
+		if hover_pos.distance_to(c) <= r * 1.15:
+			draw_arc(c, r + 9.0, 0.0, TAU, 48, Color(1, 1, 1, 0.55), 4.0)
+		_key_chip(c + Vector2(0, r + 2.0), str(b[2]))
+	var br := build_rect()
+	if br.grow(6).has_point(hover_pos):
+		draw_rect(br.grow(4), Color(1, 1, 1, 0.5), false, 3.0)
+	_key_chip(Vector2(br.end.x + 22.0, br.position.y + br.size.y / 2.0 - 10.0), "B")
+
+
+func _key_chip(at: Vector2, key: String) -> void:
+	var fs := 15
+	var tw := font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var r := Rect2(at.x - tw / 2.0 - 8.0, at.y - 10.0, tw + 16.0, 22.0)
+	_rrect(self, r.grow(2.0), 8.0, UiKit.OUTLINE)
+	_rrect(self, r, 7.0, Color(0.93, 0.92, 1.0))
+	draw_string(font, Vector2(r.position.x, r.position.y + 16.0), key, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fs, Color("#2a1f52"))
+
+
+## True when the mouse is over one of the HUD's own buttons (pointer cursor).
+func hovering_button() -> bool:
+	if not show_keys or world == null:
+		return false
+	var p := hover_pos
+	return in_dash_button(p) or in_upgrade_button(p) or in_outbreak_button(p) or in_ability_button(p) or in_build_button(p) or (orders_on() and order_button_at(p) != -1)
 
 
 ## The DASH / UPGRADE labels (strip layer; the owned strip itself is baked

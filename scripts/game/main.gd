@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
 var crazygames := GameData.is_crazygames()  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var _hud_hand := false  # the mouse is on a HUD button (pointing-hand cursor)
 var landscape := false  # CrazyGames build in a wide window: landscape layout (_apply_orientation)
 var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
 var hitstop := 0.0
@@ -104,8 +105,6 @@ func _ready() -> void:
 	view = WorldView.new()
 	add_child(view)
 	view.setup(data)
-	if crazygames:
-		_apply_orientation()
 
 	hud_layer = CanvasLayer.new()
 	add_child(hud_layer)
@@ -152,6 +151,22 @@ func _ready() -> void:
 	pause_btn.position = Vector2(-90, 28)
 	ui_root.add_child(pause_btn)
 	if crazygames:
+		# Desktop hover on every button made from now on (a real mouse only: a
+		# tap would leave a phone's button stuck "hovered"). Not
+		# is_touchscreen_available(): mouse-to-touch emulation makes it true.
+		UiKit.hover = _fine_pointer()
+		if UiKit.hover:
+			get_tree().node_added.connect(func(n: Node) -> void:
+				if n is BaseButton:
+					UiKit.hover_feedback.call_deferred(n, n == _play_btn))
+		_apply_orientation()  # needs view + hud
+		var pk := UiKit.label("P", 16, Color(1, 1, 1, 0.7))
+		pk.name = "Key"
+		pk.position = Vector2(0, 74)
+		pk.size = Vector2(72, 20)
+		pk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pause_btn.add_child(pk)
+	if crazygames:
 		skip_btn = _text_button("SKIP TUTORIAL", _quit_prologue)
 		skip_btn.add_theme_font_size_override("font_size", 22)
 		skip_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -188,6 +203,11 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ input
 
+func _input(event: InputEvent) -> void:
+	if crazygames and event is InputEventMouseMotion:
+		hud.hover_pos = event.position  # desktop: HUD button hover rings
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if screen == "menu" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
 		start_benchmark()
@@ -200,6 +220,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return  # paused in the order fan: only 1-3 (pick) and Esc (close)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE:
 		world.dash()
+		return
+	if crazygames and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
+		_pause_run()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
 		_show_build()
@@ -367,6 +390,10 @@ func _notification(what: int) -> void:
 func _process(delta: float) -> void:
 	if crazygames:
 		_fit_overlays()
+		var hand := hud.show_keys and screen == "playing" and hud.hovering_button()
+		if hand != _hud_hand:  # pointing hand over the HUD's drawn buttons
+			_hud_hand = hand
+			Input.set_default_cursor_shape(Input.CURSOR_POINTING_HAND if hand else Input.CURSOR_ARROW)
 	if screen != "playing" or world == null:
 		# Not stepping: drop the CPU timers so the perf readout stays honest.
 		view.cpu_ms = 0.0
@@ -403,6 +430,9 @@ func _process(delta: float) -> void:
 	else:
 		world.step(dt, _move_input())
 	hud.coach = world.coach()
+	if hud.show_keys and hud.coach.has("text"):
+		hud.coach = hud.coach.duplicate()
+		hud.coach["text"] = _desk(str(hud.coach.text))
 	if _coached_mode != "" and world.tut != null and world.tut.done:
 		Onboarding.mark_coached(Save.profile, _coached_mode)
 		_coached_mode = ""
@@ -823,11 +853,11 @@ func _start_run(prologue: bool = false) -> void:
 	_coached_mode = ""
 	var mode_id: String = "prologue" if prologue else str(_current_mode().id)
 	if prologue:
-		world = World.new(GameData.apply_prologue(data), randi(), {})
+		world = World.new(_landscape_run(GameData.apply_prologue(data)), randi(), {})
 		world.start_tutorial(data.onboarding.prologue.beats, Onboarding.prologue_opts(data, Save.profile))
 	else:
 		var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
-		world = World.new(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id)), randi(), meta)
+		world = World.new(_landscape_run(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id))), randi(), meta)
 		var ab_id := Save.profile.equipped_ability(data.lab)
 		world.equip_ability(ab_id, Lab.ability_level(data.lab, Save.profile.lab, ab_id))
 		Onboarding.mark_opened(Save.profile, mode_id)
@@ -988,8 +1018,17 @@ func _apply_orientation() -> void:
 	if get_tree().root.content_scale_size != base:
 		get_tree().root.content_scale_size = base
 	UiKit.trim = maxf(0.0, 1280.0 - h) if landscape else 0.0
+	hud.show_keys = landscape  # CrazyGames locks phones to portrait: landscape = a desktop with keys
+	if pause_btn != null and pause_btn.has_node("Key"):
+		pause_btn.get_node("Key").visible = landscape
 	var lg := _logical_size(px)
-	view.base_zoom = maxf(1.0, lg.length() / Vector2(720, 1280).length()) if landscape else 1.0
+	# landscape_view_height world units top to bottom (more dish than the old
+	# portrait-diagonal view), but never so wide that the view's corners reach
+	# the landscape spawn ring (crazygames.landscape.perf.spawn_min_distance).
+	var spawn_min := float(cfg.get("landscape", {}).get("perf", {}).get("spawn_min_distance", 760.0))
+	var by_h := lg.y / maxf(float(cfg.get("landscape_view_height", 960)), 1.0)
+	var by_corner := (lg.length() / 2.0) / maxf(spawn_min - 20.0, 1.0)
+	view.base_zoom = maxf(by_h, by_corner) if landscape else 1.0
 	_apply_graphics()
 
 
@@ -1014,6 +1053,31 @@ func _fit_overlays() -> void:
 			var py := full / 2.0 if s >= 1.0 else (full - s * need) / (2.0 * (1.0 - s))
 			center.pivot_offset = Vector2(center.size.x / 2.0, py)
 			center.scale = Vector2(s, s)
+
+
+## A mouse that can hover: the browser's own media query on web (phones and
+## tablets say no), any non-mobile OS elsewhere.
+func _fine_pointer() -> bool:
+	if OS.has_feature("web"):
+		return bool(JavaScriptBridge.eval("window.matchMedia('(hover: hover) and (pointer: fine)').matches", true))
+	return not OS.has_feature("mobile")
+
+
+## Desktop wording (keys instead of taps) for a tutorial/hint line, when the
+## HUD shows keys (CrazyGames landscape); balance.crazygames.desktop_text.
+func _desk(txt: String) -> String:
+	if not hud.show_keys:
+		return txt
+	return str(bal.get("crazygames", {}).get("desktop_text", {}).get(txt, txt))
+
+
+## A run started in the landscape layout sees more dish, so germs must spawn
+## (and despawn) further out: balance.crazygames.landscape is merged into that
+## run's own copy of the balance. Portrait runs and other builds: unchanged.
+func _landscape_run(d: Dictionary) -> Dictionary:
+	if landscape:
+		GameData._merge(d.balance, bal.get("crazygames", {}).get("landscape", {}))
+	return d
 
 
 ## The canvas size (canvas_items/expand stretch) for a window of `px` pixels.
@@ -1162,6 +1226,8 @@ func _build_mode_panel(dir: int) -> void:
 	card.add_theme_stylebox_override("panel", sb)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.gui_input.connect(_on_card_input)
+	if UiKit.hover:
+		UiKit.hover_feedback(card)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 18)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3380,7 +3446,7 @@ func _update_hints() -> void:
 	if _hint_queue.is_empty() or hud.hint_showing():
 		return
 	var next: Dictionary = _hint_queue.pop_front()
-	hud.show_hint(str(next.text))
+	hud.show_hint(_desk(str(next.text)))
 	Save.hints_seen.append(next.id)
 	Save.write()
 

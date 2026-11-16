@@ -76,6 +76,24 @@ func test_crazygames_build_forces_debug_off() -> void:
 	check(float(d.balance.crazygames.prologue_skip_after_s) >= 0.0, "balance.crazygames.prologue_skip_after_s")
 
 
+## The CrazyGames landscape run overrides only move spawning out of the wider
+## view (balance.crazygames.landscape), and every desktop wording line still
+## matches a real tutorial/hint line (else it silently stops applying).
+func test_crazygames_landscape_data() -> void:
+	var d := data()
+	var cg: Dictionary = d.balance.crazygames
+	var allowed := ["spawn_min_distance", "spawn_max_distance", "despawn_distance"]
+	for sec in cg.landscape:
+		check(sec == "perf", "landscape overrides only perf, got %s" % sec)
+		for k in cg.landscape[sec]:
+			check(allowed.has(k), "landscape override perf.%s" % k)
+	var lp: Dictionary = cg.landscape.perf
+	check(float(lp.spawn_min_distance) < float(lp.spawn_max_distance) and float(lp.spawn_max_distance) < float(lp.despawn_distance), "spawn < despawn")
+	var src := FileAccess.get_file_as_string("res://data/onboarding.json") + FileAccess.get_file_as_string("res://data/hints.json")
+	for line in cg.desktop_text:
+		check(src.contains(JSON.stringify(line)), "desktop_text line not found in onboarding/hints: %s" % line)
+
+
 ## Basic Launch on CrazyGames: no ads, so nothing is ever ready (every ad
 ## button hides) and a stray call never rewards.
 func test_no_ad_backend_never_rewards() -> void:

@@ -25,6 +25,9 @@ static var _display: Font
 ## its height; 0 everywhere else). Tall scrolling screens shrink their list by
 ## part of it (`tall`) so they fit and keep the bigger text. Set by Main.
 static var trim := 0.0
+## Desktop hover feedback (CrazyGames build without a touchscreen; set by Main):
+## every button grows a little and brightens under the mouse (`hover_feedback`).
+static var hover := false
 static var _gloss := {}
 
 
@@ -239,8 +242,36 @@ static func press_feedback(b: Control) -> void:
 			if e.pressed:
 				tw.tween_property(b, "scale", Vector2(0.93, 0.9), 0.07).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			else:
-				tw.tween_property(b, "scale", Vector2(1.05, 1.05), 0.09).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-				tw.tween_property(b, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+				var rest := float(b.get_meta("_hover_s", 1.0))  # back to the hover size if the mouse is still on it
+				tw.tween_property(b, "scale", Vector2(1.05, 1.05) * rest, 0.09).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+				tw.tween_property(b, "scale", Vector2(rest, rest), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+
+
+## Desktop hover: under the mouse a control springs up a little (less for big
+## ones) and brightens (self_modulate, so entrance fades on modulate still
+## work), with a pointing-hand cursor. Idempotent; disabled buttons don't react;
+## `no_scale` keeps controls with their own scale animation (PLAY's pulse) still.
+static func hover_feedback(c: Control, no_scale: bool = false) -> void:
+	if c.has_meta("_hover_fb"):
+		return
+	c.set_meta("_hover_fb", true)
+	c.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	c.mouse_entered.connect(func() -> void:
+		if c is BaseButton and c.disabled:
+			return
+		var g := 1.0 if no_scale else 1.0 + clampf(10.0 / maxf(maxf(c.size.x, c.size.y), 1.0), 0.015, 0.06)
+		c.set_meta("_hover_s", g)
+		c.pivot_offset = c.size / 2.0
+		var tw := c.create_tween().set_parallel(true)
+		if not no_scale:
+			tw.tween_property(c, "scale", Vector2(g, g), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "self_modulate", Color(1.15, 1.15, 1.15), 0.1))
+	c.mouse_exited.connect(func() -> void:
+		c.set_meta("_hover_s", 1.0)
+		var tw := c.create_tween().set_parallel(true)
+		if not no_scale:
+			tw.tween_property(c, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "self_modulate", Color.WHITE, 0.12))
 
 
 ## Shows an overlay with a short fade; its column's parts pop in one after
