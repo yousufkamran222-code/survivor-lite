@@ -19,6 +19,7 @@ var pal := {}
 var enemy_colors: Array = []
 var cam: Camera2D
 var cam_zoom := 1.0  # current zoom (HUD arrows need it)
+var base_zoom := 1.0  # landscape (CrazyGames build): keeps the portrait view's diagonal of dish on screen
 var _look := Vector2.ZERO  # camera look-ahead offset (juice.cam_lead_s)
 var _zoom_crowd := 1.0  # eases out as the crowd grows (juice.cam_crowd_zoom)
 var _zoom_punch := 0.0  # short zoom-in on big moments
@@ -697,7 +698,7 @@ func _process_view(delta: float) -> void:
 	var crowd_k := clampf((float(world.hostile_count()) - float(juice.get("cam_crowd_from", 60))) / maxf(float(juice.get("cam_crowd_span", 100)), 1.0), 0.0, 1.0)
 	_zoom_crowd = lerpf(_zoom_crowd, 1.0 - float(juice.get("cam_crowd_zoom", 0.0)) * crowd_k, 1.0 - exp(-0.8 * delta))
 	_zoom_punch = maxf(0.0, _zoom_punch - delta * float(juice.get("cam_punch_decay", 0.25)))
-	cam_zoom = _zoom_crowd * (1.0 + _zoom_punch) * (1.0 + _seq_zoom)
+	cam_zoom = base_zoom * _zoom_crowd * (1.0 + _zoom_punch) * (1.0 + _seq_zoom)
 	cam.zoom = Vector2.ONE * cam_zoom
 	var focus := world.core_pos if world.p_down > 0.0 else world.p_pos + _look
 	cam.position = focus + off

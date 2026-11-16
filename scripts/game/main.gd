@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
 var crazygames := OS.has_feature("crazygames")  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var landscape := false  # CrazyGames build in a wide window: landscape layout (_apply_orientation)
 var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
 var hitstop := 0.0
 const MAX_STEP_DT := 1.0 / 30.0
@@ -97,10 +98,14 @@ func _ready() -> void:
 		pal[k] = GameData.color(bal.palette[k])
 	RenderingServer.set_default_clear_color(pal.background)
 	get_tree().root.size_changed.connect(_apply_graphics)  # Fast depends on the window's pixel count
+	if crazygames:
+		get_tree().root.size_changed.connect(_apply_orientation)
 
 	view = WorldView.new()
 	add_child(view)
 	view.setup(data)
+	if crazygames:
+		_apply_orientation()
 
 	hud_layer = CanvasLayer.new()
 	add_child(hud_layer)
@@ -957,9 +962,39 @@ func _apply_settings() -> void:
 func _apply_graphics() -> void:
 	var px := DisplayServer.window_get_size()
 	var big := px.x * px.y > int(720 * 1280 * 1.15)
+	if landscape:
+		var lg := _logical_size(px)  # the landscape canvas is wider: only Fast when it really draws less
+		big = px.x * px.y > int(lg.x * lg.y * 1.15)
 	var mode := Window.CONTENT_SCALE_MODE_VIEWPORT if Save.graphics == 1 and big else Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	if get_tree().root.content_scale_mode != mode:
 		get_tree().root.content_scale_mode = mode
+
+
+## CrazyGames build only (desktop must be playable in landscape): in a window
+## wider than tall the canvas becomes balance.crazygames.landscape_ui_height
+## tall (screens keep their 720-wide column, centred) and the camera zooms so
+## the dish on screen has the same diagonal as the portrait view: germs still
+## spawn off-screen and nothing about the balance changes. Phones stay
+## portrait (CrazyGames locks mobile orientation), and other builds never call
+## this. docs/CRAZYGAMES_PLAN.md A2.
+func _apply_orientation() -> void:
+	var px := DisplayServer.window_get_size()
+	landscape = crazygames and px.x > px.y
+	var cfg: Dictionary = bal.get("crazygames", {})
+	var h := int(cfg.get("landscape_ui_height", 1280))
+	var base := Vector2i(h, h) if landscape else Vector2i(720, 1280)
+	if get_tree().root.content_scale_size != base:
+		get_tree().root.content_scale_size = base
+	var lg := _logical_size(px)
+	view.base_zoom = maxf(1.0, lg.length() / Vector2(720, 1280).length()) if landscape else 1.0
+	_apply_graphics()
+
+
+## The canvas size (canvas_items/expand stretch) for a window of `px` pixels.
+func _logical_size(px: Vector2i) -> Vector2:
+	var base := Vector2(get_tree().root.content_scale_size)
+	var k := minf(float(px.x) / base.x, float(px.y) / base.y)
+	return Vector2(px) / maxf(k, 0.0001)
 
 
 func _hide_all() -> void:
