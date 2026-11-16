@@ -64,6 +64,13 @@ static func apply_crazygames_build(d: Dictionary, crazygames: bool) -> void:
 	apply_store_build(d, crazygames)
 
 
+## True on the CrazyGames build (custom feature "crazygames"), or when the game
+## is started with the user argument `-- --crazygames` (desktop playtests and
+## tools/ui_shots.gd; exported builds never get user arguments).
+static func is_crazygames() -> bool:
+	return OS.has_feature("crazygames") or "--crazygames" in OS.get_cmdline_user_args()
+
+
 ## The web build (OS feature "web"): balance.web is merged in (lower visual
 ## caps only; gameplay numbers are never in it).
 static func apply_web_build(d: Dictionary, web: bool) -> void:

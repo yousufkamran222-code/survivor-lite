@@ -1330,7 +1330,7 @@ func _coach_line(w: float, txt: String, a: float, pop: float, dy: float) -> void
 	var base := 46
 	while base > 30 and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:
 		base -= 2
-	var y := 500.0 + dy
+	var y := (500.0 if size.x <= size.y else size.y * 0.36) + dy  # landscape (CrazyGames): keep it above the cell
 	var pivot := Vector2(w / 2.0, y - base * 0.35)
 	draw_set_transform(pivot * (1.0 - pop), 0.0, Vector2(pop, pop))
 	if font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, base).x > room:

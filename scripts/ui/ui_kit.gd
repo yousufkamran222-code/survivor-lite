@@ -21,6 +21,10 @@ const KINDS := {
 const EDGE := 9  # px of 3D bottom edge (3 when pressed)
 
 static var _display: Font
+## Height (px) the canvas lost in the CrazyGames landscape layout (1280 minus
+## its height; 0 everywhere else). Tall scrolling screens shrink their list by
+## part of it (`tall`) so they fit and keep the bigger text. Set by Main.
+static var trim := 0.0
 static var _gloss := {}
 
 
@@ -157,6 +161,12 @@ static func _box(c: Color, radius: int, margin: int = 18) -> StyleBoxFlat:
 
 
 ## Full-screen dimmed overlay with a centred column. Returns [root, column].
+## A scrolling list's height `h` (designed for the 1280-tall portrait canvas),
+## shorter by `share` of `trim` in the landscape layout. Unchanged when trim is 0.
+static func tall(h: float, share: float = 0.6) -> float:
+	return maxf(h * 0.4, h - trim * share)
+
+
 static func overlay(parent: Node, dim: float = 0.72) -> Array:
 	var root := ColorRect.new()
 	root.color = Color(0, 0, 0, dim)

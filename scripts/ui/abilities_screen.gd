@@ -25,7 +25,7 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, back: Callable) -> void:
 	add_child(hint)
 	var scroll := DragScroll.new()
 	_scroll = scroll
-	scroll.custom_minimum_size = Vector2(640, 880)
+	scroll.custom_minimum_size = Vector2(640, UiKit.tall(880))
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 14)

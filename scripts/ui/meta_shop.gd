@@ -48,7 +48,7 @@ func setup(meta_defs: Array, palette: Dictionary, layer: Control, back: Callable
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	add_child(hint)
 	_scroll = DragScroll.new()
-	_scroll.custom_minimum_size = Vector2(640, 870)
+	_scroll.custom_minimum_size = Vector2(640, UiKit.tall(870))
 	_grid = GridContainer.new()
 	_grid.columns = COLUMNS
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL

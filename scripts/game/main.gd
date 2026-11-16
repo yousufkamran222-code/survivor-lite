@@ -13,7 +13,7 @@ var hud: HudOverlay
 var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
-var crazygames := OS.has_feature("crazygames")  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var crazygames := GameData.is_crazygames()  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
 var landscape := false  # CrazyGames build in a wide window: landscape layout (_apply_orientation)
 var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
 var hitstop := 0.0
@@ -365,6 +365,8 @@ func _notification(what: int) -> void:
 ## can't keep up, the game slows slightly instead of running extra catch-up
 ## steps (which made slow frames slower: the "spiral").
 func _process(delta: float) -> void:
+	if crazygames:
+		_fit_overlays()
 	if screen != "playing" or world == null:
 		# Not stepping: drop the CPU timers so the perf readout stays honest.
 		view.cpu_ms = 0.0
@@ -985,9 +987,33 @@ func _apply_orientation() -> void:
 	var base := Vector2i(h, h) if landscape else Vector2i(720, 1280)
 	if get_tree().root.content_scale_size != base:
 		get_tree().root.content_scale_size = base
+	UiKit.trim = maxf(0.0, 1280.0 - h) if landscape else 0.0
 	var lg := _logical_size(px)
 	view.base_zoom = maxf(1.0, lg.length() / Vector2(720, 1280).length()) if landscape else 1.0
 	_apply_graphics()
+
+
+## CrazyGames landscape layout: an overlay whose column is taller than the
+## canvas (screens built for 1280 px) is shrunk around its centre until it
+## fits; everything else stays at scale 1. Scales the CenterContainer, not the
+## column, so entrance tweens (which animate the column's children) still work.
+func _fit_overlays() -> void:
+	var all := [_menu, _levelup, _dead, _results, _pause, _chest, _victory, _build]
+	if _mode_pick != null and is_instance_valid(_mode_pick[0]):
+		all.append(_mode_pick)
+	for o in all:
+		var center: Control = o[1].get_parent()
+		var s := 1.0
+		var need: float = o[1].get_combined_minimum_size().y
+		var full: float = o[0].size.y
+		if landscape and o[0].visible and need > full - 24.0:
+			s = (full - 24.0) / need
+		if not is_equal_approx(center.scale.x, s):
+			# A too-tall column grows the CenterContainer down from the top; this
+			# pivot puts the shrunk column's middle back at the screen's middle.
+			var py := full / 2.0 if s >= 1.0 else (full - s * need) / (2.0 * (1.0 - s))
+			center.pivot_offset = Vector2(center.size.x / 2.0, py)
+			center.scale = Vector2(s, s)
 
 
 ## The canvas size (canvas_items/expand stretch) for a window of `px` pixels.
@@ -1016,7 +1042,7 @@ func _show_menu() -> void:
 	_menu_page = "home"
 	var col: VBoxContainer = _menu[1]
 	UiKit.clear(col)
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 14 if UiKit.trim <= 0.0 else 8)
 	# Top bar: settings (gear) left, gold right.
 	var top := HBoxContainer.new()
 	top.add_child(_icon_button("settings", pal.player_nucleus, _show_settings))
@@ -1033,11 +1059,12 @@ func _show_menu() -> void:
 	col.add_child(top)
 	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
 	col.add_child(title)
-	col.add_child(UiKit.label("You are the infection.", 22, Color(pal.text, 0.6)))
+	if UiKit.trim <= 0.0:  # the landscape layout needs the height for the hero
+		col.add_child(UiKit.label("You are the infection.", 22, Color(pal.text, 0.6)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
 	_menu_hero = hero
-	hero.custom_minimum_size = Vector2(0, 200)
+	hero.custom_minimum_size = Vector2(0, UiKit.tall(200, 0.3))
 	hero.item_rect_changed.connect(func() -> void:
 		if _menu_bg.size.y > 0.0:
 			_menu_bg.hero_y = (hero.global_position.y + hero.size.y / 2.0) / _menu_bg.size.y)

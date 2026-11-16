@@ -51,7 +51,7 @@ func setup(lab_cfg: Dictionary, palette: Dictionary, layer: Control, back: Calla
 	add_child(hint)
 	var scroll := DragScroll.new()
 	_scroll = scroll
-	scroll.custom_minimum_size = Vector2(640, 830)
+	scroll.custom_minimum_size = Vector2(640, UiKit.tall(830))
 	_cols = HBoxContainer.new()
 	_cols.add_theme_constant_override("separation", 10)
 	_cols.alignment = BoxContainer.ALIGNMENT_CENTER

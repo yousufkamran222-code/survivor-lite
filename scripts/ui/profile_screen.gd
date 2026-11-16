@@ -17,9 +17,10 @@ func setup(palette: Dictionary, game_data: Dictionary, back: Callable) -> void:
 	add_theme_constant_override("separation", 12)
 	add_child(UiKit.label("PROFILE", 50, pal.ui_accent))
 	var who := "Local profile" if not Online.is_signed_in() else Online.player_name()
-	add_child(UiKit.label(who + "  -  Play Games sync coming soon", 18, Color(pal.text, 0.5)))
+	var sync := "  -  saved in this browser" if GameData.is_crazygames() else "  -  Play Games sync coming soon"  # no other platform named on CrazyGames
+	add_child(UiKit.label(who + sync, 18, Color(pal.text, 0.5)))
 	var scroll := DragScroll.new()
-	scroll.custom_minimum_size = Vector2(640, 920)
+	scroll.custom_minimum_size = Vector2(640, UiKit.tall(920, 0.7))
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 14)

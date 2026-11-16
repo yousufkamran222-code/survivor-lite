@@ -25,7 +25,7 @@ func setup(palette: Dictionary, w: World, evo_by_weapon: Dictionary, evo_by_pass
 	head.add_child(UiKit.chip("LV %d" % w.level, pal.ui_accent, Color(0.1, 0.06, 0.15), 22))
 	add_child(head)
 	var scroll := DragScroll.new()
-	scroll.custom_minimum_size = Vector2(640, 900)
+	scroll.custom_minimum_size = Vector2(640, UiKit.tall(900))
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 10)

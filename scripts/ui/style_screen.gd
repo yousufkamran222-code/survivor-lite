@@ -44,7 +44,7 @@ func setup(cosmetics_cfg: Dictionary, palette: Dictionary, back: Callable) -> vo
 	for e in GameData.load_json("res://data/enemies.json"):
 		if str(e.get("id", "")) != "boss":
 			_preview.germ_colors.append(GameData.color(e.color))
-	_preview.custom_minimum_size = Vector2(640, 260)
+	_preview.custom_minimum_size = Vector2(640, UiKit.tall(260, 0.3))
 	add_child(_preview)
 	_info = VBoxContainer.new()
 	_info.add_theme_constant_override("separation", 6)
@@ -54,7 +54,7 @@ func setup(cosmetics_cfg: Dictionary, palette: Dictionary, back: Callable) -> vo
 	_tabs.add_theme_constant_override("separation", 10)
 	add_child(_tabs)
 	_scroll = DragScroll.new()
-	_scroll.custom_minimum_size = Vector2(640, 380)
+	_scroll.custom_minimum_size = Vector2(640, UiKit.tall(380, 0.3))
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid = GridContainer.new()
 	_grid.columns = COLUMNS
