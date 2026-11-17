@@ -51,7 +51,7 @@ Action, Survival, Roguelite, Bullet hell, Upgrade, Arcade, Casual, Io (category 
 | Cover 2:3 | `build/store_kit/cover_portrait_800x1200.png` | 800x1200, title only |
 | Cover 1:1 | `build/store_kit/cover_square_800x800.png` | 800x800, title only |
 | Trailer 16:9 | `build/store_kit/trailer_landscape_1920x1080.mp4` | 1080p, 60 fps, silent, ~19 s, starts on the cover |
-| Trailer 2:3 | `build/store_kit/trailer_portrait_1080x1620.mp4` | 1080x1620, 60 fps, silent, ~19 s, starts on the cover |
+| Trailer 2:3 | `build/store_kit/trailer_portrait_1080x1620.mp4` | 1080x1620, 60 fps, silent, ~17 s, starts on the cover |
 | Game build | `build/crazygames.zip` (`tools/crazygames_build.sh`) or the `crazygames.yml` artifact | |
 
 ## How the footage is made (to redo it after changes)
