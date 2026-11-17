@@ -135,7 +135,7 @@ func _setup() -> void:
 	main._hint_queue = []
 	match shot:
 		"swarm":
-			w.set_ally_order(1)  # Hunt
+			w.set_ally_order(0)  # Guard: a visible bodyguard ring
 		"nucleus":
 			_build_towers(w)
 			w.wave = int(cfg.get("wave", 0))
