@@ -59,3 +59,15 @@ Action, Survival, Roguelite, Bullet hell, Upgrade, Arcade, Casual, Io (category 
 - `tools/footage/edit.py`: `encode` turns frames into a clip; `trailer SPEC.json` cuts clips into a trailer that opens on the cover, with short crossfades.
 - `tools/footage/cover.py`: puts the title (Lilita One, gold with a dark outline) on a rendered frame.
 - Everything is deterministic: the same shot and seed give the same footage.
+
+## Yousuf's publishing checklist (in order)
+1. **Download the store kit** from the cloud session before it ends: `build/store_kit/` (covers, trailers, raw clips; plus `play/` for Google Play). If it's gone, a new session can regenerate it with `tools/footage/` (about 1-2 hours of rendering).
+2. **Create the developer account** at developer.crazygames.com (sign up, verify email).
+3. **Read the developer terms** (linked in the portal, `files.crazygames.com/documents/developer_terms_*.pdf`). Check: the revenue share %, the minimum age (if 18+, a parent may need to own the account), and the exclusivity bonus (+50% for 2 months if the game isn't on other browser portals). Ask their support whether the restricted itch.io playtest page counts; if it does and you want the bonus, unpublish it before Full Launch.
+4. **Billing**: in the portal set up payouts (Tipalti) or choose "Hold payments" for now (needed before submitting).
+5. **Get the game zip**: GitHub → Actions → **CrazyGames build** → Run workflow (branch `claude/bold-brown-h48pfg`) → download the artifact `petri-panic-crazygames-N` (a folder of files; zip it if the portal wants a .zip). Or ask Claude to run `tools/crazygames_build.sh`.
+6. **Test it locally once**: unzip into a new folder, run `python -m http.server 8010` there, open `http://localhost:8010` (fresh port = no cached old build), play a run, check the menu shows the right build SHA.
+7. **Submit a game** in the portal: upload the build; title **Petri Panic**; paste the description, controls and tags from this file; **mobile orientation: portrait**; no multiplayer, no in-game purchases; leave "Progress Save (Data Module)" off for now (no SDK yet).
+8. **Upload the covers** (landscape 1920x1080, portrait 800x1200, square 800x800) and the **two trailers** (16:9 and 2:3) from `build/store_kit/`.
+9. **Preview** it on crazygames.com/preview (desktop: a wide window and fullscreen; phone: portrait), then **submit for QA**.
+10. **After QA → Basic Launch** (7-21 days, at least 500 plays, no ads/revenue). Watch the dashboard: average playtime (target 10+ min), day-1 retention (10-15%), conversion (80%+). Send the numbers to Claude; if invited to Full Launch, ask Claude to do Phase B (SDK ads + Data-module saves) from `docs/CRAZYGAMES_PLAN.md`.

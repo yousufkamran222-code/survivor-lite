@@ -1,4 +1,4 @@
-# CrazyGames build plan (2026-11-15; A1 done, A2 done 2026-11-16: camera + text ×0.75 + every screen fits)
+# CrazyGames build plan (2026-11-17: Phase A done; waiting on Yousuf to submit; Phase B only if invited)
 
 Goal: ship Petri Panic on CrazyGames as a **parallel web launch** while the Play Store verification and 14-day closed test run. Play Store launch prep stays the priority; this fits into the waiting weeks.
 Decisions so far (Yousuf, 2026-11-15): do both; **name stays "Petri Panic"**; on desktop the **dish widens to fill landscape** (no letterbox).
