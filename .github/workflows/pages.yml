@@ -37,6 +37,7 @@ jobs:
           mkdir -p build/web
           godot --headless --path . --export-release "Web" build/web/index.html
           touch build/web/.nojekyll
+          cp site/privacy.html build/web/privacy.html  # the store privacy policy: .../survivor-lite/privacy.html
           ls -la build/web
 
       - uses: actions/upload-pages-artifact@v3

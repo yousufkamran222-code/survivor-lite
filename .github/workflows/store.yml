@@ -75,7 +75,9 @@ jobs:
 
       - name: Stamp version
         run: |
-          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          CODE=$(tools/version_code.sh)  # minutes since 2026-01-01: always rising, shared by APK and AAB
+          sed -i "s/^version\/code=.*/version\/code=${CODE}/" export_presets.cfg
+          echo "versionCode ${CODE}"
           echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
 
       - name: Export AAB

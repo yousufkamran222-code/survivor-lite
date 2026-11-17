@@ -11,6 +11,7 @@ var on_back: Callable
 var debug_fps_default := false
 var dev_meta: Array = []  # permanent-upgrade defs when the developer tools are on (balance.debug.dev_tools)
 var dev_password := ""  # balance.debug.dev_password; empty = no lock
+var privacy_url := ""  # balance.links.privacy_url (set by Main)
 static var dev_unlocked := false  # entered the password this session (until the app closes)
 var _code := ""  # digits typed on the keypad
 
@@ -64,6 +65,10 @@ func _build() -> void:
 		var priv := UiKit.button("Privacy options (ads)", func() -> void: Ads.show_privacy_options(), 70)
 		priv.add_theme_font_size_override("font_size", 22)
 		add_child(priv)
+	if privacy_url != "" and not GameData.is_crazygames():  # store listing requirement; no outside links on CrazyGames
+		var pol := UiKit.button("Privacy policy", func() -> void: OS.shell_open(privacy_url), 70)
+		pol.add_theme_font_size_override("font_size", 22)
+		add_child(pol)
 	if not dev_meta.is_empty():
 		if dev_unlocked or dev_password == "":
 			_dev_rows()

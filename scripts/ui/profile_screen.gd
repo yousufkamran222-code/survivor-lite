@@ -17,7 +17,8 @@ func setup(palette: Dictionary, game_data: Dictionary, back: Callable) -> void:
 	add_theme_constant_override("separation", 12)
 	add_child(UiKit.label("PROFILE", 50, pal.ui_accent))
 	var who := "Local profile" if not Online.is_signed_in() else Online.player_name()
-	var sync := "  -  saved in this browser" if GameData.is_crazygames() else "  -  Play Games sync coming soon"  # no other platform named on CrazyGames
+	# Where the save lives (no promise of features that aren't built: Play Games comes with M3 step 4).
+	var sync := "  -  saved in this browser" if OS.has_feature("web") or GameData.is_crazygames() else "  -  saved on this device"
 	add_child(UiKit.label(who + sync, 18, Color(pal.text, 0.5)))
 	var scroll := DragScroll.new()
 	scroll.custom_minimum_size = Vector2(640, UiKit.tall(920, 0.7))

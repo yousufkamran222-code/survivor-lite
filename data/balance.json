@@ -336,6 +336,10 @@
     "menu_max_fps": 0,
     "pause_max_fps": 30
   },
+  "links": {
+    "_doc": "Settings shows a Privacy policy button that opens privacy_url (site/privacy.html, published by pages.yml). Hidden on the CrazyGames build (no outside links there).",
+    "privacy_url": "https://yousufkamran222-code.github.io/survivor-lite/privacy.html"
+  },
   "debug": {
     "show_perf": true,
     "dev_tools": true,

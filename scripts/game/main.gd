@@ -3209,6 +3209,7 @@ func _build_pause() -> void:
 
 func _settings_screen(back: Callable) -> SettingsScreen:
 	var st := SettingsScreen.new()
+	st.privacy_url = str(bal.get("links", {}).get("privacy_url", ""))
 	st.setup(pal, _apply_settings, back, bool(bal.get("debug", {}).get("show_perf", false)), data.meta if bool(bal.get("debug", {}).get("dev_tools", false)) else [], str(bal.get("debug", {}).get("dev_password", "")))
 	return st
 
