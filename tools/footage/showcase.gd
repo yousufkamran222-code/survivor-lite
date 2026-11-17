@@ -27,6 +27,7 @@ var started := false
 var bot: BalanceBot
 var _fired := {}
 var _path_i := 0
+var _zoom0 := 1.0  # the layout's own camera zoom (landscape), before cfg.zoom
 
 
 func _initialize() -> void:
@@ -92,6 +93,9 @@ func _shot_cfg(name: String) -> Dictionary:
 			return {"mode": "infection", "time": 150.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 4, "orbit": 3, "nova": 3, "swift": 4}, "evolve": [], "warm": 6.0, "dur": 9.0}
 		"boss":  # the Mother Cell: slam telegraphs, phases, the bot dodging
 			return {"mode": "classic", "time": 226.0, "vir": 3, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "nova"], "warm": 5.0, "dur": 12.0}
+		"cover":  # key art: no HUD, camera pushed in, everything evolved, a ring of germs bursting
+			return {"mode": "classic", "time": 246.0, "vir": 4, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "orbit", "nova", "chain"], "warm": 8.6, "dur": 3.0,
+				"hide_hud": true, "zoom": 1.55, "no_numbers": true}
 		"nucleus":  # towers holding the line on a late wave
 			return {"mode": "nucleus", "time": 0.0, "vir": 2, "shop": 0.5, "loadout": {"bolt": 4, "nova": 3, "orbit": 3}, "evolve": [], "warm": 12.0, "dur": 8.0, "wave": 8}
 	return {"mode": "classic", "time": 120.0, "loadout": {}, "evolve": [], "warm": 3.0, "dur": 5.0}
@@ -129,6 +133,9 @@ func _setup() -> void:
 		w.evolved[wid] = w.evolution_defs[wid].id
 	w._recompute_stats()
 	w.p_hp = w.p_max_hp
+	_zoom0 = main.view.base_zoom
+	if cfg.get("no_numbers", false):
+		main.view.bal.perf["max_damage_numbers"] = 0  # clean key art
 	bot = BalanceBot.new(seed_value)
 	main.autopilot = _steer
 	main._hints = []
@@ -157,6 +164,8 @@ func _steer(w: World) -> Vector2:
 		"infection":
 			if t >= warm - 0.3:
 				return _follow_loop(w)
+		"cover":
+			return Vector2.ZERO
 		"outbreak":
 			if t >= warm and t < warm + 3.5:
 				return Vector2.ZERO  # hold still while the ring closes in and bursts
@@ -194,6 +203,8 @@ func _direct() -> void:
 		main._close_chest()
 	w.p_hp = w.p_max_hp
 	var warm := float(cfg.warm)
+	if cfg.has("zoom"):
+		main.view.base_zoom = _zoom0 * float(cfg.zoom)
 	match shot:
 		"outbreak":
 			if _once("ring", warm + 0.2):
@@ -204,6 +215,11 @@ func _direct() -> void:
 				w.outbreak = 1.0
 			if _once("go", warm + 1.6):
 				main._trigger_outbreak()
+		"cover":
+			if _once("ring", warm - 1.1):
+				for k in 72:
+					var a := TAU * k / 72.0
+					w._add_enemy(["swarm", "runner", "grunt", "spitter"][k % 4], w.p_pos + Vector2(cos(a), sin(a)) * (330.0 + 30.0 * (k % 3)))
 		"evolution":
 			if _once("chest", warm + 0.8):
 				w._open_chest(1)
