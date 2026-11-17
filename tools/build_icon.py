@@ -14,6 +14,7 @@ Drawn 4x larger and scaled down (smooth edges). Colours match data/balance.json 
 """
 import math
 import os
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 OUT = "assets/processed/icon"
@@ -27,13 +28,12 @@ GERMS = [(123, 211, 137), (241, 91, 181), (255, 159, 67), (255, 209, 102), (92, 
 
 
 def radial(size, inner, outer, cx=0.5, cy=0.5, reach=0.75):
-    im = Image.new("RGBA", (size, size))
-    px = im.load()
-    for y in range(size):
-        for x in range(size):
-            d = min(1.0, math.hypot(x / size - cx, y / size - cy) / reach)
-            px[x, y] = tuple(int(inner[i] + (outer[i] - inner[i]) * d) for i in range(3)) + (255,)
-    return im
+    g = np.arange(size) / size
+    d = np.minimum(1.0, np.hypot(g[None, :] - cx, g[:, None] - cy) / reach)[..., None]
+    a, b = np.array(inner[:3], float), np.array(outer[:3], float)
+    rgb = (a + (b - a) * d).astype(np.uint8)  # truncates like int() did
+    alpha = np.full((size, size, 1), 255, np.uint8)
+    return Image.fromarray(np.concatenate([rgb, alpha], axis=2), "RGBA")
 
 
 def germ(d, cx, cy, r, col, ss):

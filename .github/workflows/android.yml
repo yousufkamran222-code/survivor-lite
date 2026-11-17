@@ -37,7 +37,7 @@ jobs:
 
       - name: Stamp version
         run: |
-          CODE=$(tools/version_code.sh)  # minutes since 2026-01-01: always rising, shared by APK and AAB
+          CODE=$(tools/version_code.sh apk)  # 2 x seconds since 2026-01-01 (even): always rising, never equal to an AAB
           sed -i "s/^version\/code=.*/version\/code=${CODE}/" export_presets.cfg
           echo "versionCode ${CODE}"
           echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
@@ -66,6 +66,13 @@ jobs:
           fi
           ls -la build/android
           test -s build/android/petri-panic.apk
+
+      - name: Privacy policy is live (warning only for test APKs)
+        run: |
+          URL=$(python3 -c "import json; print(json.load(open('data/balance.json'))['links']['privacy_url'])")
+          if ! PAGE=$(curl -fsSL --max-time 20 "$URL"); then echo "::warning::$URL does not load: the Settings privacy link is a 404 until pages.yml runs."
+          elif echo "$PAGE" | grep -q "CONTACT_EMAIL"; then echo "::warning::$URL still shows the CONTACT_EMAIL placeholder."
+          else echo "privacy policy OK: $URL"; fi
 
       - uses: actions/upload-artifact@v4
         with:

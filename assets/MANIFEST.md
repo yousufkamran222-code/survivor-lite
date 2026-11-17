@@ -9,7 +9,7 @@ Every asset file must be listed here with its source and licence. **CC0 or self-
 | `assets/raw/sfx_cc0/*/*.wav` | CC0 recordings from OpenGameArt (EZduzziteh, Independent.nu, qubodup, StarNinjas, Joth), converted to mono WAV; per-file sources in `assets/raw/sfx_cc0/SOURCES.md` (`.gdignore`: not imported) | CC0 |
 | `assets/raw/juhani_junkala_action_chiptunes/*.ogg` | Juhani Junkala, "5 Chiptunes (Action)" ([OpenGameArt](https://opengameart.org/content/5-chiptunes-action)); the pack's WAVs re-encoded to OGG Vorbis q3 (`ffmpeg -c:a libvorbis -q:a 3`), renamed `title_screen`, `level_1..3`, `ending`; `INFO.txt` is the pack's licence note | CC0 |
 | `icon.svg` | Hand-written SVG in this repo (old placeholder icon, kept for reference) | Original work (project-owned) |
-| `assets/processed/icon/*.png` | Drawn by `tools/build_icon.py` (app icon: full 512/192 + adaptive foreground/background/monochrome) | Original work (project-owned) |
+| `assets/processed/icon/*.png` | Drawn by `tools/build_icon.py` (numpy + Pillow; not part of `build_assets.py`) (app icon: full 512/192 + adaptive foreground/background/monochrome) | Original work (project-owned) |
 
 Raw third-party inputs (e.g. Kenney CC0 packs) go in `assets/raw/<pack-name>/`, together with the pack's licence file and a row in this table.
 | `assets/raw/lilita_one/LilitaOne-Regular.ttf` + `OFL.txt` | Lilita One by Juan Montoreano, from the Google Fonts repository (github.com/google/fonts, `ofl/lilitaone`); unmodified (the name "Lilita" is a Reserved Font Name, so the file must not be altered) | SIL Open Font License 1.1 |

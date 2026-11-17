@@ -26,7 +26,7 @@ Collected 2026-11-05 from an independent "Play Store critic" review of the whole
 - [x] The level-up card reads "Evolves max Antibodies" (unclear); the first level-up is titled "LEVEL 1". (Done 2026-11-14: the chip reads "Max Antibodies + this = Immune Wall"; the title already showed the real level.)
 - [ ] English only, strings hard-coded in `main.gd` and the UI (no `tr()`), so localising the store listing or game later is costly.
 - [ ] Accessibility: meaning carried by colour (germ types, branches, rarity); no colour-blind palette or text-size option; low-contrast grey-on-purple secondary text.
-- [x] `version/code` comes from the CI run number; pin a monotonic scheme before M5. (Done 2026-11-17: `tools/version_code.sh`, minutes since 2026-01-01, shared by android.yml and store.yml.)
+- [x] `version/code` comes from the CI run number; pin a monotonic scheme before M5. (Done 2026-11-17: `tools/version_code.sh`, 2 x seconds since 2026-01-01, +1 for the store AAB, shared by android.yml and store.yml.)
 - [ ] Shelved Boss Rift code, hints and analytics ship though disabled.
 - [x] Leaderboards/achievements go to a local stub; if their UI is visible at launch it will look broken. (Checked 2026-11-17: there is no leaderboard UI; achievements are tracked locally and work; the Profile line no longer promises "Play Games sync coming soon".)
 - [ ] The package name `com.yousufkamran.petripanic` is permanent once uploaded; confirm it's intended.

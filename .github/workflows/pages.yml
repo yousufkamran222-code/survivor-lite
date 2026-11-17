@@ -28,6 +28,14 @@ jobs:
         with:
           templates: "true"
 
+      - name: Privacy policy has a real contact
+        run: |
+          # site/privacy.html ships with a CONTACT_EMAIL placeholder; never publish it.
+          if grep -q "CONTACT_EMAIL" site/privacy.html; then
+            echo "::error::site/privacy.html still contains the CONTACT_EMAIL placeholder. Put a real contact address in it before deploying."
+            exit 1
+          fi
+
       - name: Stamp build info
         run: |
           echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json

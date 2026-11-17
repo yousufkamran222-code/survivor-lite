@@ -67,8 +67,9 @@ def screenshot(frame, caption, out):
     W, H = 1080, 1920
     img = vgrad(W, H, BG_TOP, BG_BOT).convert("RGBA")
     fr = Image.open(frame).convert("RGB")
-    # The frame below the caption: 82% size, centred, rounded, outlined.
-    k = 0.82
+    # The frame below the caption: at most 82% size (smaller if a wide or tall
+    # frame would not fit under the caption), centred, rounded, outlined.
+    k = min(0.82, (W - 60) / fr.width, (H - 300) / fr.height)
     fw, fh = int(fr.width * k), int(fr.height * k)
     fr = fr.resize((fw, fh), Image.LANCZOS)
     x0, y0 = (W - fw) // 2, H - fh - 70
@@ -90,7 +91,9 @@ def feature(frame, out):
     k = max(W / fr.width, H / fr.height) * 1.15  # a little zoom: the cell bigger
     fr = fr.resize((int(fr.width * k), int(fr.height * k)), Image.LANCZOS)
     x0 = (fr.width - W) // 2
-    y0 = 0  # top of the frame: the cell sits in the lower half, under the title
+    # The camera follows the player, so the cell is at the frame's centre: put
+    # it at 64% of the banner height, under the title (clamped to the frame).
+    y0 = max(0, min(fr.height - H, int(fr.height / 2 - H * 0.64)))
     img = fr.crop((x0, y0, x0 + W, y0 + H)).convert("RGBA")
     shade = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(shade)
@@ -103,11 +106,16 @@ def feature(frame, out):
     print(out)
 
 
+USAGE = "usage: build_store_art.py shots SPEC.json OUT_DIR | feature FRAME.png OUT.png"
+
 if __name__ == "__main__":
-    if sys.argv[1] == "shots":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd not in ("shots", "feature") or len(sys.argv) != 4:
+        sys.exit(USAGE)
+    if cmd == "shots":
         spec = json.load(open(sys.argv[2]))
         os.makedirs(sys.argv[3], exist_ok=True)
         for i, s in enumerate(spec, 1):
             screenshot(s["frame"], s["caption"], os.path.join(sys.argv[3], f"screenshot_{i}.png"))
-    elif sys.argv[1] == "feature":
+    else:
         feature(sys.argv[2], sys.argv[3])

@@ -75,7 +75,7 @@ jobs:
 
       - name: Stamp version
         run: |
-          CODE=$(tools/version_code.sh)  # minutes since 2026-01-01: always rising, shared by APK and AAB
+          CODE=$(tools/version_code.sh store)  # 2 x seconds since 2026-01-01 + 1 (odd): always rising, never equal to an APK
           sed -i "s/^version\/code=.*/version\/code=${CODE}/" export_presets.cfg
           echo "versionCode ${CODE}"
           echo "{\"sha\": \"${GITHUB_SHA::7}\", \"run\": ${GITHUB_RUN_NUMBER}, \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > data/build_info.json
@@ -105,6 +105,19 @@ jobs:
           godot --headless --path . --export-release "Android Store" build/android/petri-panic.aab
           ls -la build/android
           test -s build/android/petri-panic.aab
+
+      - name: Privacy policy is live
+        run: |
+          # The in-game Settings button opens balance.links.privacy_url, which only
+          # exists after pages.yml has run. Play needs a working policy link.
+          URL=$(python3 -c "import json; print(json.load(open('data/balance.json'))['links']['privacy_url'])")
+          problem=""
+          if ! PAGE=$(curl -fsSL --max-time 20 "$URL"); then problem="$URL does not load (run pages.yml first)"
+          elif echo "$PAGE" | grep -q "CONTACT_EMAIL"; then problem="$URL still shows the CONTACT_EMAIL placeholder"
+          fi
+          if [ -z "$problem" ]; then echo "privacy policy OK: $URL"
+          elif [ "${SIGNED:-}" = "upload" ]; then echo "::error::$problem"; exit 1
+          else echo "::warning::$problem"; fi
 
       - name: Check 16 KB page alignment (arm64 native libraries)
         run: |

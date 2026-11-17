@@ -18,6 +18,7 @@ godot --headless --path . --import                          # first time / after
 godot --headless --path . -s res://tests/run_tests.gd       # all tests, exit 1 on failure
 godot --headless --path . -s res://tools/sim/balance_sim.gd -- --runs 12 --seed 100   # balance report (JSON)
 python3 tools/build_assets.py                               # regenerate assets/processed (needs numpy)
+python3 tools/build_icon.py                                 # regenerate assets/processed/icon (needs numpy + Pillow)
 godot --headless --path . --export-release "Web" build/web/index.html   # needs export templates
 ```
 The cloud sandbox can download Godot and the templates from GitHub releases and run all of the above. The web build can be screenshotted with Playwright plus Chromium (`--use-angle=swiftshader`) to check the UI.
@@ -67,7 +68,7 @@ assets/processed/    Generated outputs (committed with their .import files). ass
 3b. **Saves:** never change the save format without bumping `Profile.VERSION` and handling old data in `Profile.from_dict()`. Never lose player progress.
 4. Analytics only through `Analytics.event(name, params)`, with snake_case names of 40 characters or fewer.
 5. **Never commit secrets**: keystores, passwords, service-account JSON, real AdMob IDs. CI injects them from GitHub secrets. Use AdMob **test IDs** in code.
-6. Assets: CC0 only (fonts may also be SIL OFL, unmodified), and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py`.
+6. Assets: CC0 only (fonts may also be SIL OFL, unmodified), and every non-generated file gets a line in `assets/MANIFEST.md`. Processed assets are rebuilt by `tools/build_assets.py` (app icons: `tools/build_icon.py`).
 7. Prefer data edits over code edits, and small diffs over refactors. Don't rename or move files without a reason.
 8. v1 scope cap: 1 character, 1 map, 8 or fewer enemy types, about 16 shared upgrades (incl. 5 dash cards), 4 evolutions (one per weapon), up to 4 tower types (Nucleus mode only, reusing the weapons), 4 Lab branches with 4 keystones (+ up to 8 abilities, phase 2), game modes are allowed (`data/modes.json`) (enforced by `tests/test_data.gd` and `tests/test_loot.gd`). Push new ideas to `docs/SPEC.md` "Later".
 9. Turn playtest feedback ("dash feels floaty", "wave 4 too hard") into data changes first, using `balance.json` `juice` and `waves.json`.
