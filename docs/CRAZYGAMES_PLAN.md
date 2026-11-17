@@ -57,7 +57,7 @@ So the work splits into **Phase A (Basic Launch build)** and **Phase B (Full Lau
 - Chromebook (4 GB) smoothness: Graphics = Fast by default on web already; check a 1920x1080 fullscreen frame in the render bench.
 - Sitelock: the build only runs on CrazyGames domains and localhost: test locally from `127.0.0.1`.
 
-**A5. Store assets and submission** (mostly Yousuf; reusable for the Play Store)
+**A5. Store assets and submission** (covers + trailers + page text **made 2026-11-17**: `build/store_kit/`, `docs/CRAZYGAMES_SUBMISSION.md`; left for Yousuf: account, terms, upload)
 - 3 covers: 1920x1080 (16:9), 800x1200 (2:3), 800x800 (1:1); only the title as text, no borders/icons/logos. These decide the CTR metric, so they're worth real effort.
 - 2 trailers, 15-20 s, silent, no black bars or "Play now" text, starting on the cover: one 1080p 16:9 (landscape build), one 1080p 2:3 (portrait). Option: record bot runs with Godot Movie Maker, then edit.
 - Page text: description, controls (desktop keys + mobile touch), tags (survivor, roguelite, io-like), mobile orientation **portrait**.
