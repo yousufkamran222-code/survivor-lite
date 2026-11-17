@@ -78,20 +78,22 @@ func _shot_cfg(name: String) -> Dictionary:
 	match name:
 		"horde":  # final minute, everything evolved, the bot kiting through a full dish
 			return {"mode": "classic", "time": 246.0, "vir": 4, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "orbit", "nova", "chain"], "warm": 8.0, "dur": 12.0}
-		"outbreak":  # a packed ring of germs, then OUTBREAK: frenzy + gold blast (+ MEGA KILL)
-			return {"mode": "classic", "time": 150.0, "loadout": {"bolt": 4, "nova": 5, "regen": 3, "orbit": 3, "might": 3}, "evolve": ["nova"], "warm": 3.0, "dur": 7.0}
-		"evolution":  # a chest that evolves Pulse Bolt into Cytotoxic Storm
-			return {"mode": "classic", "time": 140.0, "loadout": {"bolt": 5, "multishot": 2, "nova": 3, "might": 2}, "evolve": [], "warm": 2.0, "dur": 8.0}
-		"dash":  # four quick dashes through the crowd: Overdrive
-			return {"mode": "classic", "time": 200.0, "loadout": {"bolt": 4, "orbit": 4, "nova": 3, "afterimage": 3, "lunge": 3, "flagella2": 2}, "evolve": [], "warm": 4.0, "dur": 6.0}
+		"outbreak":  # a ring of germs closes in, then OUTBREAK: frenzy + gold blast (+ MEGA KILL)
+			return {"mode": "classic", "time": 244.0, "vir": 4, "shop": 0.5, "loadout": {"bolt": 5, "multishot": 2, "nova": 5, "regen": 3, "orbit": 4, "might": 4}, "evolve": ["nova", "bolt"], "warm": 7.0, "dur": 6.5,
+				"look": {"pop": "jackpot"}}
+		"evolution":  # a chest that evolves Pulse Bolt into Cytotoxic Storm, mid-fight
+			return {"mode": "classic", "time": 236.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 5, "multishot": 2, "nova": 4, "orbit": 3, "might": 3}, "evolve": [], "warm": 8.0, "dur": 9.0}
+		"dash":  # four quick dashes through the crowd: Perfect Dodge + Overdrive
+			return {"mode": "classic", "time": 250.0, "vir": 4, "shop": 0.5, "loadout": {"bolt": 5, "orbit": 4, "nova": 4, "chain": 3, "afterimage": 3, "lunge": 3, "flagella2": 2, "might": 3}, "evolve": [], "warm": 8.0, "dur": 6.0,
+				"look": {"trail": "comet", "skin": "galaxy"}}
 		"swarm":  # an ally army on Hunt
-			return {"mode": "swarm", "time": 210.0, "loadout": {"bolt": 4, "nova": 3, "viral": 5, "hive": 5, "incubate": 3, "might": 3}, "evolve": [], "warm": 25.0, "dur": 8.0}
+			return {"mode": "swarm", "time": 230.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 4, "nova": 3, "viral": 5, "hive": 5, "incubate": 3, "might": 3}, "evolve": [], "warm": 25.0, "dur": 8.0}
 		"infection":  # leave your land, loop round, claim a big slice of the dish
-			return {"mode": "infection", "time": 120.0, "loadout": {"bolt": 4, "orbit": 3, "nova": 3, "swift": 4}, "evolve": [], "warm": 3.0, "dur": 9.0}
-		"boss":  # the Mother Cell: slam telegraphs, phases, dashes out of the slam
-			return {"mode": "classic", "time": 226.0, "loadout": strong, "evolve": ["bolt", "nova"], "warm": 5.0, "dur": 12.0}
+			return {"mode": "infection", "time": 150.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 4, "orbit": 3, "nova": 3, "swift": 4}, "evolve": [], "warm": 6.0, "dur": 9.0}
+		"boss":  # the Mother Cell: slam telegraphs, phases, the bot dodging
+			return {"mode": "classic", "time": 226.0, "vir": 3, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "nova"], "warm": 5.0, "dur": 12.0}
 		"nucleus":  # towers holding the line on a late wave
-			return {"mode": "nucleus", "time": 0.0, "loadout": {"bolt": 4, "nova": 3, "orbit": 3}, "evolve": [], "warm": 10.0, "dur": 8.0}
+			return {"mode": "nucleus", "time": 0.0, "vir": 2, "shop": 0.5, "loadout": {"bolt": 4, "nova": 3, "orbit": 3}, "evolve": [], "warm": 12.0, "dur": 8.0, "wave": 8}
 	return {"mode": "classic", "time": 120.0, "loadout": {}, "evolve": [], "warm": 3.0, "dur": 5.0}
 
 
@@ -108,6 +110,11 @@ func _prepare_profile() -> void:
 	sv.mode = str(cfg.mode)
 	sv.profile.settings["dev_all_virulence"] = true
 	sv.profile.set_virulence(str(cfg.mode), int(cfg.get("vir", 1)))
+	sv.profile.settings["dev_all_cosmetics"] = true
+	sv.profile.settings["cosmetics"] = {}
+	var look: Dictionary = cfg.get("look", {})
+	for cat in look:
+		Cosmetics.equip(main.data.cosmetics, sv.profile, str(look[cat]))
 
 
 func _setup() -> void:
@@ -131,6 +138,8 @@ func _setup() -> void:
 			w.set_ally_order(1)  # Hunt
 		"nucleus":
 			_build_towers(w)
+			w.wave = int(cfg.get("wave", 0))
+			w.wave_t = 0.5
 
 
 func _build_towers(w: World) -> void:
@@ -143,9 +152,14 @@ func _build_towers(w: World) -> void:
 # ---------------------------------------------------------------- driving
 
 func _steer(w: World) -> Vector2:
+	var warm := float(cfg.warm)
 	match shot:
 		"infection":
-			return _follow_loop(w)
+			if t >= warm - 0.3:
+				return _follow_loop(w)
+		"outbreak":
+			if t >= warm and t < warm + 3.5:
+				return Vector2.ZERO  # hold still while the ring closes in and bursts
 	return bot.move(w)
 
 
@@ -182,20 +196,20 @@ func _direct() -> void:
 	var warm := float(cfg.warm)
 	match shot:
 		"outbreak":
-			if _once("ring", warm - 1.2):
-				for k in 70:
-					var a := TAU * k / 70.0
-					w._add_enemy("swarm", w.p_pos + Vector2(cos(a), sin(a)) * (200.0 + 60.0 * (k % 3)))
-			if _once("fill", warm - 0.3):
+			if _once("ring", warm + 0.2):
+				for k in 96:
+					var a := TAU * k / 96.0
+					w._add_enemy("swarm" if k % 4 else "runner", w.p_pos + Vector2(cos(a), sin(a)) * (390.0 + 40.0 * (k % 3)))
+			if _once("fill", warm + 0.6):
 				w.outbreak = 1.0
-			if _once("go", warm + 0.8):
+			if _once("go", warm + 1.6):
 				main._trigger_outbreak()
 		"evolution":
-			if _once("chest", warm + 0.5):
+			if _once("chest", warm + 0.8):
 				w._open_chest(1)
-			if main.screen == "chest" and t > warm + 2.6:
+			if main.screen == "chest" and t > warm + 3.0:
 				main._close_chest()
 		"dash":
 			for k in 4:
-				if _once("dash%d" % k, warm + 0.6 + k * 0.55):
+				if _once("dash%d" % k, warm + 0.8 + k * 0.5):
 					w.dash()
