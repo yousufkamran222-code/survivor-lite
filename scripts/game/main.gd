@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
 var crazygames := GameData.is_crazygames()  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var autopilot := Callable()  # tools/footage/showcase.gd steers the cell (unset in the game)
 var _hud_hand := false  # the mouse is on a HUD button (pointing-hand cursor)
 var landscape := false  # CrazyGames build in a wide window: landscape layout (_apply_orientation)
 var screen := "menu"  # menu | playing | levelup | chest | dead | results | paused
@@ -305,6 +306,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _move_input() -> Vector2:
 	if _bench != null:
 		return _bench_bot.move(world)
+	if autopilot.is_valid():
+		return autopilot.call(world)  # tools/footage: a scripted or bot driver
 	var v := Vector2.ZERO
 	if hud.stick_active:
 		v = (hud.stick_pos - hud.stick_origin) / hud.stick_radius

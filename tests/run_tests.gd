@@ -14,6 +14,10 @@ func _initialize() -> void:
 	var failed: Array = []
 	for f in files:
 		var script: GDScript = load("res://tests/" + f)
+		if script == null or not script.can_instantiate():  # a parse error: report it instead of hanging
+			total += 1
+			failed.append("%s: does not load (parse error above)" % f)
+			continue
 		var inst: Object = script.new()
 		for m in inst.get_method_list():
 			var name: String = m.name
