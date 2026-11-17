@@ -94,8 +94,8 @@ func _shot_cfg(name: String) -> Dictionary:
 		"boss":  # the Mother Cell: slam telegraphs, phases, the bot dodging
 			return {"mode": "classic", "time": 226.0, "vir": 3, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "nova"], "warm": 5.0, "dur": 12.0}
 		"cover":  # key art: no HUD, camera pushed in, everything evolved, a ring of germs bursting
-			return {"mode": "classic", "time": 246.0, "vir": 4, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "orbit", "nova", "chain"], "warm": 8.6, "dur": 3.0,
-				"hide_hud": true, "zoom": 1.55, "no_numbers": true}
+			return {"mode": "classic", "time": 200.0, "vir": 4, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "orbit", "nova", "chain"], "warm": 8.0, "dur": 2.0,
+				"hide_hud": true, "zoom": 1.45, "no_numbers": true}
 		"nucleus":  # towers holding the line on a late wave
 			return {"mode": "nucleus", "time": 0.0, "vir": 2, "shop": 0.5, "loadout": {"bolt": 4, "nova": 3, "orbit": 3}, "evolve": [], "warm": 12.0, "dur": 8.0, "wave": 8}
 	return {"mode": "classic", "time": 120.0, "loadout": {}, "evolve": [], "warm": 3.0, "dur": 5.0}
@@ -217,10 +217,10 @@ func _direct() -> void:
 			if _once("go", warm + 1.6):
 				main._trigger_outbreak()
 		"cover":
-			if _once("ring", warm - 1.1):
-				for k in 72:
-					var a := TAU * k / 72.0
-					w._add_enemy(["swarm", "runner", "grunt", "spitter"][k % 4], w.p_pos + Vector2(cos(a), sin(a)) * (330.0 + 30.0 * (k % 3)))
+			if _once("ring", warm - 0.5):
+				for k in 84:
+					var a := TAU * k / 84.0
+					w._add_enemy(["swarm", "runner", "grunt", "spitter"][k % 4], w.p_pos + Vector2(cos(a), sin(a)) * (380.0 + 36.0 * (k % 3)))
 		"evolution":
 			if _once("chest", warm + 0.8):
 				w._open_chest(1)

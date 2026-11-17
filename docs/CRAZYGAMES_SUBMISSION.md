@@ -1,0 +1,61 @@
+# CrazyGames submission kit (draft 2026-11-17)
+
+Everything the developer-portal form asks for, ready to paste. Files are made by `tools/footage/` (see the end).
+
+## Title
+Petri Panic
+
+## Short description (one line)
+Grow from one white cell into an unstoppable infection: dodge, dash and evolve your way through a dish full of germs.
+
+## Description
+You are a single white cell dropped into a petri dish that is swarming with germs. Your weapons fire on their own, so all you do is move, dash and choose how to grow.
+
+Every germ you pop drops XP. Level up to pick 1 of 3 upgrades, max a weapon and its partner to EVOLVE it into something ridiculous, and keep a kill streak going to power up even more. When the dish gets crowded, unleash an OUTBREAK and turn the crowd into gold. Survive five minutes and the Mother Cell herself, then spend your gold on permanent upgrades and come back stronger.
+
+- 4 modes: Classic survival, Infection (loop out and claim the dish), Swarm (turn germs into an army) and Nucleus (defend the core with towers)
+- 4 weapons, each with its own evolution
+- Skill moves: Perfect Dodge, Overdrive, Clutch Claims and MEGA KILLS
+- Virulence 1-10 difficulty ladder, a skill tree (The Lab), abilities and daily missions
+- 45 cosmetics: cell skins, weapon styles, kill effects and dash trails
+
+## Controls
+Desktop:
+- WASD or arrow keys: move
+- Space: dash
+- E: open your banked upgrades
+- Q: Outbreak
+- R: ability
+- B: see your build
+- 1-3: Swarm orders / 1-4: build towers (Nucleus)
+- P: pause
+- Mouse: click buttons; you can also drag to move
+
+Mobile (portrait): drag anywhere to move, tap DASH and the other buttons.
+
+## Tags / category
+Action, Survival, Roguelite, Bullet hell, Upgrade, Arcade, Casual, Io (category suggestion: Action)
+
+## Technical answers
+- Orientation on mobile: **portrait**. Desktop plays in landscape.
+- Engine: Godot 4.7 (web export, no threads, no special server headers).
+- Initial download: ~15 MB.
+- Progress save: local for now (Data Module integration comes with Full Launch).
+- Ads: none (Basic Launch). In-game purchases: none.
+- Multiplayer: no.
+
+## Files
+| Item | File (made locally, not in git) | Spec |
+|---|---|---|
+| Cover 16:9 | `build/store_kit/cover_landscape_1920x1080.png` | 1920x1080, title only |
+| Cover 2:3 | `build/store_kit/cover_portrait_800x1200.png` | 800x1200, title only |
+| Cover 1:1 | `build/store_kit/cover_square_800x800.png` | 800x800, title only |
+| Trailer 16:9 | `build/store_kit/trailer_landscape_1920x1080.mp4` | 1080p, 60 fps, silent, ~19 s, starts on the cover |
+| Trailer 2:3 | `build/store_kit/trailer_portrait_1080x1620.mp4` | 1080x1620, 60 fps, silent, ~19 s, starts on the cover |
+| Game build | `build/crazygames.zip` (`tools/crazygames_build.sh`) or the `crazygames.yml` artifact | |
+
+## How the footage is made (to redo it after changes)
+- `tools/footage/showcase.gd`: plays a scripted shot of the real game (bot or scripted path, invincible) at a fixed 60 fps and saves PNG frames. Shots: horde, outbreak, evolution, dash, swarm, infection, boss, nucleus, cover. Landscape = `--crazygames` at 1920x1080; portrait = 1080x1620.
+- `tools/footage/edit.py`: `encode` turns frames into a clip; `trailer SPEC.json` cuts clips into a trailer that opens on the cover, with short crossfades.
+- `tools/footage/cover.py`: puts the title (Lilita One, gold with a dark outline) on a rendered frame.
+- Everything is deterministic: the same shot and seed give the same footage.
