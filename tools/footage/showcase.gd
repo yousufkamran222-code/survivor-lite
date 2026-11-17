@@ -133,6 +133,7 @@ func _setup() -> void:
 		w.evolved[wid] = w.evolution_defs[wid].id
 	w._recompute_stats()
 	w.p_hp = w.p_max_hp
+	main.hud.show_perf = false  # the playtest FPS readout never goes in footage
 	_zoom0 = main.view.base_zoom
 	if cfg.get("no_numbers", false):
 		main.view.bal.perf["max_damage_numbers"] = 0  # clean key art
