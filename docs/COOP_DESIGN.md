@@ -1,6 +1,6 @@
 # Co-op mode: design and feasibility
 
-**Status:** idea / design draft (2026-11-05). **Not before launch:** planned as a post-launch update, once the game is on Google Play. Nothing here is built. Open decisions are marked **[decide]**.
+**Status:** idea / design draft (2026-11-05; networking revised 2026-11-19, D-048). **Not before launch:** planned as a post-launch update, once the game is on Google Play. Nothing here is built. Open decisions are marked **[decide]**.
 
 **2026-11-11 (D-043):** Yousuf wants online co-op **as soon as possible after launch**. An **AI partner** (the balance bot as a teammate, so the co-op modes can be played without another person) ships **at the same time** as real co-op, not as an earlier release; it is still built first internally because it tests the per-player refactor without networking. The game design (§4-5) stays open for now. Since this draft, `world.gd` grew to ~4,000 lines and gained more single-player state (skill moves, streak buffs, abilities, tutorial), and Main's slow motion (MEGA KILL, boss kill, tutorial) scales the whole World's dt, so in co-op it must be off or presentation only. Tooling: host and client can run as two headless Godot instances over ENet on localhost, so sync can be tested in the cloud before any phone test.
 
@@ -33,7 +33,9 @@ The hard parts:
 
 **Rejected: lockstep** (every phone simulates the same World from shared inputs). It needs bit-identical results on every device. GDScript maths (sin/cos, float rounding) can differ between phones, and one laggy phone stalls everyone. Not worth the risk on Android.
 
-**Transport:** Godot's high-level multiplayer API (`MultiplayerAPI` + ENet for LAN, or WebRTC / the relay service's transport online), behind a new facade so no SDK calls leak into gameplay code (same rule as `Ads` and `Online`).
+**Transport (revised 2026-11-19, D-048):** the CrazyGames build runs in a browser, and browsers can't use ENet (UDP), so online play uses **WebSocket** (`WebSocketMultiplayerPeer`, built into Godot's web and Android exports) through a relay. The same relay serves both builds, so Play and CrazyGames players can play together with a room code. All of it sits behind a new facade so no SDK or server calls leak into gameplay code (same rule as `Ads` and `Online`). ENet stays useful only for headless host+client tests in the cloud.
+
+**CrazyGames multiplayer rules** (docs.crazygames.com/requirements/multiplayer, read 2026-11-19): rooms must be reported through their SDK (`game.updateRoom` with `roomId`/`isJoinable`, a join-room listener, `isInstantMultiplayer` → the first player lands in a private room their friends can join at once), joiners must be able to skip onboarding, CrazyGames usernames shown in game, lobby size given at upload, and any chat needs moderation (so: **no chat**). Peer-to-peer rooms are allowed. A multiplayer game with a single-player part still goes through Basic Launch. So co-op on CrazyGames pulls the SDK work (CRAZYGAMES_PLAN Phase B) forward.
 
 ## 4. Features
 ### 4.1 Co-op core (Classic or Infection, V1)
@@ -80,7 +82,13 @@ The hard parts:
 6. **Co-op leaderboards and achievements:** probably yes, via `Online`.
 
 ## 6. Lobby / relay service options
-Needed for online play (not for same-Wi-Fi play).
+Needed for online play. **Constraint (D-048): free only, no paid servers.**
+
+**Chosen (2026-11-19): Cloudflare Workers + Durable Objects, free plan.** One Durable Object per room relays WebSocket messages between host and clients (a small JavaScript worker, kept in the repo). Free plan, checked on developers.cloudflare.com 2026-11-19: 100,000 requests and 13,000 GB-s a day (reset 00:00 UTC). **Over the quota, calls fail instead of billing.** Incoming WebSocket messages count 20:1 as requests, outgoing ones are free, and each room is billed at 128 MB while it is active. Rough capacity for 2 players (host snapshots 20/s + client input 20/s): ~600 requests and ~38 GB-s per 5-minute run → **about 160 co-op runs a day** (the request quota is the limit). Ways to stretch it: send input only when it changes, batch events into snapshots, 15 Hz snapshots. Check at sign-up whether a card is asked for.
+
+**Fallback if that gets tight:** WebRTC peer-to-peer (`WebRTCMultiplayerPeer`; Android needs the webrtc-native GDExtension, the browser has it built in) with Cloudflare only for signalling, so game traffic never touches the quota. About 10-20% of mobile connections need a TURN relay: Metered's free "Open Relay" (20 GB/month, needs an API key; check the terms then).
+
+Ruled out: W4 Cloud (hosted tiers paid, from ~$45/month), Epic Online Services (no web SDK as far as we know, so no CrazyGames), Oracle/Google "always free" VMs (need a card), Nakama cloud (paid; self-host needs a server). Older comparison:
 
 | Option | Cost | Notes |
 |---|---|---|
