@@ -1,4 +1,4 @@
-# CrazyGames build plan (2026-11-17: Phase A done; waiting on Yousuf to submit; Phase B only if invited)
+# CrazyGames build plan (2026-11-26: Phase A submitted to QA; A6 (SDK for the mobile homepage) agreed for later; Phase B only if invited)
 
 Goal: ship Petri Panic on CrazyGames as a **parallel web launch** while the Play Store verification and 14-day closed test run. Play Store launch prep stays the priority; this fits into the waiting weeks.
 Decisions so far (Yousuf, 2026-11-15): do both; **name stays "Petri Panic"**; on desktop the **dish widens to fill landscape** (no letterbox).
@@ -64,6 +64,12 @@ So the work splits into **Phase A (Basic Launch build)** and **Phase B (Full Lau
 - His account steps: CrazyGames developer account, billing (Tipalti, or "Hold payments"), **read the developer terms** (revenue share, minimum age, exclusivity bonus: +50% for 2 months if not on other browser portals; ask whether the restricted itch playtest page counts).
 - Preview the upload on crazygames.com/preview, then submit → Initial QA → Basic Launch.
 
+**A6. Minimal SDK for the mobile homepage (agreed 2026-11-26, not started: Yousuf will say when)**
+Found at upload: without the SDK the portal counts the **total uncompressed file size** (44.1 MB: `index.wasm` ~38 MB is the Godot engine, `index.pck` ~6 MB), and only games with an initial download **under 20 MB** can appear on the **mobile homepage** (the 50 MB hard limit passes). Compressed (gzip -9) the build is ~15 MB (wasm 9.6 + pck 5.5). With the SDK, the initial download is measured from the start of loading to the first `gameplayStart`; their docs don't say whether that is compressed bytes. He submitted without it (option A) so QA could start.
+- **Do (B, agreed):** add the CrazyGames SDK in the CrazyGames preset only (no ads in Basic Launch): `loadingStart/Stop` and `gameplayStart/Stop` (run start/resume vs. menus, pause, level-up picker, results), behind a facade (rule 3), nothing else reads it. Upload as a **new version of the same game** and read the size the portal measures. This is also the first part of B1, so B1 later only adds ads.
+- **If still ≥ 20 MB (C, decide then):** a slimmer engine: a custom Godot 4.7.2 web export template with 3D and unused modules disabled (scons `disable_3d=yes`, a `custom.py` profile / build-profile file), built in CI and used by the CrazyGames preset only. Several hours; check the 2D Compatibility renderer still draws everything the same (footage/screenshot compare) and re-run the tests.
+- Keep watching the size: the 50 MB limit leaves ~6 MB of room for new assets while the SDK is absent.
+
 ## Phase B: Full Launch (only if invited)
 **B1. CrazyGames SDK behind our facades** (rule 3: no SDK calls outside `Ads`/`Online`/`Save`)
 - Godot 4 addon (`crazysdk-godot-4`, Godot Asset Library beta store): pin a version, check its licence and Godot 4.7 support, excluded from the Android and itch presets.
@@ -87,6 +93,7 @@ So the work splits into **Phase A (Basic Launch build)** and **Phase B (Full Lau
 | A3 desktop prompts, A4 checks + Skip tutorial | Claude | 1 session |
 | A5 covers, trailers, page text | Yousuf (with help: Movie Maker clips, cover drafts) | several hours |
 | Submit → QA → Basic Launch (7-21 days) | Yousuf | waiting |
+| A6 minimal SDK (mobile homepage), when he says | Claude | under 1 session (+ C: 1 session if needed) |
 | B1-B3 if invited | Claude | 1-2 sessions |
 
 ## Open questions for Yousuf
