@@ -145,3 +145,34 @@ func test_web_overrides_are_visual_only() -> void:
 	var d2 := data().duplicate(true)
 	GameData.apply_web_build(d2, false)
 	check_eq(int(d2.balance.perf.max_effects), int(before.max_effects), "native builds unchanged")
+
+
+## Web builds have no system-font fallback: a character missing from both
+## fonts shows as a box (a "→" did on the level-up card, 2026-11-26). Every
+## non-ASCII character in a script or data string must be in both fonts.
+func test_text_glyphs_exist_in_fonts() -> void:
+	var lilita: Font = load("res://assets/raw/lilita_one/LilitaOne-Regular.ttf")
+	var files: Array[String] = []
+	for dir in ["res://scripts", "res://data"]:
+		_collect_text_files(dir, files)
+	var re := RegEx.create_from_string("\"[^\"]*\"")
+	for f in files:
+		var lines := FileAccess.get_file_as_string(f).split("\n")
+		for i in lines.size():
+			var line := lines[i]
+			if f.ends_with(".gd"):
+				line = line.split("#")[0]
+			for m in re.search_all(line):
+				for ch in m.get_string():
+					var cp := ch.unicode_at(0)
+					if cp > 126:
+						check(ThemeDB.fallback_font.has_char(cp) and lilita.has_char(cp),
+							"%s:%d uses '%s' (U+%04X), missing from a font" % [f, i + 1, ch, cp])
+
+
+func _collect_text_files(dir: String, out: Array[String]) -> void:
+	for sub in DirAccess.get_directories_at(dir):
+		_collect_text_files(dir + "/" + sub, out)
+	for f in DirAccess.get_files_at(dir):
+		if f.ends_with(".gd") or f.ends_with(".json"):
+			out.append(dir + "/" + f)

@@ -166,6 +166,7 @@ func _ready() -> void:
 		pk.position = Vector2(0, 74)
 		pk.size = Vector2(72, 20)
 		pk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pk.visible = landscape  # _apply_orientation ran before this chip existed
 		pause_btn.add_child(pk)
 	if crazygames:
 		skip_btn = _text_button("SKIP TUTORIAL", _quit_prologue)
@@ -2156,7 +2157,7 @@ func _stat_lines(def: Dictionary, nl: int) -> Array:
 	for key in row:
 		if out.size() >= 2 or not STAT_NAMES.has(key):
 			continue
-		out.append("%s  %s → %s" % [STAT_NAMES[key], _fmt_stat(key, float(cur.get(key, 0.0))), _fmt_stat(key, float(nxt.get(key, 0.0)))])
+		out.append("%s  %s » %s" % [STAT_NAMES[key], _fmt_stat(key, float(cur.get(key, 0.0))), _fmt_stat(key, float(nxt.get(key, 0.0)))])
 	return out
 
 
