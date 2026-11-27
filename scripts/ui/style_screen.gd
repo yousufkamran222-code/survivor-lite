@@ -26,7 +26,7 @@ func setup(cosmetics_cfg: Dictionary, palette: Dictionary, back: Callable) -> vo
 	cfg = cosmetics_cfg
 	pal = palette
 	on_back = back
-	custom_minimum_size = Vector2(640, 0)
+	custom_minimum_size = Vector2(1080 if UiKit.wide else 640, 0)
 	add_theme_constant_override("separation", 12)
 	var head := HBoxContainer.new()
 	var title := UiKit.display(UiKit.label("STYLE", 50, PINK))
@@ -44,20 +44,20 @@ func setup(cosmetics_cfg: Dictionary, palette: Dictionary, back: Callable) -> vo
 	for e in GameData.load_json("res://data/enemies.json"):
 		if str(e.get("id", "")) != "boss":
 			_preview.germ_colors.append(GameData.color(e.color))
-	_preview.custom_minimum_size = Vector2(640, UiKit.tall(260, 0.3))
+	_preview.custom_minimum_size = Vector2(1080 if UiKit.wide else 640, UiKit.tall(260, 0.3))
 	add_child(_preview)
 	_info = VBoxContainer.new()
 	_info.add_theme_constant_override("separation", 6)
-	_info.custom_minimum_size = Vector2(640, 168)
+	_info.custom_minimum_size = Vector2(1080 if UiKit.wide else 640, 168)
 	add_child(_info)
 	_tabs = HBoxContainer.new()
 	_tabs.add_theme_constant_override("separation", 10)
 	add_child(_tabs)
 	_scroll = DragScroll.new()
-	_scroll.custom_minimum_size = Vector2(640, UiKit.tall(380, 0.3))
+	_scroll.custom_minimum_size = Vector2(1080 if UiKit.wide else 640, UiKit.tall(380, 0.3))
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid = GridContainer.new()
-	_grid.columns = COLUMNS
+	_grid.columns = 5 if UiKit.wide else COLUMNS  # desktop layout (R3): a wider grid
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", 10)
 	_grid.add_theme_constant_override("v_separation", 10)

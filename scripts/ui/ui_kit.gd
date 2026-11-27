@@ -25,6 +25,9 @@ static var _display: Font
 ## its height; 0 everywhere else). Tall scrolling screens shrink their list by
 ## part of it (`tall`) so they fit and keep the bigger text. Set by Main.
 static var trim := 0.0
+## CrazyGames desktop (landscape) layout: screens may use wider grids and two
+## columns (Main sets it with the orientation).
+static var wide := false
 ## Desktop hover feedback (CrazyGames build without a touchscreen; set by Main):
 ## every button grows a little and brightens under the mouse (`hover_feedback`).
 static var hover := false

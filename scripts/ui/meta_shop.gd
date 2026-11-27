@@ -35,7 +35,7 @@ func setup(meta_defs: Array, palette: Dictionary, layer: Control, back: Callable
 	popup_layer = layer
 	on_back = back
 	_shown_gold = Save.gold
-	custom_minimum_size = Vector2(640, 0)
+	custom_minimum_size = Vector2(1080 if UiKit.wide else 640, 0)
 	add_theme_constant_override("separation", 14)
 	var head := HBoxContainer.new()
 	var title := UiKit.label("UPGRADES", 50, pal.ui_accent)
@@ -48,9 +48,9 @@ func setup(meta_defs: Array, palette: Dictionary, layer: Control, back: Callable
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	add_child(hint)
 	_scroll = DragScroll.new()
-	_scroll.custom_minimum_size = Vector2(640, UiKit.tall(870))
+	_scroll.custom_minimum_size = Vector2(1080 if UiKit.wide else 640, UiKit.tall(870))
 	_grid = GridContainer.new()
-	_grid.columns = COLUMNS
+	_grid.columns = 5 if UiKit.wide else COLUMNS  # desktop layout (R3): a wider grid
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", 12)
 	_grid.add_theme_constant_override("v_separation", 12)

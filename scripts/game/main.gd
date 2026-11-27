@@ -185,7 +185,7 @@ func _ready() -> void:
 
 	_menu = UiKit.overlay(ui_root, 0.0)
 	_menu_bg = MenuBackground.new()
-	_menu_bg.setup(pal, data.enemies)
+	_menu_bg.setup(pal, data.enemies, overhaul and str(bal.overhaul.get("art", "")) == "darkfield")
 	_menu[0].add_child(_menu_bg)
 	_menu[0].move_child(_menu_bg, 0)
 	_levelup = UiKit.overlay(ui_root)
@@ -1043,6 +1043,10 @@ func _apply_orientation() -> void:
 		get_tree().root.content_scale_size = base
 	UiKit.trim = maxf(0.0, 1280.0 - h) if landscape else 0.0
 	hud.show_keys = landscape and UiKit.hover  # a wide window with a real mouse (a sideways tablet keeps touch hints)
+	if UiKit.wide != landscape:
+		UiKit.wide = landscape
+		if screen == "menu" and _menu_page == "home" and _menu is Array and _menu.size() > 0 and _menu[0].visible:
+			_show_menu.call_deferred()  # the menu has its own landscape layout (R3)
 	if pause_btn != null and pause_btn.has_node("Key"):
 		pause_btn.get_node("Key").visible = landscape
 	var lg := _logical_size(px)
@@ -1064,19 +1068,55 @@ func _fit_overlays() -> void:
 	var all := [_menu, _levelup, _dead, _results, _pause, _chest, _victory, _build]
 	if _mode_pick != null and is_instance_valid(_mode_pick[0]):
 		all.append(_mode_pick)
+	if _menu_hero != null and is_instance_valid(_menu_hero) and _menu_bg.size.x > 0.0:
+		var hc := _menu_hero.get_global_rect().get_center()  # the hero follows its slot (also in the two-column menu)
+		_menu_bg.hero_x = hc.x / _menu_bg.size.x
+		_menu_bg.hero_y = hc.y / _menu_bg.size.y
 	for o in all:
 		var center: Control = o[1].get_parent()
 		var s := 1.0
-		var need: float = o[1].get_combined_minimum_size().y
+		var need_v: Vector2 = o[1].get_combined_minimum_size()
+		var need: float = need_v.y
 		var full: float = o[0].size.y
 		if landscape and o[0].visible and need > full - 24.0:
 			s = (full - 24.0) / need
+		if landscape and o[0].visible and need_v.x > o[0].size.x - 24.0:
+			s = minf(s, (o[0].size.x - 24.0) / need_v.x)  # a two-column screen in a narrow window
 		if not is_equal_approx(center.scale.x, s):
 			# A too-tall column grows the CenterContainer down from the top; this
 			# pivot puts the shrunk column's middle back at the screen's middle.
-			var py := full / 2.0 if s >= 1.0 else (full - s * need) / (2.0 * (1.0 - s))
+			var py := full / 2.0 if (s >= 1.0 or need <= full - 24.0) else (full - s * need) / (2.0 * (1.0 - s))
 			center.pivot_offset = Vector2(center.size.x / 2.0, py)
 			center.scale = Vector2(s, s)
+
+
+## CrazyGames desktop layout (R3): a screen built as one portrait column is
+## laid out as two columns side by side. The first `keep_top` children stay
+## above, full width; then [keep_top, split) go left and the rest right.
+## Nothing happens outside the landscape layout.
+func _two_columns(col: VBoxContainer, split: int, keep_top: int = 0, left_w: float = 600.0, right_w: float = 560.0) -> void:
+	if not landscape:
+		return
+	var kids := col.get_children()
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 56)
+	var sep := col.get_theme_constant("separation")
+	var l := VBoxContainer.new()
+	var r := VBoxContainer.new()
+	for c: VBoxContainer in [l, r]:
+		c.alignment = BoxContainer.ALIGNMENT_CENTER
+		c.add_theme_constant_override("separation", sep)
+	l.custom_minimum_size.x = left_w
+	r.custom_minimum_size.x = right_w
+	for i in kids.size():
+		if i < keep_top:
+			continue
+		col.remove_child(kids[i])
+		(l if i < split else r).add_child(kids[i])
+	row.add_child(l)
+	row.add_child(r)
+	col.add_child(row)
 
 
 ## A mouse that can hover: the browser's own media query on web (phones and
@@ -1150,14 +1190,15 @@ func _show_menu() -> void:
 		top.add_child(ad_chip)
 	top.add_child(gold_pill)
 	col.add_child(top)
-	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
+	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 96 if landscape else 78, pal.ui_accent), 14)
 	col.add_child(title)
-	if UiKit.trim <= 0.0:  # the landscape layout needs the height for the hero
-		col.add_child(UiKit.label(_tagline(), 22, Color(pal.text, 0.6)))
+	if UiKit.trim <= 0.0 or landscape:  # the one-column landscape layout needed the height for the hero
+		col.add_child(UiKit.label(_tagline(), 28 if landscape else 22, Color(pal.text, 0.7)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
 	_menu_hero = hero
-	hero.custom_minimum_size = Vector2(0, UiKit.tall(200, 0.3))
+	hero.custom_minimum_size = Vector2(0, 380 if landscape else UiKit.tall(200, 0.3))
+	_menu_bg.hero_scale = 1.6 if landscape else 1.0
 	hero.item_rect_changed.connect(func() -> void:
 		if _menu_bg.size.y > 0.0:
 			_menu_bg.hero_y = (hero.global_position.y + hero.size.y / 2.0) / _menu_bg.size.y)
@@ -1192,6 +1233,9 @@ func _show_menu() -> void:
 	build.mouse_filter = Control.MOUSE_FILTER_STOP
 	build.gui_input.connect(_on_build_label_input)
 	col.add_child(build)
+	# Desktop (R3): top bar above; title, tagline and a big hero left; the mode
+	# card, PLAY and the tiles right.
+	_two_columns(col, col.get_children().find(_mode_box), 1, 600.0, 600.0)
 	_menu[0].visible = true
 	UiKit.fade_in(col)
 	_announce_next()
@@ -2859,6 +2903,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 			mk += 1
 		rv.add_child(mflow)
 	rewards.add_child(rv)
+	var split_at := col.get_child_count()  # desktop: rewards and what's next go in the right column
 	col.add_child(rewards)
 	# "What next": one or two concrete goals, so PLAY AGAIN has a reason.
 	var goals := _next_goals(won)
@@ -2912,6 +2957,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 	col.add_child(again)
 	var menu := _text_button("Menu", _collect.bind(false))
 	col.add_child(menu)
+	_two_columns(col, split_at)
 	if not _results[0].visible:
 		UiKit.reveal(_results)
 
@@ -3003,6 +3049,7 @@ func _show_prologue_results() -> void:
 	if not next_m.is_empty():
 		col.add_child(UiKit.label("%s medal at %d" % [next_m.name, int(next_m.score)], 20, Color(pal.text, 0.6)))
 	var gl := UiKit.display(UiKit.label("+%d gold" % gold, 40, pal.ui_accent), 6)
+	var gold_at := col.get_child_count()  # desktop: gold and the buttons go right
 	col.add_child(gl)
 	if first and _hot_start:
 		# Overhaul hot start: straight into a real run (the menu is one tap away).
@@ -3032,6 +3079,7 @@ func _show_prologue_results() -> void:
 		col.add_child(_text_button("Menu", func() -> void:
 			_prologue = false
 			_show_menu()))
+	_two_columns(col, gold_at, 0, 600.0, 520.0)
 	UiKit.reveal(_results)
 
 
