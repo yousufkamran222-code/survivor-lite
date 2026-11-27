@@ -1333,6 +1333,19 @@ func _draw_coach(w: float) -> void:
 			_point_at(outbreak_center(), 58.0, col)
 		"orders":
 			_point_at(order_center(), 54.0, col)
+		"move" when show_keys:
+			# Desktop (CrazyGames landscape): W A S D keycaps, one lit at a time.
+			var base := Vector2(w * 0.5, size.y * 0.74)
+			var ks := 58.0
+			var lit := int(k * 2.5) % 4
+			var keys := [["W", Vector2(0, -1)], ["A", Vector2(-1, 0)], ["S", Vector2(0, 0)], ["D", Vector2(1, 0)]]
+			for n in keys.size():
+				var c: Vector2 = base + keys[n][1] * (ks + 8.0)
+				var r := Rect2(c - Vector2(ks, ks) / 2.0, Vector2(ks, ks))
+				var on := n == lit
+				draw_rect(r, Color(1, 1, 1, 0.28 if on else 0.1))
+				draw_rect(r, Color(1, 1, 1, 0.75 if on else 0.35), false, 3.0)
+				_text(self, Vector2(r.position.x, c.y + 10.0), keys[n][0], ks, 28, Color(1, 1, 1, 0.95 if on else 0.6), 4, HORIZONTAL_ALIGNMENT_CENTER)
 		"move":
 			# Ghost finger dragging left and right, low on the screen.
 			var base := Vector2(w * 0.5, size.y * 0.72)

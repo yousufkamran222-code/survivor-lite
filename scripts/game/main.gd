@@ -876,7 +876,7 @@ func _start_run(prologue: bool = false) -> void:
 			_coached_mode = mode_id
 	hud.title_t = 0.0 if first_launch else -1.0
 	hud.title_text = str(bal.title).to_upper()
-	hud.title_sub = "You are the infection."
+	hud.title_sub = str(bal.get("crazygames", {}).get("tagline", "You are the infection.")) if crazygames else "You are the infection."
 	view.set_world(world)
 	view.set_look(Cosmetics.look(data.cosmetics, Save.profile))
 	_pop_sound = Cosmetics.look(data.cosmetics, Save.profile).get("pop", {})
@@ -1136,7 +1136,7 @@ func _show_menu() -> void:
 	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
 	col.add_child(title)
 	if UiKit.trim <= 0.0:  # the landscape layout needs the height for the hero
-		col.add_child(UiKit.label("You are the infection.", 22, Color(pal.text, 0.6)))
+		col.add_child(UiKit.label(str(bal.get("crazygames", {}).get("tagline", "You are the infection.")) if crazygames else "You are the infection.", 22, Color(pal.text, 0.6)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
 	_menu_hero = hero
