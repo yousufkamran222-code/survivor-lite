@@ -40,6 +40,35 @@ func test_deterministic_for_seed() -> void:
 	check_eq(a.enemy_count(), b.enemy_count())
 
 
+## CrazyGames landscape (perf.spawn_box_x/_y): timed spawns and rings land
+## just outside a box around the player (not a far circle), never inside it;
+## without the keys nothing changes (the circle, same distances).
+func test_spawn_box() -> void:
+	var d := data().duplicate(true)
+	GameData._merge(d.balance, d.balance.crazygames.landscape)
+	var pf: Dictionary = d.balance.perf
+	var bx := float(pf.spawn_box_x)
+	var by := float(pf.spawn_box_y)
+	var extra := float(pf.spawn_max_distance) - float(pf.spawn_min_distance)
+	var w := World.new(d, 7)
+	w.emit_events = false
+	var near_top := 0
+	for k in 400:
+		var off := w._spawn_point() - w.p_pos
+		check(absf(off.x) >= bx - 0.01 or absf(off.y) >= by - 0.01, "outside the box: %s" % off)
+		check(absf(off.x) <= bx + extra + 0.01 and absf(off.y) <= by + extra + 0.01, "within the margin: %s" % off)
+		if absf(off.y) < by + extra + 1.0 and absf(off.y) >= by - 0.01:
+			near_top += 1
+	check(near_top > 100, "top/bottom sides get germs too (%d)" % near_top)
+	for k in 16:
+		var r := w._ring_offset(TAU * k / 16.0)
+		check(absf(absf(r.x) - bx) < 0.01 or absf(absf(r.y) - by) < 0.01, "ring on the box: %s" % r)
+	var plain := _world(7)
+	for k in 50:
+		var dist := (plain._spawn_point() - plain.p_pos).length()
+		check(dist >= float(data().balance.perf.spawn_min_distance) - 0.01 and dist <= float(data().balance.perf.spawn_max_distance) + 0.01, "other builds: the circle")
+
+
 func test_spawns_and_kills_early() -> void:
 	var w := _world(5)
 	_run_bot(w, 30.0)

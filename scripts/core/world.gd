@@ -988,6 +988,8 @@ func _update_player(dt: float, move: Vector2) -> void:
 func _spawn_point() -> Vector2:
 	if def_on:
 		return _vent_point()
+	if float(bal.perf.get("spawn_box_x", 0.0)) > 0.0:
+		return _box_spawn_point()
 	var a := rng.randf() * TAU
 	var d := rng.randf_range(float(bal.perf.spawn_min_distance), float(bal.perf.spawn_max_distance))
 	var p := p_pos + Vector2(cos(a), sin(a)) * d
@@ -1005,6 +1007,45 @@ func _spawn_point() -> Vector2:
 	return Vector2(cos(a), sin(a)) * (terr.radius - 60.0)
 
 
+## A wide (landscape) view: spawns on a box just outside it instead of a
+## circle, so germs arrive from the top and bottom as soon as from the sides
+## (a circle big enough for the sides is far off-screen above and below).
+## perf.spawn_box_x/_y = the box's half size around the player, plus up to
+## spawn_max - spawn_min further out. 0 (every build but CrazyGames
+## landscape) = the circle. Same RNG draws per point as the circle.
+func _box_spawn_point() -> Vector2:
+	for attempt in 12:
+		var bx := float(bal.perf.spawn_box_x)
+		var by := float(bal.perf.get("spawn_box_y", bx))
+		var r := rng.randf() * 4.0 * (bx + by)
+		var extra := rng.randf_range(0.0, maxf(float(bal.perf.spawn_max_distance) - float(bal.perf.spawn_min_distance), 0.0))
+		var off: Vector2
+		if r < 2.0 * bx:
+			off = Vector2(r - bx, -by - extra)
+		elif r < 4.0 * bx:
+			off = Vector2(r - 3.0 * bx, by + extra)
+		elif r < 4.0 * bx + 2.0 * by:
+			off = Vector2(-bx - extra, r - 4.0 * bx - by)
+		else:
+			off = Vector2(bx + extra, r - 4.0 * bx - 3.0 * by)
+		var p := p_pos + off
+		if terr == null or (p.length() < terr.radius - 40.0 and not terr.is_owned(p)):
+			return p
+	var a := rng.randf() * TAU  # the dish: a random point on the rim
+	return Vector2(cos(a), sin(a)) * (terr.radius - 60.0)
+
+
+## Where a spawn ring at angle `a` sits: the circle, or with a spawn box the
+## point on the box in that direction (an off-screen rectangle of germs).
+func _ring_offset(a: float) -> Vector2:
+	var dir := Vector2(cos(a), sin(a))
+	var bx := float(bal.perf.get("spawn_box_x", 0.0))
+	if bx <= 0.0:
+		return dir * float(bal.perf.spawn_min_distance)
+	var by := float(bal.perf.get("spawn_box_y", bx))
+	return dir * minf(bx / maxf(absf(dir.x), 0.0001), by / maxf(absf(dir.y), 0.0001))
+
+
 ## Ring spawns and splits can land on bad spots in the dish; fix them up.
 func _valid_spawn(p: Vector2) -> Vector2:
 	if terr == null:
@@ -1019,11 +1060,10 @@ func _spawn(dt: float) -> void:
 		var n := int(order.count)
 		match order.pattern:
 			"ring":
-				var d := float(bal.perf.spawn_min_distance)
 				var a0 := rng.randf() * TAU
 				for k in n:
 					var a := a0 + TAU * k / n
-					_add_enemy(order.id, _valid_spawn(p_pos + Vector2(cos(a), sin(a)) * d))
+					_add_enemy(order.id, _valid_spawn(p_pos + _ring_offset(a)))
 			"single":
 				var elite: bool = order.get("elite", false)
 				_add_enemy(order.id, _spawn_point(), elite)

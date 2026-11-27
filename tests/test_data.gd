@@ -82,13 +82,18 @@ func test_crazygames_build_forces_debug_off() -> void:
 func test_crazygames_landscape_data() -> void:
 	var d := data()
 	var cg: Dictionary = d.balance.crazygames
-	var allowed := ["spawn_min_distance", "spawn_max_distance", "despawn_distance"]
+	var allowed := ["spawn_min_distance", "spawn_max_distance", "despawn_distance", "spawn_box_x", "spawn_box_y"]
 	for sec in cg.landscape:
 		check(sec == "perf", "landscape overrides only perf, got %s" % sec)
 		for k in cg.landscape[sec]:
 			check(allowed.has(k), "landscape override perf.%s" % k)
 	var lp: Dictionary = cg.landscape.perf
 	check(float(lp.spawn_min_distance) < float(lp.spawn_max_distance) and float(lp.spawn_max_distance) < float(lp.despawn_distance), "spawn < despawn")
+	# The box must stay outside the widest landscape view: height <= landscape_view_height,
+	# and Main caps the zoom so the view's corners stay inside spawn_min_distance.
+	check(float(lp.spawn_box_y) > float(cg.landscape_view_height) / 2.0, "box below/above the view")
+	check(float(lp.spawn_box_x) >= float(lp.spawn_min_distance) - 20.0, "box beside the widest view")
+	check(Vector2(float(lp.spawn_box_x), float(lp.spawn_box_y)).length() + float(lp.spawn_max_distance) - float(lp.spawn_min_distance) < float(lp.despawn_distance), "box spawns never despawn at once")
 	var src := FileAccess.get_file_as_string("res://data/onboarding.json") + FileAccess.get_file_as_string("res://data/hints.json")
 	for line in cg.desktop_text:
 		check(src.contains(JSON.stringify(line)), "desktop_text line not found in onboarding/hints: %s" % line)

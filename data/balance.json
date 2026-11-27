@@ -315,7 +315,7 @@
     },
     "landscape_ui_height": 960,
     "landscape_view_height": 960,
-    "landscape": {"perf": {"spawn_min_distance": 1000, "spawn_max_distance": 1100, "despawn_distance": 1600}},
+    "landscape": {"perf": {"spawn_min_distance": 1000, "spawn_max_distance": 1100, "despawn_distance": 1600, "spawn_box_x": 1000, "spawn_box_y": 540}},
     "_desktop_text": "Tutorial/coach/hint lines swapped for key wording when the HUD shows keys (desktop landscape). Exact matches only.",
     "desktop_text": {
       "Drag anywhere to move": "WASD or arrow keys to move",
