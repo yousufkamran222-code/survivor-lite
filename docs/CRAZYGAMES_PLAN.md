@@ -1,4 +1,4 @@
-# CrazyGames build plan (2026-11-26: Phase A submitted to QA; A6 (SDK for the mobile homepage) agreed for later; Phase B only if invited)
+# CrazyGames build plan (2026-11-27: **rejected at QA** ("overall quality does not yet meet the expectations"); **Phase Q (quality pass) in progress on branch `crazygames1`**; A6 SDK for later; Phase B only if invited)
 
 Goal: ship Petri Panic on CrazyGames as a **parallel web launch** while the Play Store verification and 14-day closed test run. Play Store launch prep stays the priority; this fits into the waiting weeks.
 Decisions so far (Yousuf, 2026-11-15): do both; **name stays "Petri Panic"**; on desktop the **dish widens to fill landscape** (no letterbox).
@@ -69,6 +69,29 @@ Found at upload: without the SDK the portal counts the **total uncompressed file
 - **Do (B, agreed):** add the CrazyGames SDK in the CrazyGames preset only (no ads in Basic Launch): `loadingStart/Stop` and `gameplayStart/Stop` (run start/resume vs. menus, pause, level-up picker, results), behind a facade (rule 3), nothing else reads it. Upload as a **new version of the same game** and read the size the portal measures. This is also the first part of B1, so B1 later only adds ads.
 - **If still ≥ 20 MB (C, decide then):** a slimmer engine: a custom Godot 4.7.2 web export template with 3D and unused modules disabled (scons `disable_3d=yes`, a `custom.py` profile / build-profile file), built in CI and used by the CrazyGames preset only. Several hours; check the 2D Compatibility renderer still draws everything the same (footage/screenshot compare) and re-run the tests.
 - Keep watching the size: the 50 MB limit leaves ~6 MB of room for new assets while the SDK is absent.
+
+## Phase Q: quality pass after the rejection (started 2026-11-27, branch `crazygames1`)
+**What happened:** QA rejected the build on 2026-11-27 with the generic template; the only specific line was "The overall quality of the game does not yet meet the expectations of our platform". Yousuf replied asking for 1-2 lines of specifics and whether a resubmission after a major update is possible (no answer yet).
+**Audit (2026-11-27):** the CrazyGames export played in Chromium at 1280x720 and 1920x1080 for the first ~60 s of game time (`tools/footage`-style Playwright capture: WASD in squares, E + click the first card, Space, Q). A portal reviewer meets **Patient Zero** first (loads in ~1 s), so the first minute is the tutorial. Findings, worst first:
+1. **"I'm dying" from the start:** simple movement took HP 100 → 20 by 0:09; the hidden `hp_floor` 0.2 is below `juice.lowhp_frac` 0.3, so the red edge vignette + heartbeat stay on for the rest of the tutorial.
+2. **Stop-start:** ~10 coach lines and 3 freezes (level-ups, DASH pause) in the first 35 s; it reads as a lesson, not a game.
+3. **Empty screen:** a small cluster in the middle of a big dark dish, ~5-15 germs for the first 20 s. In landscape, ambient germs spawn on a 1000-1100 ring: just off the sides but ~520 units above/below the view (~6 s of walking), so the top and bottom stay empty.
+4. **Level-up on desktop:** no keys to pick a card (mouse only); the coach line shows through on both sides of the card column; "Later (keep 1)" means nothing to a newcomer.
+5. Small: a touch-joystick ghost is drawn as the move hint on desktop; the tagline "You are the infection." while you play the white cell shooting germs; HUD text small at 1280x720; an unexplained red enemy name ("GERM", "SPORE": what hit you) under the cell.
+6. **Visual punch:** shots are small dots and kills are small next to the portal's new releases.
+Not checked: sound, real fps (software rendering in the sandbox), the menu after the prologue.
+
+**Rule for this phase:** fixes go behind the CrazyGames build (`balance.crazygames`, read by Main only when `crazygames`) unless they are plain bugs that are harmless everywhere (then noted below). Android/itch gameplay stays byte-identical; the sims (which never apply the CrazyGames block) are unchanged except where a landscape run is simulated with `--set`.
+
+| Step | Fix | Where | Status |
+|---|---|---|---|
+| Q1 | Health in Patient Zero: `hp_floor` 0.35 (above `lowhp_frac`, so no permanent red edge/heartbeat), damage taken ×0.5, regen 2 HP/s | `crazygames.prologue.overrides` → `GameData.apply_prologue(d, cg)` | todo |
+| Q2 | Fewer interruptions: silent `fire`/`gems`/`dodged` beats, shorter lines (per-beat overrides by id) | `crazygames.prologue.beats` → `GameData.prologue_beats(d, cg)` | todo |
+| Q3 | Fuller screen: landscape spawns on a box just outside the view (`perf.spawn_box_x/_y`, 0 = the old ring) + a denser prologue (budget curve, beat spawn counts) | World `_spawn_point`, `crazygames.landscape.perf`, `crazygames.prologue` | todo (sim before/after) |
+| Q4 | Level-up: 1-4 pick a card (all builds: plain keyboard support), key chips on the cards and "Pick later (E)" in landscape, E closes the picker; the coach line is hidden while any overlay is up (bug, all builds) | Main `_show_levelup`, `_unhandled_input`, `_set_screen` | todo |
+| Q5 | WASD keycaps instead of the joystick ghost (landscape); tagline from `crazygames.tagline`; bigger landscape UI if every screen still fits (`landscape_ui_height`, checked with screenshots); no "what hit you" label in the CrazyGames prologue | HudOverlay, Main, balance | todo |
+| Q6 | Visual punch (presentation only): bigger bolt sprites (`juice.bullet_scale`), bigger kill flash/burst, merged on this build only from `crazygames.presentation` | `GameData.apply_crazygames_build`, WorldView | todo |
+| Q7 | Verify: tests, rebuild the export, re-run the 1280x720/1920x1080 capture and compare; then Yousuf plays it before any resubmission | tools | todo |
 
 ## Phase B: Full Launch (only if invited)
 **B1. CrazyGames SDK behind our facades** (rule 3: no SDK calls outside `Ads`/`Online`/`Save`)

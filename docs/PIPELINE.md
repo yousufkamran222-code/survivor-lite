@@ -451,3 +451,6 @@ Built per `docs/ROADMAP.md`: bounded dish, loop-claiming with flood fill, claim 
 ### 2026-11-26 CrazyGames submission
 - Played the CrazyGames export in Chromium (1280x720 desktop + Pixel 7 portrait): Patient Zero, SKIP TUTORIAL, menu, Classic run, level-up, results all fine; no console errors. Fixed: level-up stat arrow `→` drew a missing-glyph box on web (no system-font fallback; now `»`, new `test_text_glyphs_exist_in_fonts`), and the pause "P" key chip showed on portrait phones. 336 tests. Zip `42cd048` uploaded by Yousuf.
 - Portal: 44.1 MB counted (no SDK = total uncompressed size) → under the 50 MB limit, but not eligible for the mobile homepage (< 20 MB). Compressed it is ~15 MB. Agreed: minimal SDK later (`docs/CRAZYGAMES_PLAN.md` A6), not started.
+
+### 2026-11-27 CrazyGames rejected → Phase Q quality pass (branch `crazygames1`)
+- QA rejected the build ("overall quality"). First-minute audit of the export at 1280x720 / 1920x1080 → `docs/CRAZYGAMES_PLAN.md` Phase Q (Q1-Q7). Work on branch `crazygames1`.
