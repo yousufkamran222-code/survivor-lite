@@ -172,7 +172,9 @@ func _process(delta: float) -> void:
 
 
 func vibrate(ms: int) -> void:
-	if Save.vibration:
+	# Desktop browsers can't vibrate and log a console error for every call
+	# made before the first click (R8: seen in the CrazyGames build).
+	if Save.vibration and not (OS.has_feature("web") and not DisplayServer.is_touchscreen_available()):
 		Input.vibrate_handheld(ms)
 
 
