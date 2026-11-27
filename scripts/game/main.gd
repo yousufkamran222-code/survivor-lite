@@ -38,6 +38,7 @@ var _bench_tap_ms := 0
 var bench_result := ""  # last benchmark line (also read by tools/sim/bench_render.gd)
 var _picking := false  # a level-up pick is animating
 var _cards: Array[Button] = []  # the level-up cards on screen
+var _pick_keys: Array[Button] = []  # level-up cards in key order (1-4 pick, any build)
 var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
 var _results_gold := 0
@@ -213,6 +214,9 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if screen == "menu" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
 		start_benchmark()
+		return
+	if screen == "levelup" and event is InputEventKey and event.pressed and not event.echo:
+		_levelup_key(event.physical_keycode)
 		return
 	if screen != "playing" or not _evo_seq.is_empty():
 		return
@@ -961,6 +965,8 @@ func _set_screen(s: String) -> void:
 	_apply_fps()
 	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build"]
 	hud.visible = in_run
+	if s != "playing":
+		hud.coach = {}  # the coach line must not show through an overlay (it comes back next frame in play)
 	pause_btn.visible = s == "playing"
 	_update_skip_btn()
 	view.visible = s != "menu"
@@ -1946,18 +1952,23 @@ func _show_levelup() -> void:
 	col.add_child(sub)
 	var buttons: Array[Button] = []
 	_cards = []
+	_pick_keys = []
 	var k := 0
 	for id in world.offers:
 		var b := _upgrade_card(id)
 		col.add_child(_card_slot(b))
 		buttons.append(b)
 		_cards.append(b)
+		_pick_keys.append(b)
+		_key_chip(b, str(k + 1))
 		_slide_in(b, 0.06 + k * 0.08)
 		k += 1
 	if world.side_offer != "":  # Side Effects: a trade-off card under the normal three
 		var sb := _side_card(world.side_offer)
 		col.add_child(_card_slot(sb))
 		buttons.append(sb)
+		_pick_keys.append(sb)
+		_key_chip(sb, str(k + 1))
 		_slide_in(sb, 0.06 + k * 0.08)
 	# Reroll / Later: small text buttons, so the cards stay the focus.
 	var row := HBoxContainer.new()
@@ -1967,7 +1978,7 @@ func _show_levelup() -> void:
 	reroll.visible = world.free_rerolls > 0 or (Ads.is_rewarded_available() and Onboarding.ads_allowed(data, Save.profile) and not _prologue)
 	row.add_child(reroll)
 	buttons.append(reroll)
-	var later := _text_button("Later (keep %d)" % world.pending_levelups, _later)
+	var later := _text_button("Pick later (E)" if hud.show_keys else "Later (keep %d)" % world.pending_levelups, _later)
 	row.add_child(later)
 	buttons.append(later)
 	col.add_child(row)
@@ -1984,6 +1995,33 @@ func _show_levelup() -> void:
 	for b in buttons:
 		if is_instance_valid(b):
 			b.disabled = false
+
+
+## Level-up picker keys (any build: plain keyboard support): 1-4 press that
+## card (the same path as a click, so the input delay and the double-pick
+## guard apply); on the CrazyGames desktop layout E/Tab also closes it (the
+## key that opened it), like "Pick later".
+func _levelup_key(code: int) -> void:
+	var k := code - KEY_1
+	if k < 0 and code >= KEY_KP_1 and code <= KEY_KP_4:
+		k = code - KEY_KP_1
+	if k >= 0 and k < _pick_keys.size():
+		var b := _pick_keys[k]
+		if is_instance_valid(b) and b.visible and not b.disabled:
+			b.pressed.emit()
+	elif hud.show_keys and code in [KEY_E, KEY_TAB] and not _picking:
+		_later()
+
+
+## A small key badge on a level-up card's top-left corner (CrazyGames
+## desktop layout only, like the HUD's key chips).
+func _key_chip(card: Button, key: String) -> void:
+	if not hud.show_keys:
+		return
+	var c := UiKit.chip(key, Color(1, 1, 1, 0.9), Color(0.1, 0.06, 0.15), 20)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.position = Vector2(-12, -12)  # a badge on the top-left corner (the top-right holds WEAPON/PASSIVE)
+	card.add_child(c)
 
 
 ## A flat text-only button (secondary actions under the level-up cards).
