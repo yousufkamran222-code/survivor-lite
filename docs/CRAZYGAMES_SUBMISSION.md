@@ -50,9 +50,14 @@ Action, Survival, Roguelite, Bullet hell, Upgrade, Arcade, Casual, Io (category 
 | Cover 16:9 | `build/store_kit/cover_landscape_1920x1080.png` | 1920x1080, title only |
 | Cover 2:3 | `build/store_kit/cover_portrait_800x1200.png` | 800x1200, title only |
 | Cover 1:1 | `build/store_kit/cover_square_800x800.png` | 800x800, title only |
-| Trailer 16:9 | `build/store_kit/trailer_landscape_1920x1080.mp4` | 1080p, 60 fps, silent, ~19 s, starts on the cover |
-| Trailer 2:3 | `build/store_kit/trailer_portrait_1080x1620.mp4` | 1080x1620, 60 fps, silent, ~17 s, starts on the cover |
+| Trailer 16:9 | `build/store_kit/trailer_landscape_1920x1080.mp4` | 1080p, 60 fps, silent, ~20 s, starts on the cover (spec `tools/footage/trailer_landscape.json`) |
+| Trailer 2:3 | `build/store_kit/trailer_portrait_1080x1620.mp4` | 1080x1620, 60 fps, silent, ~20 s, starts on the cover (spec `tools/footage/trailer_portrait.json`) |
 | Game build | `build/crazygames.zip` (`tools/crazygames_build.sh`) or the `crazygames.yml` artifact | |
+
+## Resubmitting (Phase R overhaul, 2026-11-27)
+1. Download from the cloud session: `build/crazygames.zip` and `build/store_kit/` (covers + `trailer_landscape_1920x1080.mp4` (~20 s, 28 MB) + `trailer_portrait_1080x1620.mp4` (~20 s, 23 MB) + `clips/`).
+2. Test the zip locally (step 6 below): first launch = the hot start, then PLAY CLASSIC; menus in a wide window; press F9 on the menu for a benchmark line (send it to Claude).
+3. In the portal, upload it as **a new version of the same game** (if CrazyGames' reply allows), replace the 3 covers and both trailers, and say in the notes what changed: new art direction, a 60-90 s action opening instead of the long tutorial, desktop layouts, more visual feedback.
 
 ## How the footage is made (to redo it after changes)
 - `tools/footage/showcase.gd`: plays a scripted shot of the real game (bot or scripted path, invincible) at a fixed 60 fps and saves PNG frames. Shots: horde, outbreak, evolution, dash, swarm, infection, boss, nucleus, cover. Landscape = `--crazygames` at 1920x1080; portrait = 1080x1620.

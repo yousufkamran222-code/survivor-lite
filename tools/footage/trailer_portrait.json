@@ -1,0 +1,48 @@
+{
+ "_doc": "R8 (2026-11-27): the CrazyGames trailer with the dark-field art. Clips: tools/footage/showcase.gd --shot NAME --crazygames (1080x1620) -> edit.py encode -> build/store_kit/clips/port_NAME.mp4. Segments: [clip, start_s, dur_s]. Portrait: the outbreak shot evolves Immune Wall at ~2 s (a white flash), so its cut ends before it.",
+ "size": [
+  1080,
+  1620
+ ],
+ "cover": "build/store_kit/cover_portrait_1080x1620.png",
+ "cover_s": 1.0,
+ "fade": 0.12,
+ "segments": [
+  [
+   "build/store_kit/clips/port_horde.mp4",
+   1.0,
+   2.5
+  ],
+  [
+   "build/store_kit/clips/port_dash.mp4",
+   0.9,
+   2.5
+  ],
+  [
+   "build/store_kit/clips/port_outbreak.mp4",
+   0.2,
+   1.55
+  ],
+  [
+   "build/store_kit/clips/port_evolution.mp4",
+   3.4,
+   4.2
+  ],
+  [
+   "build/store_kit/clips/port_infection.mp4",
+   6.0,
+   2.8
+  ],
+  [
+   "build/store_kit/clips/port_boss.mp4",
+   5.0,
+   3.0
+  ],
+  [
+   "build/store_kit/clips/port_horde.mp4",
+   6.5,
+   2.5
+  ]
+ ],
+ "crf": 22
+}

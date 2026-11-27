@@ -6,7 +6,7 @@
 
   python3 tools/footage/edit.py trailer SPEC.json OUT.mp4
       SPEC: {"size": [1920, 1080], "cover": "cover.png", "cover_s": 1.0,
-             "fade": 0.12, "segments": [["clip.mp4", start_s, dur_s], ...]}
+             "fade": 0.12, "crf": 17, "segments": [["clip.mp4", start_s, dur_s], ...]}
       Opens on the static cover (CrazyGames: the video starts on the cover),
       then the segments with short crossfades. Silent, 60 fps, yuv420p,
       faststart. Prints the length and size.
@@ -67,7 +67,7 @@ def trailer(spec_path, out):
         t += lens[i] - fade
     total = t + fade
     run(["ffmpeg", "-y", "-loglevel", "error"] + inputs + ["-filter_complex", ";".join(filters), "-map", f"[{cur}]",
-         "-t", f"{total:.3f}", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p",
+         "-t", f"{total:.3f}", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", str(spec.get("crf", 17)), "-pix_fmt", "yuv420p",
          "-r", str(FPS), "-movflags", "+faststart", out])
     import os
     print(f"{out}: {probe_len(out):.2f} s, {os.path.getsize(out) / 1e6:.1f} MB")

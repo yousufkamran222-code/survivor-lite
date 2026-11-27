@@ -1,0 +1,48 @@
+{
+ "_doc": "R8 (2026-11-27): the CrazyGames trailer with the dark-field art. Clips: tools/footage/showcase.gd --shot NAME --crazygames (1920x1080) -> edit.py encode -> build/store_kit/clips/land_NAME.mp4. Segments: [clip, start_s, dur_s].",
+ "size": [
+  1920,
+  1080
+ ],
+ "cover": "build/store_kit/cover_landscape_1920x1080.png",
+ "cover_s": 1.0,
+ "fade": 0.12,
+ "segments": [
+  [
+   "build/store_kit/clips/land_horde.mp4",
+   1.0,
+   2.5
+  ],
+  [
+   "build/store_kit/clips/land_dash.mp4",
+   0.9,
+   2.5
+  ],
+  [
+   "build/store_kit/clips/land_outbreak.mp4",
+   0.8,
+   2.8
+  ],
+  [
+   "build/store_kit/clips/land_evolution.mp4",
+   3.4,
+   3.0
+  ],
+  [
+   "build/store_kit/clips/land_infection.mp4",
+   6.0,
+   2.8
+  ],
+  [
+   "build/store_kit/clips/land_boss.mp4",
+   5.0,
+   3.0
+  ],
+  [
+   "build/store_kit/clips/land_horde.mp4",
+   6.5,
+   2.5
+  ]
+ ],
+ "crf": 22
+}
