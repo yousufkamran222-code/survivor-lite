@@ -312,7 +312,8 @@
         "move": {"max_s": 4, "start": {"spawn": [{"id": "grunt", "n": 5, "pattern": "front", "dist": 460}, {"id": "swarm", "n": 10, "pattern": "cluster", "dist": 520}], "ambient": 0.6}},
         "fire": {"text": "", "start": {"spawn": [{"id": "swarm", "n": 16, "pattern": "cluster", "dist": 420}], "ambient": 1.0}, "repeat": {"every_s": 2.5, "spawn": [{"id": "grunt", "n": 6, "pattern": "cluster", "dist": 420}]}},
         "gems": {"text": "", "start": {"ambient": 1.0}, "repeat": {"every_s": 2.5, "spawn": [{"id": "grunt", "n": 6, "pattern": "cluster", "dist": 420}]}},
-        "dodged": {"text": "", "start": {"ambient": 1.0}}
+        "dodged": {"text": "", "start": {"ambient": 1.0}},
+        "elite": {"text": ""}
       },
       "hide_hurt_label": true
     },

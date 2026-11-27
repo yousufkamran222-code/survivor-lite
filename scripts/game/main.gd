@@ -38,6 +38,7 @@ var _bench_tap_ms := 0
 var bench_result := ""  # last benchmark line (also read by tools/sim/bench_render.gd)
 var _picking := false  # a level-up pick is animating
 var _cards: Array[Button] = []  # the level-up cards on screen
+var _chest_cont: Button = null  # the chest's CONTINUE once it shows (Space/Enter/E press it)
 var _pick_keys: Array[Button] = []  # level-up cards in key order (1-4 pick, any build)
 var _evo_by_passive := {}  # passive id -> evolution def
 var _evo_by_weapon := {}  # weapon id -> evolution def
@@ -217,6 +218,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if screen == "levelup" and event is InputEventKey and event.pressed and not event.echo:
 		_levelup_key(event.physical_keycode)
+		return
+	if screen == "chest" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER, KEY_E]:
+		if is_instance_valid(_chest_cont) and _chest_cont.is_visible_in_tree() and not _chest_cont.disabled:
+			_chest_cont = null
+			_close_chest()  # keyboard players need no mouse for the chest (any build)
 		return
 	if screen != "playing" or not _evo_seq.is_empty():
 		return
@@ -2503,8 +2509,9 @@ func _show_chest() -> void:
 			Sfx.play("level_up", 0.0)
 		await get_tree().create_timer(0.35).timeout
 	if is_instance_valid(col):
-		var cont := UiKit.button("CONTINUE", _close_chest, 110)
+		var cont := UiKit.button("CONTINUE  (SPACE)" if hud.show_keys else "CONTINUE", _close_chest, 110)
 		col.add_child(cont)
+		_chest_cont = cont
 		UiKit.fade_in(cont)
 
 
