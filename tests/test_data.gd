@@ -12,6 +12,25 @@ func test_game_scripts_compile() -> void:
 			check(s != null and s.can_instantiate(), "compiles: %s/%s" % [dir, f])
 
 
+## Generated discs fade out inside their square: a disc touching the border
+## stretched into a rounded square when drawn big (R5, the "teal square").
+func test_disc_border_is_transparent() -> void:
+	for size: int in [32, 64, 256]:
+		var img := (ShapeTextures.disc(size) as ImageTexture).get_image()
+		var h: int = size / 2
+		for p in [Vector2i(0, h), Vector2i(size - 1, h), Vector2i(h, 0), Vector2i(h, size - 1)]:
+			check(img.get_pixelv(p).a < 0.05, "disc %d edge %s alpha %.2f" % [size, p, img.get_pixelv(p).a])
+		check(img.get_pixel(h, h).a > 0.99, "disc %d centre is solid" % size)
+
+
+func test_weapon_fx_is_overhaul_only() -> void:
+	var d := data()
+	check(d.balance.overhaul.has("weapon_fx"), "overhaul.weapon_fx exists")
+	for w in ["bolt", "orbit", "nova", "chain"]:
+		check(d.balance.overhaul.weapon_fx.has(w), "weapon_fx.%s" % w)
+	check(not d.balance.has("weapon_fx"), "weapon_fx stays inside balance.overhaul")
+
+
 func test_data_validates() -> void:
 	var errors := GameData.validate(data())
 	check(errors.is_empty(), "data errors: %s" % str(errors))

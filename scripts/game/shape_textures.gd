@@ -81,13 +81,17 @@ static func disc_shared(size: int) -> Texture2D:
 	return _disc_cache[size]
 
 
+## The edge fades out one texel inside the square: a disc that touched the
+## texture's border stretched into a rounded square when drawn big (linear
+## filtering clamps the border texels; R5: the "teal square" was a 300 px
+## kill pop drawn from the 32 px disc).
 static func disc(size: int = 32) -> ImageTexture:
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var h := size / 2.0
 	for y in size:
 		for x in size:
 			var d := Vector2((x + 0.5 - h) / h, (y + 0.5 - h) / h).length()
-			img.set_pixel(x, y, Color(1, 1, 1, _aa(1.0, d, 1.0 / h)))
+			img.set_pixel(x, y, Color(1, 1, 1, _aa(1.0 - 1.0 / h, d, 1.0 / h)))
 	return ImageTexture.create_from_image(img)
 
 

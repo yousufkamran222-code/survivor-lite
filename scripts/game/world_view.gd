@@ -103,12 +103,15 @@ var _trails: SpriteBatch  # dash-trail particles (the trail's shape texture)
 var _pops: SpriteBatch  # pop-style particles (the style's shape texture)
 var _bolt_heads: SpriteBatch  # weapon-style bolt shapes (stars, hearts, ...)
 var _shaped := false  # the weapon style has its own bolt/orbit shape
+var _wfx := {}  # R5 weapon spectacle on the dark slide (balance.overhaul.weapon_fx; empty = old look)
 
 
 func setup(game_data: Dictionary) -> void:
 	bal = game_data.balance
 	juice = bal.juice
 	_bullet_scale = float(juice.get("bullet_scale", 1.0))
+	var ov: Dictionary = bal.get("overhaul", {})
+	_wfx = ov.get("weapon_fx", {}) if bool(bal.get("overhaul_on", false)) and str(ov.get("art", "")) == "darkfield" else {}
 	for k in bal.palette:
 		pal[k] = GameData.color(bal.palette[k])
 	enemy_colors.clear()
@@ -136,7 +139,7 @@ func setup(game_data: Dictionary) -> void:
 	_floor.draw.connect(_draw_floor)
 	add_child(_floor)
 	var perf: Dictionary = bal.perf
-	var disc := ShapeTextures.disc()
+	var disc := ShapeTextures.disc(64)  # big pops/halos stay round
 	_splats = _batch(ShapeTextures.splat(), int(juice.get("splat_max", 50)))
 	_plague = _batch(ShapeTextures.splat(), 200)
 	_gems = _batch(ShapeTextures.diamond(), int(bal.xp.max_gems))
@@ -262,6 +265,11 @@ func consume(events: Array) -> void:
 						_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 			"nova":
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova), "w": 9.0 if _evo("nova") and not ev.get("tower", false) else 5.0}, max_fx + 4)
+				var nfx: Dictionary = _wfx.get("nova", {})
+				if not nfx.is_empty() and not ev.get("tower", false):  # R5: an additive shock fill
+					var ne := _evo("nova")
+					_add_fx({"kind": "nfill", "pos": ev.pos, "r": float(ev.radius), "life": float(nfx.get("life_s", 0.24)),
+						"color": _wcolor("nova", pal.nova), "a": float(nfx.get("alpha_evo" if ne else "alpha", 0.16))}, max_fx + 4)
 				if _evo("nova") and not ev.get("tower", false):
 					_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius * 0.72, "life": 0.36, "color": Color.WHITE, "w": 3.0}, max_fx + 4)
 				_nova_flash = 1.0
@@ -1024,6 +1032,10 @@ func _fill_bullets() -> void:
 	var b_rad := world.b_rad
 	var b_vel := world.b_vel
 	var b_ally := world.b_ally
+	var bfx: Dictionary = _wfx.get("bolt", {})
+	if not bfx.is_empty():
+		_fill_bolts_df(bfx, bc, evo)
+		return
 	for i in b_pos.size():
 		var p := b_pos[i]
 		var r := b_rad[i] * _bullet_scale  # drawn size only (CrazyGames: juice.bullet_scale)
@@ -1040,6 +1052,40 @@ func _fill_bullets() -> void:
 			_bullets.add(p, r * 2.0, bc)
 		if evo and own:
 			_bullets.add(p, r * 0.9, white)
+	_bullets.commit()
+	_bolt_heads.commit()
+
+
+## R5 (overhaul, dark slide): every bolt is a comet: a fading tail of
+## additive discs behind a white-hot core; evolved bolts are bigger with a
+## longer tail and a soft glow. Numbers in balance.overhaul.weapon_fx.bolt.
+func _fill_bolts_df(fx_cfg: Dictionary, bc: Color, evo: bool) -> void:
+	var n := int(fx_cfg.get("tail_evo" if evo else "tail", 3))
+	var scale := float(fx_cfg.get("evo_scale", 1.3)) if evo else 1.0
+	var gap := float(fx_cfg.get("tail_gap", 1.3))
+	var tail_a := float(fx_cfg.get("tail_alpha", 0.45))
+	var core := Color(1, 1, 1, float(fx_cfg.get("core_alpha_evo" if evo else "core_alpha", 0.7)))
+	var glow := Color(bc, float(fx_cfg.get("glow_alpha", 0.12)))
+	var white := Color(1, 1, 1, 0.9)
+	var b_pos := world.b_pos
+	var b_rad := world.b_rad
+	var b_vel := world.b_vel
+	var b_ally := world.b_ally
+	for i in b_pos.size():
+		var p := b_pos[i]
+		var own := b_ally[i] == 0
+		var r := b_rad[i] * _bullet_scale * (scale if own else 1.0)
+		var back := b_vel[i].normalized() * r
+		if own and evo:
+			_bullets.add(p, r * 3.2, glow)
+		for k in n:
+			var f := 1.0 - float(k + 1) / float(n + 1)
+			_bullets.add(p - back * gap * float(k + 1), r * 2.0 * (0.35 + 0.6 * f), Color(bc, tail_a * f))
+		if _shaped and own:
+			_bolt_heads.add(p, r * 3.0, bc)
+		else:
+			_bullets.add(p, r * 2.0, bc)
+			_bullets.add(p, r * (1.0 if evo and own else 0.8), core if own else white)
 	_bullets.commit()
 	_bolt_heads.commit()
 
@@ -1065,6 +1111,9 @@ func _fill_dots() -> void:
 			"tdot":
 				var lk := CosmeticArt.pdot_look(f)
 				_trails.add(f.pos, lk[0], lk[1])
+			"nfill":  # R5 nova shock: grows to the nova radius and fades (additive)
+				var k: float = f.t / f.life
+				_dots.add(f.pos, f.r * 2.0 * (0.55 + 0.45 * k), Color(f.color, float(f.a) * (1.0 - k) * (1.0 - k)))
 			"kring":
 				var k: float = f.t / f.life
 				_rings.add(f.pos, f.r * 2.0 * (1.0 + 1.6 * k), Color(f.color.lightened(0.3), 0.9 * (1.0 - k)))
@@ -1123,7 +1172,14 @@ func _draw_top_layer() -> void:
 	var oc: Color = _wcolor("orbit", pal.orbit)
 	var orbit_evo := _evo("orbit")
 	var orb_tex := CosmeticArt.tex(CosmeticArt.weapon_shape(_wstyle)) if _shaped else null
+	var ofx: Dictionary = _wfx.get("orbit", {})
+	if not ofx.is_empty() and world.orbit_points.size() > 0:  # R5: a faint glowing track the orbs ride
+		var orad := world.orbit_points[0].distance_to(world.p_pos)
+		var ow := world.orbit_size * float(ofx.get("track_w", 1.2)) * (1.5 if orbit_evo else 1.0)
+		ci.draw_arc(world.p_pos, orad, 0, TAU, 48, Color(oc, float(ofx.get("track_alpha", 0.1)) * (1.6 if orbit_evo else 1.0)), ow)
 	for p in world.orbit_points:
+		if not ofx.is_empty() and not orbit_evo:
+			_dot(ci, p, world.orbit_size * float(ofx.get("halo", 1.9)), Color(oc, float(ofx.get("halo_alpha", 0.16))))
 		if orbit_evo:  # evolved: a wide soft halo and a white core
 			ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2.ONE * (world.orbit_size + 12.0), Vector2.ONE * (world.orbit_size + 12.0) * 2.0), false, Color(oc, 0.3))
 		_dot(ci, p, world.orbit_size + 3.0, Color(oc, 0.35))
@@ -1164,7 +1220,12 @@ func _draw_top_layer() -> void:
 					var b := pts[j + 1]
 					var mid := (a + b) / 2.0 + (b - a).orthogonal().normalized() * randf_range(-14, 14)
 					var seg := PackedVector2Array([a, mid, b])
-					if f.get("evo", false):  # evolved: wide glow + white-hot core
+					if not _wfx.is_empty() and _wfx.has("chain"):  # R5: every arc glows, evolved ones are thicker
+						var cw := float(_wfx.chain.get("evo_width" if f.get("evo", false) else "width", 1.0))
+						ci.draw_polyline(seg, Color(c, 0.22 * (1.0 - k)), 14.0 * cw)
+						ci.draw_polyline(seg, Color(c, 1.0 - k), 4.5 * cw)
+						ci.draw_polyline(seg, Color(1, 1, 1, 1.0 - k), 1.8 * cw)
+					elif f.get("evo", false):  # evolved: wide glow + white-hot core
 						ci.draw_polyline(seg, Color(c, 0.3 * (1.0 - k)), 12.0)
 						ci.draw_polyline(seg, Color(c, 1.0 - k), 5.0)
 						ci.draw_polyline(seg, Color(1, 1, 1, 1.0 - k), 2.0)
