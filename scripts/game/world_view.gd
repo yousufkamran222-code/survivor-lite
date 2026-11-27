@@ -15,6 +15,7 @@ const ENEMY_DIRS := 16  # eye directions baked into the enemy atlas
 var world: World
 var bal: Dictionary
 var juice: Dictionary
+var _bullet_scale := 1.0  # juice.bullet_scale: bolts drawn bigger than their hit radius
 var pal := {}
 var enemy_colors: Array = []
 var cam: Camera2D
@@ -103,6 +104,7 @@ var _shaped := false  # the weapon style has its own bolt/orbit shape
 func setup(game_data: Dictionary) -> void:
 	bal = game_data.balance
 	juice = bal.juice
+	_bullet_scale = float(juice.get("bullet_scale", 1.0))
 	for k in bal.palette:
 		pal[k] = GameData.color(bal.palette[k])
 	enemy_colors.clear()
@@ -992,7 +994,7 @@ func _fill_bullets() -> void:
 	var b_ally := world.b_ally
 	for i in b_pos.size():
 		var p := b_pos[i]
-		var r := b_rad[i]
+		var r := b_rad[i] * _bullet_scale  # drawn size only (CrazyGames: juice.bullet_scale)
 		var back := b_vel[i].normalized() * r
 		var own := b_ally[i] == 0
 		if evo and own:

@@ -74,6 +74,13 @@ func test_crazygames_build_forces_debug_off() -> void:
 	GameData.apply_crazygames_build(d, true)
 	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)
 	check(float(d.balance.crazygames.prologue_skip_after_s) >= 0.0, "balance.crazygames.prologue_skip_after_s")
+	# Phase Q6: the presentation block is juice only (visual) and lands only here.
+	var pres: Dictionary = d.balance.crazygames.presentation
+	check_eq(pres.keys(), ["juice"], "presentation touches juice only")
+	for k in pres.juice:
+		check(data().balance.juice.has(k), "presentation juice key exists in balance.juice: %s" % k)
+		check_eq(d.balance.juice[k], pres.juice[k], "merged on the CrazyGames build: %s" % k)
+	check_eq(float(data().balance.juice.bullet_scale), 1.0, "other builds draw bolts at their real size")
 
 
 ## The CrazyGames landscape run overrides only move spawning out of the wider

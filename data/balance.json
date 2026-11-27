@@ -302,6 +302,8 @@
     "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
     "prologue_skip_after_s": 6,
     "tagline": "Pop the germs. Survive the swarm.",
+    "_presentation": "Merged into balance on this build only (GameData.apply_crazygames_build), juice keys only: drawn bolt size, kill flash/burst. Visual, never gameplay (a test checks only juice is touched).",
+    "presentation": {"juice": {"bullet_scale": 1.4, "kill_flash_scale": 1.7, "kill_burst_particles": 12, "kill_burst_speed": 1.25}},
     "_prologue": "Patient Zero on this build (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
     "prologue": {
       "overrides": {"hp_floor": 0.35, "difficulty": {"damage_taken_mult": 0.5}, "player": {"regen": 2.0}},
@@ -369,7 +371,7 @@
     "hitstop_hurt_s": 0.05,
     "hitstop_boss_kill_s": 0.2,
     "damage_numbers": true,
-    "kill_burst_particles": 8,
+    "kill_burst_particles": 8, "bullet_scale": 1.0,
     "levelup_input_delay_s": 0.35,
     "stick_radius": 90,
     "stick_deadzone": 0.12,

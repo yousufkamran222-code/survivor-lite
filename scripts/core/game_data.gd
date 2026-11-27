@@ -59,9 +59,13 @@ static func apply_store_build(d: Dictionary, store: bool) -> void:
 ## The CrazyGames web build (export preset "CrazyGames", custom feature
 ## "crazygames"): the same debug flags as a store build are forced off, so the
 ## portal never gets dev tools. Its own settings live in balance.crazygames
-## (read by Main only on that build). docs/CRAZYGAMES_PLAN.md.
+## (read by Main only on that build), and balance.crazygames.presentation
+## (juice only: bigger shots and kill pops, never gameplay; the sims never
+## call this) is merged into the balance. docs/CRAZYGAMES_PLAN.md Phase Q6.
 static func apply_crazygames_build(d: Dictionary, crazygames: bool) -> void:
 	apply_store_build(d, crazygames)
+	if crazygames:
+		_merge(d.balance, d.balance.get("crazygames", {}).get("presentation", {}).duplicate(true))
 
 
 ## True on the CrazyGames build (custom feature "crazygames"), or when the game
