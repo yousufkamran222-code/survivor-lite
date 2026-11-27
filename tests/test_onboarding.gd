@@ -101,6 +101,26 @@ func test_crazygames_prologue() -> void:
 	check(w.boss_killed and w.evolved.has("bolt"))
 
 
+## The overhaul's hot start (balance.overhaul.hot_start, Phase R4): valid
+## beats, much shorter than Patient Zero, and the bot (answering prompts like a
+## player) finishes it with an evolution and an Outbreak.
+func test_hot_start() -> void:
+	var d := data()
+	var beats := GameData.hot_start_beats(d)
+	check(beats.size() >= 5, "hot start has beats")
+	check(bool(d.balance.overhaul.hot_start.enabled))
+	var w := World.new(GameData.apply_prologue(d, d.balance.overhaul.prologue), 5)
+	w.emit_events = false
+	w.start_tutorial(beats, Onboarding.prologue_opts(d, Profile.new()))
+	var t := _play(w, 240.0, 5)
+	check_eq(w.state, "won", "finished in %.0f s at beat %s" % [t, w.tut.beat().get("id", "end")])
+	check(w.evolved.has("bolt"), "an evolution inside the opening")
+	check(w.outbreaks >= 1 and w.dashes >= 1)
+	check(t < 120.0, "short: %.0f s (Patient Zero is ~3 min)" % t)
+	var full := _prologue(5)
+	check(_play(full, 360.0, 5) > t + 40.0, "much shorter than Patient Zero")
+
+
 func test_prologue_cannot_kill_you() -> void:
 	var w := _prologue(9)
 	w.p_iframes = 0.0

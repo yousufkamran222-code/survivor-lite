@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
 var crazygames := GameData.is_crazygames()  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var _hot_start := false  # this run is the overhaul's hot start (balance.overhaul.hot_start), not Patient Zero
 var overhaul := false  # the CrazyGames overhaul (balance.overhaul): CrazyGames build, or every build with all_builds
 var autopilot := Callable()  # tools/footage/showcase.gd steers the cell (unset in the game)
 var _hud_hand := false  # the mouse is on a HUD button (pointing-hand cursor)
@@ -872,8 +873,10 @@ func _start_run(prologue: bool = false) -> void:
 	var mode_id: String = "prologue" if prologue else str(_current_mode().id)
 	if prologue:
 		var cgp: Dictionary = bal.overhaul.get("prologue", {}) if overhaul else {}
+		# Overhaul (R4): a first launch gets the short hot start instead of Patient Zero.
+		_hot_start = first_launch and overhaul and bool(bal.overhaul.get("hot_start", {}).get("enabled", false))
 		world = World.new(_landscape_run(GameData.apply_prologue(data, cgp)), randi(), {})
-		world.start_tutorial(GameData.prologue_beats(data, cgp), Onboarding.prologue_opts(data, Save.profile))
+		world.start_tutorial(GameData.hot_start_beats(data) if _hot_start else GameData.prologue_beats(data, cgp), Onboarding.prologue_opts(data, Save.profile))
 	else:
 		var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
 		world = World.new(_landscape_run(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id))), randi(), meta)
@@ -2953,7 +2956,7 @@ func _show_prologue_results() -> void:
 	Save.profile.add_gold(gold, Save.now())
 	_new_cosmetics = Cosmetics.newly_earned(data.cosmetics, had_cosmetics, Cosmetics.earned_ids(data.cosmetics, Save.profile))
 	Save.write()
-	Analytics.event("prologue_end", {"first": first, "score": score, "medal": str(medal.get("id", "")), "kills": world.kills, "streak": world.best_streak, "boss_s": snappedf(boss_s, 0.1), "t": int(world.time)})
+	Analytics.event("prologue_end", {"first": first, "hot": _hot_start, "score": score, "medal": str(medal.get("id", "")), "kills": world.kills, "streak": world.best_streak, "boss_s": snappedf(boss_s, 0.1), "t": int(world.time)})
 	var col: VBoxContainer = _results[1]
 	UiKit.clear(col)
 	col.add_theme_constant_override("separation", 18)
@@ -2964,7 +2967,10 @@ func _show_prologue_results() -> void:
 	tiles.add_theme_constant_override("separation", 12)
 	tiles.add_child(_stat_tile("KILLS", world.kills, "int", 0.3))
 	tiles.add_child(_stat_tile("PEAK STREAK", world.best_streak, "int", 0.45))
-	tiles.add_child(_stat_tile("BOSS TIME", boss_s, "time", 0.6))
+	if _hot_start:  # the hot start has no boss: show how long it took
+		tiles.add_child(_stat_tile("TIME", world.time, "time", 0.6))
+	else:
+		tiles.add_child(_stat_tile("BOSS TIME", boss_s, "time", 0.6))
 	col.add_child(tiles)
 	var sl := UiKit.display(UiKit.label("", 52, Color.WHITE), 8)
 	col.add_child(sl)
@@ -2998,7 +3004,21 @@ func _show_prologue_results() -> void:
 		col.add_child(UiKit.label("%s medal at %d" % [next_m.name, int(next_m.score)], 20, Color(pal.text, 0.6)))
 	var gl := UiKit.display(UiKit.label("+%d gold" % gold, 40, pal.ui_accent), 6)
 	col.add_child(gl)
-	if first:
+	if first and _hot_start:
+		# Overhaul hot start: straight into a real run (the menu is one tap away).
+		col.add_child(UiKit.label("Now survive 5:00 for real. Upgrades and more modes unlock as you play.", 21, Color(pal.text, 0.75)))
+		var go := UiKit.button("PLAY CLASSIC", func() -> void:
+			_prologue = false
+			_hot_start = false
+			Save.mode = "classic"
+			_start_run(false), 120, "primary")
+		go.add_theme_font_size_override("font_size", 44)
+		col.add_child(go)
+		col.add_child(_text_button("Menu", func() -> void:
+			_prologue = false
+			_hot_start = false
+			_show_menu()))
+	elif first:
 		col.add_child(UiKit.label("Spend it in UPGRADES. More modes unlock as you play.", 21, Color(pal.text, 0.75)))
 		var cont := UiKit.button("CONTINUE", func() -> void:
 			_prologue = false

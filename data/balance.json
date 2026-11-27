@@ -310,6 +310,22 @@
     "_art": "R1 (2026-11-27): 'darkfield' = the dark-field microscope art (assets/processed/overhaul/, built by tools/build_assets.py --overhaul: rim-lit germ atlas with one row per enemy type, player cell, slide floor with a counting grid; bullets/particles/gems/shots drawn additive). '' = the old art. enemy_colors replace data/enemies.json colours (visual only).",
     "art": "darkfield",
     "enemy_colors": {"grunt": "#5dff8f", "swarm": "#d4ff4a", "runner": "#ffd84a", "brute": "#ff5a4a", "spitter": "#ffa040", "charger": "#ff4fd8", "splitter": "#3cf2e0", "boss": "#ff2d55"},
+    "_hot_start": "R4 (2026-11-27): a first launch with the overhaul on plays these beats (~75-90 s of action: move, upgrade, Lancer dash, surrounded, elite chest -> evolution, streak horde, Outbreak; no boss) instead of the 3-min Patient Zero, then results offer PLAY CLASSIC (a real run). Same beat format as onboarding.prologue.beats (validated the same way); runs on the prologue mode with overhaul.prologue overrides. Patient Zero stays replayable in full from the menu.",
+    "hot_start": {"enabled": true, "beats": [
+      {"id": "move", "text": "Drag anywhere to move", "target": "move", "min_s": 1.0, "max_s": 3, "start": {"spawn": [{"id": "swarm", "n": 14, "pattern": "cluster", "dist": 480}, {"id": "grunt", "n": 6, "pattern": "front", "dist": 460}], "ambient": 1.0}, "until": {"moved": 150}},
+      {"id": "fire", "max_s": 8, "start": {"ambient": 1.2}, "repeat": {"every_s": 2.0, "spawn": [{"id": "grunt", "n": 6, "pattern": "cluster", "dist": 440}]}, "until": {"kills": 12}},
+      {"id": "upgrade", "text": "LEVEL UP! Tap UPGRADE", "target": "upgrade", "pause_after_s": 0.4, "start": {"grant_levels": 1, "offers": [["orbit", "nova", "showcase"]]}, "until": {"picks": 1}},
+      {"id": "lancer", "text": "A Lancer! Watch it wind up...", "max_s": 6, "start": {"spawn": [{"id": "charger", "n": 1, "pattern": "front", "dist": 340, "hp_mult": 5}], "ambient": 0.8}, "until": {"lunge": 1}},
+      {"id": "dash", "text": "DASH NOW!", "target": "dash", "pause_after_s": 2.0, "until": {"dashes": 1}},
+      {"id": "grow", "text": "Tap UPGRADE: pick cards that work together", "target": "upgrade", "show_s": 4.0, "min_s": 12, "max_s": 24, "start": {"ambient": 1.4, "xp_mult": 3.0, "grant_levels": 1, "offers": [["showcase", "partner", "might"], ["showcase", "partner", "haste"], ["showcase", "partner", "swift"]]}, "until": {"picks": 2}},
+      {"id": "surround", "text": "Surrounded! DASH through them", "show_s": 3.0, "min_s": 3, "max_s": 8, "start": {"spawn": [{"id": "grunt", "n": 24, "pattern": "ring", "dist": 250}], "ambient": 1.4}, "until": {"dashes": 1}},
+      {"id": "elite", "target": "elite", "start": {"elite": true, "elite_life_s": 4, "elite_dist": 380, "ambient": 0.8}, "until": {"chests": 1}},
+      {"id": "evolve", "text": "EVOLVED! Max a weapon + its partner", "show_s": 3.0, "max_s": 3.5, "start": {"xp_mult": 1.0}, "until": {"time": 3.5}},
+      {"id": "horde", "text": "Keep the streak going!", "show_s": 2.5, "max_s": 12, "start": {"spawn": [{"id": "swarm", "n": 30, "pattern": "ring", "dist": 340}], "ambient": 1.2}, "repeat": {"every_s": 2.0, "spawn": [{"id": "grunt", "n": 16, "pattern": "ring", "dist": 360}, {"id": "swarm", "n": 14, "pattern": "ring", "dist": 430}]}, "until": {"streak": 80}},
+      {"id": "outbreak", "text": "OUTBREAK is ready! Tap it", "target": "outbreak", "pause_after_s": 0.4, "start": {"outbreak_full": true}, "until": {"outbreaks": 1}},
+      {"id": "frenzy", "max_s": 5, "start": {"spawn": [{"id": "grunt", "n": 28, "pattern": "ring", "dist": 380}], "ambient": 1.8}, "until": {"time": 5}},
+      {"id": "finale", "text": "INFECTION COMPLETE", "max_s": 2.5, "start": {"clear": true, "ambient": 0.0}, "until": {"time": 2.5}, "done": {"win": true}}
+    ]},
     "_prologue": "Patient Zero with the overhaul on (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
     "prologue": {
       "overrides": {"hp_floor": 0.35, "difficulty": {"damage_taken_mult": 0.5}, "player": {"regen": 2.0}},

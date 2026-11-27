@@ -122,6 +122,12 @@ static func apply_prologue(d: Dictionary, extra: Dictionary = {}) -> Dictionary:
 ## The prologue's beat list, with `extra.beats` ({beat id: fields}) merged
 ## into the matching beats (CrazyGames: silent beats, shorter lines, bigger
 ## spawns). A copy: data.onboarding is never changed.
+## The overhaul's hot start (balance.overhaul.hot_start, Phase R4): a short
+## action opening played on a first launch instead of Patient Zero. A copy.
+static func hot_start_beats(d: Dictionary) -> Array:
+	return d.get("balance", {}).get("overhaul", {}).get("hot_start", {}).get("beats", []).duplicate(true)
+
+
 static func prologue_beats(d: Dictionary, extra: Dictionary = {}) -> Array:
 	var out: Array = d.get("onboarding", {}).get("prologue", {}).get("beats", []).duplicate(true)
 	var over: Dictionary = extra.get("beats", {})
@@ -590,7 +596,7 @@ static func _validate_onboarding(d: Dictionary, errors: Array) -> void:
 	var enemy_ids := {}
 	for e in d.enemies:
 		enemy_ids[e.id] = true
-	var lists := {"prologue": cfg.get("prologue", {}).get("beats", [])}
+	var lists := {"prologue": cfg.get("prologue", {}).get("beats", []), "overhaul hot_start": hot_start_beats(d)}
 	for m in cfg.get("coaches", {}):
 		lists["coach " + str(m)] = cfg.coaches[m]
 	for name in lists:
