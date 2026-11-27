@@ -1,6 +1,17 @@
 extends TestCase
 
 
+## Every game/UI/autoload script compiles (the other tests never load main.gd
+## or the view, so a parse error there used to pass the suite: 2026-11-27).
+func test_game_scripts_compile() -> void:
+	for dir in ["res://scripts/game", "res://scripts/ui", "res://scripts/autoload"]:
+		for f in DirAccess.get_files_at(dir):
+			if not f.ends_with(".gd"):
+				continue
+			var s: Script = load(dir + "/" + f)
+			check(s != null and s.can_instantiate(), "compiles: %s/%s" % [dir, f])
+
+
 func test_data_validates() -> void:
 	var errors := GameData.validate(data())
 	check(errors.is_empty(), "data errors: %s" % str(errors))
@@ -88,10 +99,25 @@ func test_overhaul_toggle() -> void:
 	d.balance.overhaul.all_builds = true
 	check(GameData.overhaul_on(d, false), "all_builds turns it on everywhere")
 	var pres: Dictionary = d.balance.overhaul.presentation
-	check_eq(pres.keys(), ["juice"], "presentation touches juice only")
+	for sec in pres:
+		check(sec in ["juice", "palette"], "presentation is visual only (juice/palette), got %s" % sec)
+	for k in pres.get("palette", {}):
+		check(data().balance.palette.has(k), "presentation palette key exists: %s" % k)
+	var ov: Dictionary = d.balance.overhaul
+	check(ov.art in ["", "darkfield"], "overhaul.art")
+	for id in ov.enemy_colors:
+		check(data().enemies.any(func(e: Dictionary) -> bool: return e.id == id), "enemy_colors names a real enemy: %s" % id)
+	# The dark-field atlas has one row per enemy type (tools/build_assets.py --overhaul).
+	var atlas: Texture2D = load("res://assets/processed/overhaul/germs_df.png")
+	check_eq(atlas.get_height(), 64 * data().enemies.size(), "germ atlas rows = enemy types (re-run build_assets.py --overhaul)")
+	check_eq(atlas.get_width(), 64 * 16, "16 facings")
 	GameData.apply_overhaul(d, false)
 	check_eq(float(d.balance.juice.bullet_scale), 1.0, "off: bolts at their real size")
+	check(not bool(d.balance.overhaul_on), "the view sees it off")
 	GameData.apply_overhaul(d, true)
+	check(bool(d.balance.overhaul_on), "the view sees it on")
+	check_eq(str(d.enemies[0].color), str(ov.enemy_colors.get(d.enemies[0].id, d.enemies[0].color)), "germ colours replaced")
+	check(data().enemies[0].color != d.enemies[0].color or not ov.enemy_colors.has(d.enemies[0].id), "the loaded data is untouched")
 	for k in pres.juice:
 		check(data().balance.juice.has(k), "presentation juice key exists in balance.juice: %s" % k)
 		check_eq(d.balance.juice[k], pres.juice[k], "merged with the overhaul on: %s" % k)

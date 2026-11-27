@@ -302,8 +302,14 @@
     "_doc": "The CrazyGames overhaul (Phase Q + Phase R, docs/CRAZYGAMES_PLAN.md). ON in the CrazyGames build; all_builds = true turns it on in EVERY build (Android, itch) once CrazyGames approves (Yousuf, 2026-11-27: one simple toggle). GameData.overhaul_on / apply_overhaul; Main reads its `overhaul` flag, never `crazygames`, for anything in here. Portal-only things (landscape layout, key hints, no ads, SKIP TUTORIAL) stay in balance.crazygames.",
     "all_builds": false,
     "tagline": "Pop the germs. Survive the swarm.",
-    "_presentation": "Merged into balance when the overhaul is on (GameData.apply_overhaul), juice keys only: drawn bolt size, kill flash/burst. Visual, never gameplay (a test checks only juice is touched).",
-    "presentation": {"juice": {"bullet_scale": 1.4, "kill_flash_scale": 1.7, "kill_burst_particles": 12, "kill_burst_speed": 1.25}},
+    "_presentation": "Merged into balance when the overhaul is on (GameData.apply_overhaul): juice + palette only (drawn bolt size, kill flash/burst, colours). Visual, never gameplay (a test checks only juice/palette are touched).",
+    "presentation": {
+      "juice": {"bullet_scale": 1.15, "kill_flash_scale": 1.7, "kill_burst_particles": 12, "kill_burst_speed": 1.25},
+      "palette": {"background": "#05070f"}
+    },
+    "_art": "R1 (2026-11-27): 'darkfield' = the dark-field microscope art (assets/processed/overhaul/, built by tools/build_assets.py --overhaul: rim-lit germ atlas with one row per enemy type, player cell, slide floor with a counting grid; bullets/particles/gems/shots drawn additive). '' = the old art. enemy_colors replace data/enemies.json colours (visual only).",
+    "art": "darkfield",
+    "enemy_colors": {"grunt": "#5dff8f", "swarm": "#d4ff4a", "runner": "#ffd84a", "brute": "#ff5a4a", "spitter": "#ffa040", "charger": "#ff4fd8", "splitter": "#3cf2e0", "boss": "#ff2d55"},
     "_prologue": "Patient Zero with the overhaul on (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
     "prologue": {
       "overrides": {"hp_floor": 0.35, "difficulty": {"damage_taken_mult": 0.5}, "player": {"regen": 2.0}},

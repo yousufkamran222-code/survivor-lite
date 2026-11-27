@@ -17,15 +17,17 @@ var _size := PackedFloat32Array()
 var _col := PackedColorArray()
 var _dir := PackedInt32Array()
 var _asp := PackedFloat32Array()  # width/height stretch (1 = square); see add()
+var _row := PackedInt32Array()  # atlas row per sprite (setup rows > 1: e.g. one row per germ type)
 var _n := 0
 var _cap := 0
 
 
-func setup(texture: Texture2D, capacity: int, dirs: int = 1) -> void:
+func setup(texture: Texture2D, capacity: int, dirs: int = 1, rows: int = 1) -> void:
 	tex = texture
 	directions = dirs
 	_frame_w = texture.get_width() / float(dirs)
-	_frame_h = texture.get_height()
+	_frame_h = texture.get_height() / float(maxi(rows, 1))
+	_row.resize(capacity)
 	_cap = capacity
 	_pos.resize(capacity)
 	_size.resize(capacity)
@@ -41,9 +43,10 @@ func begin() -> void:
 ## size = on-screen width in pixels; rot = radians (frame 0 faces +x);
 ## aspect > 1 stretches the sprite wide and squashes it short (area kept),
 ## < 1 the other way (hit squash: axis-aligned, so it stays one rect).
-func add(pos: Vector2, size: float, c: Color, rot: float = 0.0, aspect: float = 1.0) -> void:
+func add(pos: Vector2, size: float, c: Color, rot: float = 0.0, aspect: float = 1.0, row: int = 0) -> void:
 	if _n >= _cap:
 		return
+	_row[_n] = row
 	_pos[_n] = pos
 	_size[_n] = size
 	_col[_n] = c
@@ -80,9 +83,9 @@ func _draw_sprites() -> void:
 		var a := _asp[i]
 		if a == 1.0:
 			draw_texture_rect_region(tex, Rect2(_pos[i].x - s * 0.5, _pos[i].y - s * 0.5, s, s),
-				Rect2(_dir[i] * _frame_w, 0.0, _frame_w, _frame_h), _col[i])
+				Rect2(_dir[i] * _frame_w, _row[i] * _frame_h, _frame_w, _frame_h), _col[i])
 			continue
 		var w := s * a
 		var h := s / a
 		draw_texture_rect_region(tex, Rect2(_pos[i].x - w * 0.5, _pos[i].y - h * 0.5, w, h),
-			Rect2(_dir[i] * _frame_w, 0.0, _frame_w, _frame_h), _col[i])
+			Rect2(_dir[i] * _frame_w, _row[i] * _frame_h, _frame_w, _frame_h), _col[i])

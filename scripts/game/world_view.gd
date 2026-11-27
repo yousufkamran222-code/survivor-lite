@@ -11,10 +11,14 @@ extends Node2D
 
 const BG_TILE := preload("res://assets/processed/bg_tile.png")
 const ENEMY_DIRS := 16  # eye directions baked into the enemy atlas
+const DF_BODY := 0.6  # overhaul germ atlas: body radius / frame half-width (tools/build_assets.py DF_BODY)
 
 var world: World
 var bal: Dictionary
 var juice: Dictionary
+var _darkfield := false  # overhaul art on (balance.overhaul.art "darkfield" with the overhaul on)
+var _bg_tex: Texture2D = BG_TILE
+var _floor: Node2D  # draws the tiled floor (the only repeat-enabled node)
 var _bullet_scale := 1.0  # juice.bullet_scale: bolts drawn bigger than their hit radius
 var pal := {}
 var enemy_colors: Array = []
@@ -122,14 +126,28 @@ func setup(game_data: Dictionary) -> void:
 	elite_color = GameData.color(game_data.waves.elites.color)
 	if cam != null:
 		return
-	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	# Only the floor tiles. A repeat-enabled CanvasItem draws every other
+	# small texture shifted by half a tile (round glows, auras and halos came
+	# out as squares), so the tile gets its own node behind everything.
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+	_floor = Node2D.new()
+	_floor.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	_floor.show_behind_parent = true
+	_floor.draw.connect(_draw_floor)
+	add_child(_floor)
 	var perf: Dictionary = bal.perf
 	var disc := ShapeTextures.disc()
 	_splats = _batch(ShapeTextures.splat(), int(juice.get("splat_max", 50)))
 	_plague = _batch(ShapeTextures.splat(), 200)
 	_gems = _batch(ShapeTextures.diamond(), int(bal.xp.max_gems))
 	_shots = _batch(disc, int(perf.max_enemy_shots) * 2)
-	_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
+	_darkfield = bool(bal.get("overhaul_on", false)) and str(bal.get("overhaul", {}).get("art", "")) == "darkfield"
+	if _darkfield:  # R1: one atlas row per germ type, so each type has its own shape
+		_bg_tex = load("res://assets/processed/overhaul/bg_df.png")
+		var atlas: Texture2D = load("res://assets/processed/overhaul/germs_df.png")
+		_enemies = _batch(atlas, int(game_data.waves.max_alive) + 120, ENEMY_DIRS, game_data.enemies.size())
+	else:
+		_enemies = _batch(ShapeTextures.blob(64, ENEMY_DIRS), int(game_data.waves.max_alive) + 120, ENEMY_DIRS)
 	_allies = _batch(ShapeTextures.ally_cell(), 64)
 	_bullets = _batch(disc, int(perf.max_projectiles) * 2)
 	_bolt_heads = _batch(disc, int(perf.max_projectiles))
@@ -137,8 +155,14 @@ func setup(game_data: Dictionary) -> void:
 	_pops = _batch(disc, int(perf.max_effects) + 40)
 	_trails = _batch(disc, 120)
 	_rings = _batch(ShapeTextures.ring(), 48)
-	_blob_scale = 2.0 / ShapeTextures.BLOB_BODY  # body radius -> quad width
-	_cell_tex = ShapeTextures.player_cell()
+	_blob_scale = 2.0 / (DF_BODY if _darkfield else ShapeTextures.BLOB_BODY)  # body radius -> quad width
+	_cell_tex = load("res://assets/processed/overhaul/player_df.png") if _darkfield else ShapeTextures.player_cell()
+	if _darkfield:
+		# Light on a dark slide: shots, particles, rings and gems add up and glow.
+		var glow_mat := CanvasItemMaterial.new()
+		glow_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		for b in [_bullets, _bolt_heads, _dots, _pops, _rings, _shots, _gems, _trails]:
+			b.material = glow_mat
 	_disc_tex = disc
 	_glow_tex = ShapeTextures.glow(64)
 	_top = Node2D.new()
@@ -149,10 +173,10 @@ func setup(game_data: Dictionary) -> void:
 	cam.make_current()
 
 
-func _batch(tex: Texture2D, cap: int, dirs: int = 1) -> SpriteBatch:
+func _batch(tex: Texture2D, cap: int, dirs: int = 1, rows: int = 1) -> SpriteBatch:
 	var b := SpriteBatch.new()
-	b.setup(tex, cap, dirs)
-	b.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED  # parent repeats for the bg tile
+	b.setup(tex, cap, dirs, rows)
+	b.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
 	add_child(b)
 	return b
 
@@ -724,6 +748,7 @@ func _process_view(delta: float) -> void:
 	_fill_plague()
 	Prof.add("view.splats", tf)
 	queue_redraw()
+	_floor.queue_redraw()
 	_top.queue_redraw()
 
 
@@ -739,14 +764,20 @@ func _draw() -> void:
 	cpu_ms += (Time.get_ticks_usec() - t0) / 1000.0
 
 
-func _draw_world() -> void:
-	# One tiled texture, anchored to the world grid so it scrolls correctly.
+## The floor: one tiled texture, anchored to the world grid so it scrolls
+## correctly (on its own repeat-enabled node, drawn behind the view).
+func _draw_floor() -> void:
+	if world == null:
+		return
 	var vp := get_viewport_rect().size / cam_zoom
-	var tile := float(BG_TILE.get_width())
+	var tile := float(_bg_tex.get_width())
 	var tl := cam.position - vp / 2.0 - Vector2(64, 64)
 	var origin := Vector2(floorf(tl.x / tile), floorf(tl.y / tile)) * tile
 	var size := Vector2(ceilf((vp.x + 128.0) / tile) + 1.0, ceilf((vp.y + 128.0) / tile) + 1.0) * tile
-	draw_texture_rect(BG_TILE, Rect2(origin, size), true)
+	_floor.draw_texture_rect(_bg_tex, Rect2(origin, size), true)
+
+
+func _draw_world() -> void:
 	if world.terr != null:
 		_draw_territory()
 	elif world.dish_r > 0.0:
@@ -974,7 +1005,7 @@ func _fill_enemies(view: Rect2) -> void:
 			var m := minf(kn.length() * sq_ref, 1.0) * sq_max
 			var kl := absf(kn.x) + absf(kn.y)
 			asp = 1.0 - m * (absf(kn.x) - absf(kn.y)) / kl  # pushed sideways = narrower and taller
-		_enemies.add(p, r * _blob_scale * pulse, c, (pp - p).angle(), asp)
+		_enemies.add(p, r * _blob_scale * pulse, c, (pp - p).angle(), asp, t if _darkfield else 0)
 	_enemies.commit()
 	_allies.commit()
 
@@ -985,8 +1016,9 @@ func _fill_bullets() -> void:
 	var bc: Color = _wcolor("bolt", pal.bolt)
 	var trail := Color(bc, 0.35)
 	var evo := _evo("bolt")
-	var glow := Color(bc, 0.22)
+	var glow := Color(bc, 0.1 if _darkfield else 0.22)  # additive on the dark slide: far less needed
 	var faint := Color(bc, 0.15)
+	var glow_r := 2.8 if _darkfield else 4.2
 	var white := Color(1, 1, 1, 0.9)
 	var b_pos := world.b_pos
 	var b_rad := world.b_rad
@@ -999,7 +1031,7 @@ func _fill_bullets() -> void:
 		var own := b_ally[i] == 0
 		if evo and own:
 			# Evolved: a soft glow, a longer comet tail and a white-hot core.
-			_bullets.add(p, r * 4.2, glow)
+			_bullets.add(p, r * glow_r, glow)
 			_bullets.add(p - back * 3.2, r * 1.6, faint)
 		_bullets.add(p - back * 1.6, r * 2.2, trail)
 		if _shaped and own:  # weapon style: star/heart/... heads

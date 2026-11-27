@@ -245,6 +245,213 @@ def build_background(size: int = 512, bg="#150e2b", dots="#231845", cells="#1d14
     print(f"wrote {out.name}")
 
 
+# --------------------------------------------------------------------------
+# Overhaul art (docs/CRAZYGAMES_PLAN.md Phase R1, "dark-field microscope"):
+# glowing, rim-lit translucent cells on a near-black slide. Written next to
+# the old art into assets/processed/overhaul/ and picked at runtime only when
+# the overhaul is on (balance.overhaul), so the old look stays available.
+# All white/grey: the game tints each sprite (SpriteBatch colours).
+
+DF_BODY = 0.6        # germ body radius as a fraction of the frame half-width
+DF_DIRS = 16         # facing directions per row (frame k faces angle k*TAU/16)
+DF_FRAME = 64        # px per frame
+DF_CELL_BODY = 0.78  # player body fraction (same as ShapeTextures.CELL_BODY)
+
+
+def _smin(a: np.ndarray, b: np.ndarray, k: float) -> np.ndarray:
+    """Smooth union of two signed distances (k = blend width)."""
+    h = np.clip(0.5 + 0.5 * (b - a) / k, 0.0, 1.0)
+    return b * (1 - h) + a * h - k * h * (1 - h)
+
+
+def _circ(x, y, cx, cy, r):
+    return np.hypot(x - cx, y - cy) - r
+
+
+def _germ_sdf(kind: str, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Signed distance (frame units, < 0 inside) of one germ type, facing +x."""
+    B = DF_BODY
+    th = np.arctan2(y, x)
+    rr = np.hypot(x, y)
+    if kind == "grunt":      # coccus with soft knobs
+        return rr - B * (1 + 0.06 * np.cos(7 * th))
+    if kind == "swarm":      # tiny spiky spore
+        return rr - B * 0.78 * (1 + 0.26 * np.maximum(np.cos(9 * th), 0) ** 3)
+    if kind == "runner":     # comet: round head, tapering tail
+        return _smin(_circ(x, y, 0.1 * B, 0, 0.78 * B), _circ(x, y, -0.62 * B, 0, 0.32 * B), 0.3 * B)
+    if kind == "brute":      # big irregular lump
+        return rr - B * (1 + 0.08 * np.cos(3 * th + 1.0) + 0.05 * np.cos(5 * th + 2.0))
+    if kind == "spitter":    # round body with a nozzle toward you
+        seg = np.clip(x, 0.5 * B, 1.1 * B)
+        nozzle = np.hypot(x - seg, y) - 0.2 * B
+        return _smin(_circ(x, y, -0.05 * B, 0, 0.88 * B), nozzle, 0.12 * B)
+    if kind == "charger":    # spindle pointing at you
+        a, b = 1.22 * B, 0.56 * B
+        return (np.hypot(x / a, y / b) - 1.0) * b
+    if kind == "splitter":   # dividing cell: two lobes and a waist
+        return _smin(_circ(x, y, 0, -0.42 * B, 0.66 * B), _circ(x, y, 0, 0.42 * B, 0.66 * B), 0.08 * B)
+    if kind == "boss":       # wavy mother cell
+        return rr - B * (1 + 0.045 * np.cos(11 * th) + 0.03 * np.cos(4 * th))
+    raise SystemExit(f"build_overhaul_art: no dark-field shape for enemy '{kind}' (add one)")
+
+
+# Per-type insides: (organelles [(x, y, r) in units of B], nucleus (x, y, r) or None, rotates with facing)
+_GERM_INSIDE = {
+    "grunt": ([(-0.35, 0.4, 0.09), (-0.5, -0.2, 0.07), (0.05, 0.55, 0.06)], (-0.15, 0.05, 0.3), False),
+    "swarm": ([], None, False),
+    "runner": ([(-0.45, 0.12, 0.08)], (-0.05, 0.0, 0.26), True),
+    "brute": ([(-0.5, 0.35, 0.1), (-0.3, -0.5, 0.08), (0.2, 0.55, 0.09), (-0.65, -0.05, 0.07), (0.3, -0.55, 0.06)], (-0.1, 0.0, 0.36), False),
+    "spitter": ([(-0.45, 0.35, 0.08), (-0.4, -0.4, 0.07)], (-0.2, 0.0, 0.28), True),
+    "charger": ([(-0.75, 0.0, 0.1), (-0.45, 0.2, 0.06)], (-0.1, 0.0, 0.24), True),
+    "splitter": ([(0.25, -0.5, 0.07), (-0.25, 0.5, 0.07)], None, False),
+    "boss": ([(-0.5, 0.45, 0.1), (0.3, 0.6, 0.08), (-0.6, -0.3, 0.09), (0.45, -0.55, 0.07), (-0.2, -0.65, 0.06), (0.65, 0.1, 0.06)], (-0.15, 0.05, 0.4), False),
+}
+
+
+def _germ_frame(kind: str, ang: float, n: int) -> np.ndarray:
+    """One RGBA frame (float 0..1), the germ facing angle `ang`."""
+    B = DF_BODY
+    c = (np.arange(n) + 0.5) / n * 2 - 1
+    px, py = np.meshgrid(c, c)
+    rotates = kind in ("runner", "spitter", "charger")
+    ca, sa = np.cos(-ang), np.sin(-ang)
+    lx, ly = px * ca - py * sa, px * sa + py * ca  # local: +x faces the target
+    sx, sy = (lx, ly) if rotates else (px, py)
+    d = _germ_sdf(kind, sx, sy)
+    aa = 2.0 / n  # one pixel in frame units
+    inside = np.clip(0.5 - d / aa, 0, 1)
+    # Rim-lit membrane (bright, thin), a translucent body brighter toward the
+    # rim (dark-field look), and a soft outer glow.
+    rim = np.exp(-((d + 0.025) / 0.035) ** 2)
+    body_v = 0.42 + 0.4 * np.clip(1 + d / (0.35 * B), 0, 1) ** 2
+    glow = 0.5 * np.exp(-np.maximum(d, 0) / 0.075) * (d > 0)
+    v = np.where(inside > 0, body_v, 1.0)
+    a = np.maximum(inside * 0.58, glow)
+    orgs, nuc, nuc_rot = _GERM_INSIDE[kind]
+    ox, oy = (lx, ly) if nuc_rot else (px, py)
+    for (gx, gy, gr) in orgs:  # bright granules
+        g = np.clip(0.5 - _circ(ox, oy, gx * B, gy * B, gr * B) / aa, 0, 1) * inside
+        v = v * (1 - g) + 0.95 * g
+        a = np.maximum(a, g * 0.8)
+    nuclei = [nuc] if nuc else []
+    if kind == "splitter":
+        nuclei = [(0.0, -0.42, 0.24), (0.0, 0.42, 0.24)]
+    for (nx, ny, nr) in nuclei:  # nucleus: a dim core with its own faint rim
+        nd = _circ(ox, oy, nx * B, ny * B, nr * B)
+        core = np.clip(0.5 - nd / aa, 0, 1) * inside
+        v = v * (1 - core) + 0.55 * core
+        a = np.maximum(a, core * 0.62)
+        nrim = np.exp(-(nd / 0.02) ** 2) * inside
+        v = np.maximum(v, 0.9 * nrim)
+        a = np.maximum(a, nrim * 0.7)
+    a = np.maximum(a, rim * np.clip(1.2 - np.abs(d) / 0.08, 0, 1))
+    v = np.maximum(v, rim)
+    # Eyes (always face the target): dark pupils with a tiny highlight.
+    er = (0.13 if kind == "swarm" else 0.17) * B
+    ex = (0.3 if kind == "swarm" else 0.36) * B
+    if kind == "charger":
+        ex = 0.62 * B
+    if kind == "boss":
+        er, ex = 0.12 * B, 0.45 * B
+    for side in (-1, 1):
+        ey = side * (0.24 if kind == "swarm" else 0.3) * B
+        ed = _circ(lx, ly, ex, ey, er)
+        eye = np.clip(0.5 - ed / aa, 0, 1)
+        v = v * (1 - eye) + 0.06 * eye
+        a = np.maximum(a, eye)
+        hl = np.clip(0.5 - _circ(lx, ly, ex + 0.35 * er, ey - 0.35 * er, 0.32 * er) / aa, 0, 1)
+        v = v * (1 - hl) + 1.0 * hl
+    a = a * np.clip((1.0 - np.hypot(px, py)) / 0.1, 0, 1)  # glow never reaches the frame edge
+    return np.dstack([v, v, v, np.clip(a, 0, 1)])
+
+
+def _save_rgba(arr: np.ndarray, out: Path) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray((np.clip(arr, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(out, optimize=True)
+    print(f"wrote {out.relative_to(ROOT)}")
+
+
+def build_overhaul_germs() -> None:
+    """germs_df.png: one row per enemy (data/enemies.json order), DF_DIRS facings."""
+    import json
+    ids = [e["id"] for e in json.loads((ROOT / "data" / "enemies.json").read_text())]
+    n = DF_FRAME
+    atlas = np.zeros((n * len(ids), n * DF_DIRS, 4))
+    for row, kind in enumerate(ids):
+        for k in range(DF_DIRS):
+            atlas[row * n:(row + 1) * n, k * n:(k + 1) * n] = _germ_frame(kind, 2 * np.pi * k / DF_DIRS, n)
+    _save_rgba(atlas, ROOT / "assets" / "processed" / "overhaul" / "germs_df.png")
+
+
+def build_overhaul_player(n: int = 128) -> None:
+    """player_df.png: the rim-lit white cell (nucleus drawn by the game)."""
+    c = (np.arange(n) + 0.5) / n * 2 - 1
+    x, y = np.meshgrid(c, c)
+    body = DF_CELL_BODY
+    d = np.hypot(x, y) - body * (1 + 0.015 * np.cos(9 * np.arctan2(y, x)))
+    aa = 2.0 / n
+    inside = np.clip(0.5 - d / aa, 0, 1)
+    rim = np.exp(-((d + 0.02) / 0.03) ** 2)
+    v = np.where(inside > 0, 0.55 + 0.4 * np.clip(1 + d / 0.3, 0, 1) ** 2, 1.0)
+    a = np.maximum(inside * 0.62, 0.55 * np.exp(-np.maximum(d, 0) / 0.07) * (d > 0))
+    for (gx, gy, gr) in [(0.32, 0.36, 0.06), (-0.38, 0.22, 0.05), (0.12, -0.45, 0.045), (-0.2, 0.5, 0.04), (0.45, -0.1, 0.035)]:
+        g = np.clip(0.5 - _circ(x, y, gx, gy, gr) / aa, 0, 1) * inside
+        v = v * (1 - g) + 1.0 * g
+        a = np.maximum(a, g * 0.9)
+    v = np.maximum(v, rim)
+    a = np.maximum(a, rim)
+    _save_rgba(np.dstack([v, v, v, a]), ROOT / "assets" / "processed" / "overhaul" / "player_df.png")
+
+
+def build_overhaul_background(size: int = 512) -> None:
+    """bg_df.png: a dark-field slide: near-black, out-of-focus debris, faint
+    specks and a counting-chamber grid (lines every 128 px, triple lines at
+    the tile edge). Seamless (everything wraps)."""
+    rng = np.random.default_rng(11)
+    yy, xx = np.mgrid[0:size, 0:size].astype(float)
+    base = np.array([5, 8, 18], float)
+    img = np.zeros((size, size, 3)) + base
+
+    def wrap_d(cx, cy):
+        dx = np.abs(xx - cx); dx = np.minimum(dx, size - dx)
+        dy = np.abs(yy - cy); dy = np.minimum(dy, size - dy)
+        return np.hypot(dx, dy)
+
+    for _ in range(9):  # out-of-focus cells: soft rings, barely there
+        cx, cy, r = rng.uniform(0, size), rng.uniform(0, size), rng.uniform(26, 60)
+        dd = wrap_d(cx, cy)
+        ring = np.exp(-((dd - r) / 7.0) ** 2) * 0.9 + np.exp(-(dd / r) ** 2) * 0.35
+        img += ring[..., None] * np.array([3, 6, 12]) * rng.uniform(0.5, 1.0)
+    for _ in range(70):  # specks of debris
+        cx, cy = rng.uniform(0, size), rng.uniform(0, size)
+        dd = wrap_d(cx, cy)
+        img += (np.exp(-(dd / rng.uniform(0.8, 1.8)) ** 2) * rng.uniform(25, 60))[..., None] * np.array([0.6, 0.85, 1.0])
+    # Counting-chamber grid.
+    def line_mask(coord, period, offs, width):
+        m = np.zeros_like(coord)
+        for o in offs:
+            dd = np.abs(((coord - o + period / 2) % period) - period / 2)
+            m = np.maximum(m, np.exp(-(dd / width) ** 2))
+        return m
+    fine = np.maximum(line_mask(xx, 128, [0], 0.7), line_mask(yy, 128, [0], 0.7))
+    edge = np.maximum(line_mask(xx, 512, [0, 6, 12], 0.8), line_mask(yy, 512, [0, 6, 12], 0.8))
+    img += fine[..., None] * np.array([8, 16, 30]) + edge[..., None] * np.array([10, 20, 38])
+    img += rng.normal(0, 1.2, (size, size, 1))
+    Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB").save(ROOT / "assets" / "processed" / "overhaul" / "bg_df.png", optimize=True)
+    print("wrote assets/processed/overhaul/bg_df.png")
+
+
+def build_overhaul_art() -> None:
+    build_overhaul_germs()
+    build_overhaul_player()
+    build_overhaul_background()
+
+
 if __name__ == "__main__":
+    import sys
+    if "--overhaul" in sys.argv:  # only the overhaul art (fast)
+        build_overhaul_art()
+        raise SystemExit(0)
     build_sfx()
     build_background()
+    build_overhaul_art()

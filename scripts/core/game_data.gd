@@ -72,12 +72,21 @@ static func overhaul_on(d: Dictionary, crazygames: bool) -> bool:
 	return crazygames or bool(d.balance.get("overhaul", {}).get("all_builds", false))
 
 
-## With the overhaul on: balance.overhaul.presentation (juice only: bigger
-## shots and kill pops, never gameplay) is merged into the balance. The sims
-## never call this.
+## With the overhaul on: balance.overhaul.presentation (juice + palette:
+## bigger shots and kill pops, colours; never gameplay) is merged into the
+## balance and overhaul.enemy_colors replace the germ colours (visual only).
+## Sets balance.overhaul_on, which the view reads to pick the overhaul art.
+## The sims never call this.
 static func apply_overhaul(d: Dictionary, on: bool) -> void:
-	if on:
-		_merge(d.balance, d.balance.get("overhaul", {}).get("presentation", {}).duplicate(true))
+	d.balance["overhaul_on"] = on
+	if not on:
+		return
+	var ov: Dictionary = d.balance.get("overhaul", {})
+	_merge(d.balance, ov.get("presentation", {}).duplicate(true))
+	var cols: Dictionary = ov.get("enemy_colors", {})
+	for e in d.get("enemies", []):
+		if cols.has(e.id):
+			e["color"] = cols[e.id]
 
 
 ## True on the CrazyGames build (custom feature "crazygames"), or when the game
