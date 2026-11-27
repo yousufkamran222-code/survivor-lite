@@ -85,9 +85,9 @@ Not checked: sound, real fps (software rendering in the sandbox), the menu after
 
 | Step | Fix | Where | Status |
 |---|---|---|---|
-| Q1 | Health in Patient Zero: `hp_floor` 0.35 (above `lowhp_frac`, so no permanent red edge/heartbeat), damage taken ×0.5, regen 2 HP/s | `crazygames.prologue.overrides` → `GameData.apply_prologue(d, cg)` | todo |
-| Q2 | Fewer interruptions: silent `fire`/`gems`/`dodged` beats, shorter lines (per-beat overrides by id) | `crazygames.prologue.beats` → `GameData.prologue_beats(d, cg)` | todo |
-| Q3 | Fuller screen: landscape spawns on a box just outside the view (`perf.spawn_box_x/_y`, 0 = the old ring) + a denser prologue (budget curve, beat spawn counts) | World `_spawn_point`, `crazygames.landscape.perf`, `crazygames.prologue` | todo (sim before/after) |
+| Q1 | Health in Patient Zero: `hp_floor` 0.35 (above `lowhp_frac`, so no permanent red edge/heartbeat), damage taken ×0.5, regen 2 HP/s | `crazygames.prologue.overrides` → `GameData.apply_prologue(d, cg)` | **done** (test `test_crazygames_prologue`) |
+| Q2 | Fewer interruptions: silent `fire`/`gems`/`dodged` beats, shorter lines (per-beat overrides by id) | `crazygames.prologue.beats` → `GameData.prologue_beats(d, cg)` | **done**: first 35 s go from ~10 lines to ~7 |
+| Q3 | Fuller screen: landscape spawns on a box just outside the view (`perf.spawn_box_x/_y`, 0 = the old ring) + a denser prologue (budget curve, beat spawn counts) | World `_spawn_point`, `crazygames.landscape.perf`, `crazygames.prologue` | prologue density **done** (with Q1/Q2: `waves_overrides.budget_curve`, more germs in move/fire/gems); spawn box todo (sim before/after) |
 | Q4 | Level-up: 1-4 pick a card (all builds: plain keyboard support), key chips on the cards and "Pick later (E)" in landscape, E closes the picker; the coach line is hidden while any overlay is up (bug, all builds) | Main `_show_levelup`, `_unhandled_input`, `_set_screen` | todo |
 | Q5 | WASD keycaps instead of the joystick ghost (landscape); tagline from `crazygames.tagline`; bigger landscape UI if every screen still fits (`landscape_ui_height`, checked with screenshots); no "what hit you" label in the CrazyGames prologue | HudOverlay, Main, balance | todo |
 | Q6 | Visual punch (presentation only): bigger bolt sprites (`juice.bullet_scale`), bigger kill flash/burst, merged on this build only from `crazygames.presentation` | `GameData.apply_crazygames_build`, WorldView | todo |

@@ -301,6 +301,18 @@
   "crazygames": {
     "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
     "prologue_skip_after_s": 6,
+    "_prologue": "Patient Zero on this build (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
+    "prologue": {
+      "overrides": {"hp_floor": 0.35, "difficulty": {"damage_taken_mult": 0.5}, "player": {"regen": 2.0}},
+      "waves_overrides": {"budget_curve": [[0, 1.2], [60, 3.0], [180, 5.0], [400, 7.0]]},
+      "beats": {
+        "move": {"max_s": 4, "start": {"spawn": [{"id": "grunt", "n": 5, "pattern": "front", "dist": 460}, {"id": "swarm", "n": 10, "pattern": "cluster", "dist": 520}], "ambient": 0.6}},
+        "fire": {"text": "", "start": {"spawn": [{"id": "swarm", "n": 16, "pattern": "cluster", "dist": 420}], "ambient": 1.0}, "repeat": {"every_s": 2.5, "spawn": [{"id": "grunt", "n": 6, "pattern": "cluster", "dist": 420}]}},
+        "gems": {"text": "", "start": {"ambient": 1.0}, "repeat": {"every_s": 2.5, "spawn": [{"id": "grunt", "n": 6, "pattern": "cluster", "dist": 420}]}},
+        "dodged": {"text": "", "start": {"ambient": 1.0}}
+      },
+      "hide_hurt_label": true
+    },
     "landscape_ui_height": 960,
     "landscape_view_height": 960,
     "landscape": {"perf": {"spawn_min_distance": 1000, "spawn_max_distance": 1100, "despawn_distance": 1600}},

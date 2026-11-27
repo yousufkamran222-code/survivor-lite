@@ -574,7 +574,8 @@ func _handle_events(events: Array) -> void:
 			"engulfed":
 				Sfx.play("pickup", 0.03, 0.7)
 			"hurt":
-				hud.hurt_by(_cause_name(str(ev.get("cause", ""))))
+				if not (_prologue and bool(bal.get("crazygames", {}).get("prologue", {}).get("hide_hurt_label", false)) and crazygames):
+					hud.hurt_by(_cause_name(str(ev.get("cause", ""))))
 				var from: Vector2 = ev.get("from", Vector2.INF)
 				if from != Vector2.INF and from != world.p_pos:
 					hud.hit_from((from - world.p_pos).normalized())
@@ -857,8 +858,9 @@ func _start_run(prologue: bool = false) -> void:
 	_coached_mode = ""
 	var mode_id: String = "prologue" if prologue else str(_current_mode().id)
 	if prologue:
-		world = World.new(_landscape_run(GameData.apply_prologue(data)), randi(), {})
-		world.start_tutorial(data.onboarding.prologue.beats, Onboarding.prologue_opts(data, Save.profile))
+		var cgp: Dictionary = bal.get("crazygames", {}).get("prologue", {}) if crazygames else {}
+		world = World.new(_landscape_run(GameData.apply_prologue(data, cgp)), randi(), {})
+		world.start_tutorial(GameData.prologue_beats(data, cgp), Onboarding.prologue_opts(data, Save.profile))
 	else:
 		var meta := Progression.run_bonus(data, Save.meta_levels, Save.profile.lab)
 		world = World.new(_landscape_run(GameData.apply_virulence(GameData.apply_mode(data, mode_id), Save.profile.virulence_selected(mode_id))), randi(), meta)

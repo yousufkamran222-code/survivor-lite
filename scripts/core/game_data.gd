@@ -81,12 +81,28 @@ static func apply_web_build(d: Dictionary, web: bool) -> void:
 ## The Patient Zero prologue (data/onboarding.json): its base mode, then its
 ## own balance overrides and waves overrides (no scripted events, no
 ## timed elites: its beats spawn those). mode_id = "prologue".
-static func apply_prologue(d: Dictionary) -> Dictionary:
+## `extra` (the CrazyGames build passes balance.crazygames.prologue) adds its
+## own overrides / waves_overrides on top; every other caller passes nothing.
+static func apply_prologue(d: Dictionary, extra: Dictionary = {}) -> Dictionary:
 	var pc: Dictionary = d.get("onboarding", {}).get("prologue", {})
 	var out := apply_mode(d, str(pc.get("base_mode", "classic")))
 	_merge(out.balance, pc.get("overrides", {}).duplicate(true))
 	_merge(out.waves, pc.get("waves_overrides", {}).duplicate(true))
+	_merge(out.balance, extra.get("overrides", {}).duplicate(true))
+	_merge(out.waves, extra.get("waves_overrides", {}).duplicate(true))
 	out.balance["mode_id"] = "prologue"
+	return out
+
+
+## The prologue's beat list, with `extra.beats` ({beat id: fields}) merged
+## into the matching beats (CrazyGames: silent beats, shorter lines, bigger
+## spawns). A copy: data.onboarding is never changed.
+static func prologue_beats(d: Dictionary, extra: Dictionary = {}) -> Array:
+	var out: Array = d.get("onboarding", {}).get("prologue", {}).get("beats", []).duplicate(true)
+	var over: Dictionary = extra.get("beats", {})
+	for b in out:
+		if over.has(str(b.get("id", ""))):
+			_merge(b, over[str(b.id)].duplicate(true))
 	return out
 
 

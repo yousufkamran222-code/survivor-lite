@@ -71,6 +71,36 @@ func test_bot_finishes_the_prologue_with_an_evolution() -> void:
 	check(w.tut.boss_s > 0.0)
 
 
+## CrazyGames Patient Zero (balance.crazygames.prologue, Phase Q): its
+## overrides and beat changes apply only when passed in, the beat ids it names
+## exist, the hidden HP floor stays above the low-HP warning, and the bot still
+## finishes it.
+func test_crazygames_prologue() -> void:
+	var d := data()
+	var cg: Dictionary = d.balance.crazygames.prologue
+	var ids := []
+	for b in d.onboarding.prologue.beats:
+		ids.append(str(b.id))
+	for id in cg.beats:
+		check(ids.has(id), "crazygames.prologue.beats names a real beat: %s" % id)
+	var plain := GameData.prologue_beats(d)
+	check_eq(plain, d.onboarding.prologue.beats, "no extra: the normal beats")
+	var beats := GameData.prologue_beats(d, cg)
+	check_eq(str(beats[ids.find("fire")].text), "", "fire is silent here")
+	check(str(d.onboarding.prologue.beats[ids.find("fire")].text) != "", "the data itself is untouched")
+	var pd := GameData.apply_prologue(d, cg)
+	check(float(pd.balance.hp_floor) > float(d.balance.juice.lowhp_frac), "floor above the low-HP warning")
+	check(float(pd.balance.player.regen) > 0.0 and float(d.balance.player.regen) == 0.0, "regen only in this prologue")
+	check_eq(float(pd.balance.difficulty.boss_hp_mult), float(d.onboarding.prologue.overrides.difficulty.boss_hp_mult), "nested overrides merge")
+	check_eq(GameData.apply_prologue(d).balance.hp_floor, d.onboarding.prologue.overrides.hp_floor, "other builds: the normal prologue")
+	var w := World.new(pd, 5)
+	w.emit_events = false
+	w.start_tutorial(beats, Onboarding.prologue_opts(d, Profile.new()))
+	var t := _play(w, 360.0, 5)
+	check_eq(w.state, "won", "finished in %.0f s at beat %s" % [t, w.tut.beat().get("id", "end")])
+	check(w.boss_killed and w.evolved.has("bolt"))
+
+
 func test_prologue_cannot_kill_you() -> void:
 	var w := _prologue(9)
 	w.p_iframes = 0.0
