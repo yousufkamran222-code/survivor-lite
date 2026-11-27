@@ -14,6 +14,7 @@ var ui_root: Control
 var pause_btn: Button
 var skip_btn: Button  # CrazyGames build only: SKIP TUTORIAL during a first Patient Zero
 var crazygames := GameData.is_crazygames()  # the CrazyGames web build (docs/CRAZYGAMES_PLAN.md)
+var overhaul := false  # the CrazyGames overhaul (balance.overhaul): CrazyGames build, or every build with all_builds
 var autopilot := Callable()  # tools/footage/showcase.gd steers the cell (unset in the game)
 var _hud_hand := false  # the mouse is on a HUD button (pointing-hand cursor)
 var landscape := false  # CrazyGames build in a wide window: landscape layout (_apply_orientation)
@@ -92,6 +93,8 @@ func _ready() -> void:
 	bal = data.balance
 	GameData.apply_store_build(data, OS.has_feature("store"))
 	GameData.apply_crazygames_build(data, crazygames)
+	overhaul = GameData.overhaul_on(data, crazygames)
+	GameData.apply_overhaul(data, overhaul)
 	GameData.apply_web_build(data, OS.has_feature("web"))
 	# The Lab was reshaped (2026-11-05): refund Genes for removed/repriced nodes.
 	var lab_back := Save.profile.migrate_lab(data.lab, Save.now())
@@ -584,7 +587,7 @@ func _handle_events(events: Array) -> void:
 			"engulfed":
 				Sfx.play("pickup", 0.03, 0.7)
 			"hurt":
-				if not (_prologue and bool(bal.get("crazygames", {}).get("prologue", {}).get("hide_hurt_label", false)) and crazygames):
+				if not (_prologue and overhaul and bool(bal.overhaul.prologue.get("hide_hurt_label", false))):
 					hud.hurt_by(_cause_name(str(ev.get("cause", ""))))
 				var from: Vector2 = ev.get("from", Vector2.INF)
 				if from != Vector2.INF and from != world.p_pos:
@@ -868,7 +871,7 @@ func _start_run(prologue: bool = false) -> void:
 	_coached_mode = ""
 	var mode_id: String = "prologue" if prologue else str(_current_mode().id)
 	if prologue:
-		var cgp: Dictionary = bal.get("crazygames", {}).get("prologue", {}) if crazygames else {}
+		var cgp: Dictionary = bal.overhaul.get("prologue", {}) if overhaul else {}
 		world = World.new(_landscape_run(GameData.apply_prologue(data, cgp)), randi(), {})
 		world.start_tutorial(GameData.prologue_beats(data, cgp), Onboarding.prologue_opts(data, Save.profile))
 	else:
@@ -882,7 +885,7 @@ func _start_run(prologue: bool = false) -> void:
 			_coached_mode = mode_id
 	hud.title_t = 0.0 if first_launch else -1.0
 	hud.title_text = str(bal.title).to_upper()
-	hud.title_sub = str(bal.get("crazygames", {}).get("tagline", "You are the infection.")) if crazygames else "You are the infection."
+	hud.title_sub = _tagline()
 	view.set_world(world)
 	view.set_look(Cosmetics.look(data.cosmetics, Save.profile))
 	_pop_sound = Cosmetics.look(data.cosmetics, Save.profile).get("pop", {})
@@ -1036,7 +1039,7 @@ func _apply_orientation() -> void:
 	if get_tree().root.content_scale_size != base:
 		get_tree().root.content_scale_size = base
 	UiKit.trim = maxf(0.0, 1280.0 - h) if landscape else 0.0
-	hud.show_keys = landscape  # CrazyGames locks phones to portrait: landscape = a desktop with keys
+	hud.show_keys = landscape and UiKit.hover  # a wide window with a real mouse (a sideways tablet keeps touch hints)
 	if pause_btn != null and pause_btn.has_node("Key"):
 		pause_btn.get_node("Key").visible = landscape
 	var lg := _logical_size(px)
@@ -1079,6 +1082,11 @@ func _fine_pointer() -> bool:
 	if OS.has_feature("web"):
 		return bool(JavaScriptBridge.eval("window.matchMedia('(hover: hover) and (pointer: fine)').matches", true))
 	return not OS.has_feature("mobile")
+
+
+## The title card / menu subtitle (balance.overhaul.tagline with the overhaul on).
+func _tagline() -> String:
+	return str(bal.overhaul.get("tagline", "You are the infection.")) if overhaul else "You are the infection."
 
 
 ## Desktop wording (keys instead of taps) for a tutorial/hint line, when the
@@ -1142,7 +1150,7 @@ func _show_menu() -> void:
 	var title := UiKit.display(UiKit.label(str(bal.title).to_upper(), 78, pal.ui_accent), 14)
 	col.add_child(title)
 	if UiKit.trim <= 0.0:  # the landscape layout needs the height for the hero
-		col.add_child(UiKit.label(str(bal.get("crazygames", {}).get("tagline", "You are the infection.")) if crazygames else "You are the infection.", 22, Color(pal.text, 0.6)))
+		col.add_child(UiKit.label(_tagline(), 22, Color(pal.text, 0.6)))
 	# Room for the animated hero cell drawn by the background.
 	var hero := Control.new()
 	_menu_hero = hero

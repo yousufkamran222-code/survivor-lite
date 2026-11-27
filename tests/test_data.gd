@@ -74,13 +74,30 @@ func test_crazygames_build_forces_debug_off() -> void:
 	GameData.apply_crazygames_build(d, true)
 	check(not d.balance.debug.dev_tools and not d.balance.debug.show_perf and not d.balance.debug.invincible)
 	check(float(d.balance.crazygames.prologue_skip_after_s) >= 0.0, "balance.crazygames.prologue_skip_after_s")
-	# Phase Q6: the presentation block is juice only (visual) and lands only here.
-	var pres: Dictionary = d.balance.crazygames.presentation
+
+
+
+## The overhaul toggle (balance.overhaul, Yousuf 2026-11-27): on in the
+## CrazyGames build, off elsewhere until all_builds is flipped, and its
+## presentation block is juice only (visual).
+func test_overhaul_toggle() -> void:
+	var d := data().duplicate(true)
+	check(not bool(d.balance.overhaul.all_builds), "ships off for other builds until CrazyGames approves")
+	check(GameData.overhaul_on(d, true), "on in the CrazyGames build")
+	check(not GameData.overhaul_on(d, false), "off in other builds")
+	d.balance.overhaul.all_builds = true
+	check(GameData.overhaul_on(d, false), "all_builds turns it on everywhere")
+	var pres: Dictionary = d.balance.overhaul.presentation
 	check_eq(pres.keys(), ["juice"], "presentation touches juice only")
+	GameData.apply_overhaul(d, false)
+	check_eq(float(d.balance.juice.bullet_scale), 1.0, "off: bolts at their real size")
+	GameData.apply_overhaul(d, true)
 	for k in pres.juice:
 		check(data().balance.juice.has(k), "presentation juice key exists in balance.juice: %s" % k)
-		check_eq(d.balance.juice[k], pres.juice[k], "merged on the CrazyGames build: %s" % k)
-	check_eq(float(data().balance.juice.bullet_scale), 1.0, "other builds draw bolts at their real size")
+		check_eq(d.balance.juice[k], pres.juice[k], "merged with the overhaul on: %s" % k)
+	var cg := data().duplicate(true)
+	GameData.apply_crazygames_build(cg, true)
+	check_eq(float(cg.balance.juice.bullet_scale), 1.0, "the portal flag alone changes no overhaul numbers")
 
 
 ## The CrazyGames landscape run overrides only move spawning out of the wider

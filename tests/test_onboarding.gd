@@ -71,18 +71,18 @@ func test_bot_finishes_the_prologue_with_an_evolution() -> void:
 	check(w.tut.boss_s > 0.0)
 
 
-## CrazyGames Patient Zero (balance.crazygames.prologue, Phase Q): its
+## Overhaul Patient Zero (balance.overhaul.prologue, Phase Q): its
 ## overrides and beat changes apply only when passed in, the beat ids it names
 ## exist, the hidden HP floor stays above the low-HP warning, and the bot still
 ## finishes it.
 func test_crazygames_prologue() -> void:
 	var d := data()
-	var cg: Dictionary = d.balance.crazygames.prologue
+	var cg: Dictionary = d.balance.overhaul.prologue
 	var ids := []
 	for b in d.onboarding.prologue.beats:
 		ids.append(str(b.id))
 	for id in cg.beats:
-		check(ids.has(id), "crazygames.prologue.beats names a real beat: %s" % id)
+		check(ids.has(id), "overhaul.prologue.beats names a real beat: %s" % id)
 	var plain := GameData.prologue_beats(d)
 	check_eq(plain, d.onboarding.prologue.beats, "no extra: the normal beats")
 	var beats := GameData.prologue_beats(d, cg)

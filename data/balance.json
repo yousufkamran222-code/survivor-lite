@@ -298,13 +298,13 @@
     "perf": {"max_effects": 110},
     "juice": {"hit_sparks_per_frame": 4, "splat_max": 40}
   },
-  "crazygames": {
-    "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
-    "prologue_skip_after_s": 6,
+  "overhaul": {
+    "_doc": "The CrazyGames overhaul (Phase Q + Phase R, docs/CRAZYGAMES_PLAN.md). ON in the CrazyGames build; all_builds = true turns it on in EVERY build (Android, itch) once CrazyGames approves (Yousuf, 2026-11-27: one simple toggle). GameData.overhaul_on / apply_overhaul; Main reads its `overhaul` flag, never `crazygames`, for anything in here. Portal-only things (landscape layout, key hints, no ads, SKIP TUTORIAL) stay in balance.crazygames.",
+    "all_builds": false,
     "tagline": "Pop the germs. Survive the swarm.",
-    "_presentation": "Merged into balance on this build only (GameData.apply_crazygames_build), juice keys only: drawn bolt size, kill flash/burst. Visual, never gameplay (a test checks only juice is touched).",
+    "_presentation": "Merged into balance when the overhaul is on (GameData.apply_overhaul), juice keys only: drawn bolt size, kill flash/burst. Visual, never gameplay (a test checks only juice is touched).",
     "presentation": {"juice": {"bullet_scale": 1.4, "kill_flash_scale": 1.7, "kill_burst_particles": 12, "kill_burst_speed": 1.25}},
-    "_prologue": "Patient Zero on this build (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
+    "_prologue": "Patient Zero with the overhaul on (Phase Q, 2026-11-27): overrides / waves_overrides go on top of onboarding.prologue (GameData.apply_prologue), beats are merged into the beat with that id (GameData.prologue_beats; text \"\" = a silent beat). hp_floor stays above juice.lowhp_frac so the red edge + heartbeat never stick; hide_hurt_label drops the 'what hit you' name under the cell.",
     "prologue": {
       "overrides": {"hp_floor": 0.35, "difficulty": {"damage_taken_mult": 0.5}, "player": {"regen": 2.0}},
       "waves_overrides": {"budget_curve": [[0, 1.2], [60, 3.0], [180, 5.0], [400, 7.0]]},
@@ -316,7 +316,11 @@
         "elite": {"text": ""}
       },
       "hide_hurt_label": true
-    },
+    }
+  },
+  "crazygames": {
+    "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
+    "prologue_skip_after_s": 6,
     "landscape_ui_height": 960,
     "landscape_view_height": 960,
     "landscape": {"perf": {"spawn_min_distance": 1000, "spawn_max_distance": 1100, "despawn_distance": 1600, "spawn_box_x": 1000, "spawn_box_y": 540}},

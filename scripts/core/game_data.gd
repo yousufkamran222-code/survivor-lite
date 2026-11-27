@@ -59,13 +59,25 @@ static func apply_store_build(d: Dictionary, store: bool) -> void:
 ## The CrazyGames web build (export preset "CrazyGames", custom feature
 ## "crazygames"): the same debug flags as a store build are forced off, so the
 ## portal never gets dev tools. Its own settings live in balance.crazygames
-## (read by Main only on that build), and balance.crazygames.presentation
-## (juice only: bigger shots and kill pops, never gameplay; the sims never
-## call this) is merged into the balance. docs/CRAZYGAMES_PLAN.md Phase Q6.
+## (read by Main only on that build). docs/CRAZYGAMES_PLAN.md.
 static func apply_crazygames_build(d: Dictionary, crazygames: bool) -> void:
 	apply_store_build(d, crazygames)
-	if crazygames:
-		_merge(d.balance, d.balance.get("crazygames", {}).get("presentation", {}).duplicate(true))
+
+
+## The overhaul toggle (balance.overhaul, docs/CRAZYGAMES_PLAN.md Phase Q/R):
+## on in the CrazyGames build, and in every build once
+## balance.overhaul.all_builds is true (Yousuf: one switch after approval).
+## Anything the overhaul changes must be gated on this, not on `crazygames`.
+static func overhaul_on(d: Dictionary, crazygames: bool) -> bool:
+	return crazygames or bool(d.balance.get("overhaul", {}).get("all_builds", false))
+
+
+## With the overhaul on: balance.overhaul.presentation (juice only: bigger
+## shots and kill pops, never gameplay) is merged into the balance. The sims
+## never call this.
+static func apply_overhaul(d: Dictionary, on: bool) -> void:
+	if on:
+		_merge(d.balance, d.balance.get("overhaul", {}).get("presentation", {}).duplicate(true))
 
 
 ## True on the CrazyGames build (custom feature "crazygames"), or when the game
@@ -85,7 +97,7 @@ static func apply_web_build(d: Dictionary, web: bool) -> void:
 ## The Patient Zero prologue (data/onboarding.json): its base mode, then its
 ## own balance overrides and waves overrides (no scripted events, no
 ## timed elites: its beats spawn those). mode_id = "prologue".
-## `extra` (the CrazyGames build passes balance.crazygames.prologue) adds its
+## `extra` (with the overhaul on, Main passes balance.overhaul.prologue) adds its
 ## own overrides / waves_overrides on top; every other caller passes nothing.
 static func apply_prologue(d: Dictionary, extra: Dictionary = {}) -> Dictionary:
 	var pc: Dictionary = d.get("onboarding", {}).get("prologue", {})
