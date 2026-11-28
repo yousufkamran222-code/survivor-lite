@@ -80,6 +80,7 @@ const CROSSFADE_S := 1.5
 var _players: Array[AudioStreamPlayer] = []
 var _last := {}
 var _next := 0
+var plays := 0  # sounds actually started (perf tools count them: each costs ~0.4 ms on the web)
 var _music_a: AudioStreamPlayer  # the current track (menu, run level, ending)
 var _music_b: AudioStreamPlayer  # the boss track, cross-faded in during a run
 var _track := ""
@@ -188,6 +189,7 @@ func play(name: String, pitch_jitter: float = 0.08, pitch: float = 1.0) -> void:
 	if now - int(_last.get(key, -100000)) < int(MIN_GAP_MS.get(key, 0)):
 		return
 	_last[key] = now
+	plays += 1
 	var p := _players[_next]
 	_next = (_next + 1) % _players.size()
 	p.stream = SOUNDS[name]
