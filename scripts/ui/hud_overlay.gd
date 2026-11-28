@@ -46,6 +46,8 @@ var _perf_min_fps := 0.0
 # the top bars/readouts (at most 20x a second). Everything that animates every
 # frame stays in this node's own _draw.
 var _strip_layer: Control
+var _keys_layer: Control  # desktop key chips (S2: static, so drawn once per layout instead of every frame)
+var _sig_keys := ""
 var _bars_layer: BakedLayer  # top panel + weapon strip, rendered to a texture when they change
 var _sig_strip := PackedInt32Array()
 var _sig_strip_drawn := PackedInt32Array()
@@ -233,6 +235,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	font = UiKit.display_font()  # chunky HUD text (Lilita One)
 	_strip_layer = _layer(func() -> void: _draw_strip(_strip_layer))
+	_keys_layer = _layer(func() -> void: _draw_key_chips(_keys_layer))
 	_bars_layer = BakedLayer.new()
 	_bars_layer.setup(Rect2(0, 0, 720, BARS_H), func(ci: CanvasItem) -> void:
 		if world != null:
@@ -346,6 +349,9 @@ func _draw_hud() -> void:
 	_draw_orders()
 	if show_keys:
 		_draw_keys()
+	elif _sig_keys != "":
+		_sig_keys = ""
+		_keys_layer.queue_redraw()  # clears the chips
 	Prof.add("hud.buttons", tp)
 	tp = Prof.t()
 	# Toasts.
@@ -755,20 +761,40 @@ func _draw_keys() -> void:
 		var r: float = b[1]
 		if hover_pos.distance_to(c) <= r * 1.15:
 			draw_arc(c, r + 9.0, 0.0, TAU, 48, Color(1, 1, 1, 0.55), 4.0)
-		_key_chip(c + Vector2(0, r + 2.0), str(b[2]))
 	var br := build_rect()
 	if br.grow(6).has_point(hover_pos):
 		draw_rect(br.grow(4), Color(1, 1, 1, 0.5), false, 3.0)
-	_key_chip(Vector2(br.end.x + 22.0, br.position.y + br.size.y / 2.0 - 10.0), "B")
+	# The chips themselves never change while the layout stays the same:
+	# they live on their own layer, redrawn only when this signature changes.
+	var sig := "%d|%s|%s|%s|%s" % [world.get_instance_id(), size, dash_radius, br, btns.map(func(b: Array) -> String: return str(b[2]))]
+	if sig != _sig_keys:
+		_sig_keys = sig
+		_keys_layer.queue_redraw()
 
 
-func _key_chip(at: Vector2, key: String) -> void:
+func _draw_key_chips(ci: CanvasItem) -> void:
+	if not show_keys:
+		return
+	var btns := [[dash_center(), dash_radius, "SPACE"], [upgrade_center(), UPGRADE_R, "E"]]
+	if outbreak_on():
+		btns.append([outbreak_center(), OUTBREAK_R, "Q"])
+	if world.ability != "":
+		btns.append([ability_center(), POWER_R, "R"])
+	if orders_on() and not orders_open:
+		btns.append([order_center(), ORDER_R, "1-3"])
+	for b in btns:
+		_key_chip(ci, (b[0] as Vector2) + Vector2(0, float(b[1]) + 2.0), str(b[2]))
+	var br := build_rect()
+	_key_chip(ci, Vector2(br.end.x + 22.0, br.position.y + br.size.y / 2.0 - 10.0), "B")
+
+
+func _key_chip(ci: CanvasItem, at: Vector2, key: String) -> void:
 	var fs := 15
 	var tw := font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 	var r := Rect2(at.x - tw / 2.0 - 8.0, at.y - 10.0, tw + 16.0, 22.0)
-	_rrect(self, r.grow(2.0), 8.0, UiKit.OUTLINE)
-	_rrect(self, r, 7.0, Color(0.93, 0.92, 1.0))
-	draw_string(font, Vector2(r.position.x, r.position.y + 16.0), key, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fs, Color("#2a1f52"))
+	_rrect(ci, r.grow(2.0), 8.0, UiKit.OUTLINE)
+	_rrect(ci, r, 7.0, Color(0.93, 0.92, 1.0))
+	ci.draw_string(font, Vector2(r.position.x, r.position.y + 16.0), key, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, fs, Color("#2a1f52"))
 
 
 ## True when the mouse is over one of the HUD's own buttons (pointer cursor).

@@ -9,7 +9,9 @@ extends SceneTree
 ## Run with a fixed frame step so every run plays the identical fight:
 ##   xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 1280x720 \
 ##     --fixed-fps 60 -s res://tools/sim/bench_cost.gd -- --crazygames
-## Options after --: --frames N (measured frames, default 1200).
+## Options after --: --frames N (measured frames, default 1200);
+## --shots DIR saves a screenshot every 300 measured frames (identical fight,
+## so before/after shots of a look-neutral change must match pixel for pixel).
 
 var main: Node
 var f := 0
@@ -26,6 +28,7 @@ var view := 0.0
 var hudms := 0.0
 var plays0 := 0
 var labels := {}
+var shots := ""
 
 
 func _initialize() -> void:
@@ -33,6 +36,9 @@ func _initialize() -> void:
 	var i := args.find("--frames")
 	if i >= 0 and i + 1 < args.size():
 		frames = int(args[i + 1])
+	i = args.find("--shots")
+	if i >= 0 and i + 1 < args.size():
+		shots = args[i + 1]
 	main = load("res://scenes/main.tscn").instantiate()
 	main.name = "Main"
 	root.add_child(main)
@@ -54,6 +60,8 @@ func _process(_d: float) -> bool:
 			Prof.reset()
 		n += 1
 		_sample()
+		if shots != "" and n % 300 == 0:
+			root.get_viewport().get_texture().get_image().save_png("%s/shot_%04d.png" % [shots, n])
 	if n >= frames:
 		_report()
 		return true

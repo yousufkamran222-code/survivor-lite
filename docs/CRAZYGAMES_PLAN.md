@@ -188,6 +188,18 @@ Noted for R3: the menu keeps its purple background and old-style menu germs.
 - **Download:** `crazygames.zip` 16.6 MB = the stock engine `index.wasm` 39.5 MB (10.1 MB gzipped; it carries 3D, physics, navigation and more we never use) + `index.pck` 6.4 MB (6.3 MB is music, left alone).
 - **Conclusion:** the game isn't heavy on the GPU; what makes it feel heavy on a laptop browser is the engine download/start-up and per-frame script + draw-command work. S2 goes after those, in that order. **His F9 BENCH line from his PC would show which one he felt** (menu → F9, ~45 s).
 
+**S2 done (2026-11-28): lighter, nothing looks different.**
+- **Slim web engine** (all web builds: presets "CrazyGames" and "Web" use `res://tools/web_engine/web_nothreads_release.zip` as their release template; the zip is excluded from the game data by the presets' `tools/*` filter). Godot 4.7.2-stable built from source for the web (Emscripten 4.0.11, the version Godot's own CI uses) with `tools/web_engine/custom.py`: no 3D, physics, navigation, XR, networking, video or unused image/audio formats. Rebuild with `tools/web_engine/build.sh` (~10 min on 4 cores; needs it only when `GODOT_VERSION` changes). Two things had to stay in, both found by playing the build in Chromium: **deprecated APIs** (the game calls `Image.create()`; without them every script failed to load) and **Brotli** (Godot's built-in body font is WOFF2; without it the level-up card text was boxes).
+  | | stock engine | slim engine |
+  |---|---|---|
+  | `index.wasm` | 39.5 MB (10.1 MB gzipped) | 25.4 MB (6.4 MB gzipped) |
+  | `crazygames.zip` | 16.6 MB | 12.9 MB |
+  | JS heap after start-up (Chromium) | 92-123 MB | 47-50 MB |
+  | start-up from localhost | ~2.9 s | ~2.8 s (the gain is the download over a real connection) |
+  Checked in Chromium (Playwright, 1280x720): the whole hot start played by keyboard to INFECTION COMPLETE, level-ups, Overdrive, Outbreak, combo text, the results screen: no console errors, same text and art as the stock engine side by side.
+- **HUD key chips** (desktop): the SPACE/E/Q/R/B chips were redrawn every frame (~90 small draws, 0.11 ms); they now sit on their own layer, redrawn only when the layout changes (`HudOverlay._keys_layer`, `_sig_keys`); the hover rings stay live. Pixel-identical in the chip areas (`bench_cost.gd --shots`).
+- **Dropped after measuring:** sending sprite batches as one mesh (not faster, S1); merging duplicate sounds in a frame (the per-sound minimum gaps already do it; the 23/s are different sounds, so fewer would be audible); rewriting the effects list or HUD discs (each ≤ 0.1-0.2 ms, a big refactor for little gain; the game's own code is ~2.2 ms a frame and already tight). **Not measurable here:** real GPU frame time (software renderer). If his F9 line ever shows a GPU-bound frame, the levers are the draw calls (81) and `balance.web` caps.
+
 **Order:** S1 → S2 (perf first, so the new effects in S3-S5 are built on the cheap paths and measured against the new budget) → S3 → S4 → S5 → S6 → S7 → S8. About 6-9 cloud sessions.
 **Claude's calls:** perf and keyboard navigation go to all builds (no visible change on touch); Back = Backspace on CrazyGames; evolution looks stay "louder than the base weapon" but never cover germs or telegraphs (readability first); no balance numbers touched.
 
