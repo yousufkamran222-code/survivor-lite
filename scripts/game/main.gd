@@ -84,6 +84,11 @@ var _mega_kills := PackedFloat32Array()  # world times of recent kills (mega-kil
 var _mega_ready_t := 0.0  # world time when the next mega kill may fire
 var _hints: Array = []  # this run's not-yet-seen hints (data/hints.json)
 var _hint_queue: Array = []
+# TEMPORARY playtest cheats (balance.crazygames.cheats on the CrazyGames build; CheatMenu, Cheats)
+var cheats_on := false
+var _cheat_btn: Button
+var _cheat_menu: CheatMenu = null
+var _cheat_from := ""  # the screen the cheat menu was opened from
 
 
 func _ready() -> void:
@@ -203,6 +208,15 @@ func _ready() -> void:
 		Save.write()
 	_apply_settings()
 	_victory = UiKit.overlay(ui_root, 0.8)
+	cheats_on = crazygames and bool(bal.get("crazygames", {}).get("cheats", false))
+	if cheats_on:
+		_cheat_btn = UiKit.button("CHEATS (F2)", _open_cheats, 48, "danger")
+		_cheat_btn.add_theme_font_size_override("font_size", 18)
+		_cheat_btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		_cheat_btn.position = Vector2(12, -60)
+		_cheat_btn.size = Vector2(150, 48)
+		_cheat_btn.modulate.a = 0.75
+		ui_root.add_child(_cheat_btn)
 	if Onboarding.prologue_done(Save.profile):
 		_show_menu()
 	else:
@@ -217,6 +231,14 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if cheats_on and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_F2, KEY_QUOTELEFT]:
+		if _cheat_menu != null:
+			_close_cheats()
+		else:
+			_open_cheats()
+		return
+	if _cheat_menu != null:
+		return
 	if screen == "menu" and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F9:
 		start_benchmark()
 		return
@@ -445,8 +467,11 @@ func _process(delta: float) -> void:
 		dt *= float(data.onboarding.prologue.get("slowmo_scale", 0.25))  # a beat waits for you
 	if world.tut != null and world.tut.paused():
 		world.tut.poll(world)  # a tap beat: the run stands still until you tap (D-044)
+	elif Cheats.speed > 1.0:
+		for k in int(Cheats.speed):  # cheat game speed: whole extra steps (dt stays clamped)
+			world.step(dt, _move_input())
 	else:
-		world.step(dt, _move_input())
+		world.step(dt * Cheats.speed, _move_input())
 	hud.coach = world.coach()
 	if hud.show_keys and hud.coach.has("text"):
 		hud.coach = hud.coach.duplicate()
@@ -919,6 +944,8 @@ func _start_run(prologue: bool = false) -> void:
 	_streak_best_called = false
 	Analytics.event("run_start", {"run": Save.runs + 1, "mode": mode_id})
 	_load_hints(mode_id)
+	if cheats_on:
+		Cheats.apply_flags(world)
 	_hide_all()
 	_set_screen("playing")
 	if not _ui_warm:
@@ -988,11 +1015,13 @@ func _warm_up_ui() -> void:
 func _set_screen(s: String) -> void:
 	screen = s
 	_apply_fps()
-	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build"]
+	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build", "cheats"]
 	hud.visible = in_run
 	if s != "playing":
 		hud.coach = {}  # the coach line must not show through an overlay (it comes back next frame in play)
 	pause_btn.visible = s == "playing"
+	if _cheat_btn != null:
+		_cheat_btn.visible = s in ["playing", "menu", "paused"]
 	_update_skip_btn()
 	view.visible = s != "menu"
 	if s != "playing":
@@ -3321,6 +3350,36 @@ func _wcolor_ui(src: String) -> Color:
 
 # ------------------------------------------------------------------ pause
 
+## TEMPORARY cheat menu (cheats_on). From a run it pauses the run; from the
+## menu only the account cheats show and the menu is rebuilt on close.
+func _open_cheats() -> void:
+	if not cheats_on or _cheat_menu != null or not (screen in ["playing", "menu", "paused"]):
+		return
+	var in_run := screen != "menu" and world != null
+	if screen == "paused":
+		_pause[0].visible = false
+	_cheat_from = "playing" if in_run else "menu"
+	if in_run:
+		_set_screen("cheats")
+	_cheat_btn.visible = false
+	_cheat_menu = CheatMenu.new()
+	ui_root.add_child(_cheat_menu)
+	_cheat_menu.setup(pal, data, world if in_run else null, _close_cheats)
+
+
+func _close_cheats() -> void:
+	if _cheat_menu == null:
+		return
+	_cheat_menu.queue_free()
+	_cheat_menu = null
+	_apply_settings()
+	if _cheat_from == "playing":
+		_set_screen("playing")
+	else:
+		_cheat_btn.visible = true
+		_show_menu()
+
+
 func _pause_run() -> void:
 	if screen != "playing":
 		return
@@ -3333,6 +3392,8 @@ func _build_pause() -> void:
 	UiKit.clear(col)
 	col.add_child(UiKit.label("PAUSED", 56, pal.ui_accent))
 	col.add_child(UiKit.button("RESUME", _resume, 120))
+	if cheats_on:
+		col.add_child(UiKit.button("CHEATS", _open_cheats, 80, "danger"))
 	col.add_child(UiKit.button("SETTINGS", func() -> void:
 		UiKit.clear(col)
 		col.add_child(_settings_screen(_build_pause)), 90))

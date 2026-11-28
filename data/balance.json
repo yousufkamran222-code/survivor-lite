@@ -360,6 +360,8 @@
   },
   "crazygames": {
     "_doc": "CrazyGames web build only (export preset CrazyGames, OS feature crazygames; GameData.apply_crazygames_build). Debug flags are forced off there, ads are off (Basic Launch: NoAdBackend), and Patient Zero shows a SKIP TUTORIAL button after prologue_skip_after_s seconds. In a wide window (desktop) the canvas is landscape_ui_height tall (1280 = portrait screens unchanged, smaller text; lower = bigger text, screens must fit) and the camera keeps the portrait diagonal of dish on screen (Main._apply_orientation). Other builds never read this block. Plan: docs/CRAZYGAMES_PLAN.md.",
+    "_cheats": "TEMPORARY playtest cheat menu (CHEATS button, F2 or `; Main.cheats_on, CheatMenu, Cheats). Set false before resubmitting.",
+    "cheats": true,
     "prologue_skip_after_s": 6,
     "landscape_ui_height": 960,
     "landscape_view_height": 820,

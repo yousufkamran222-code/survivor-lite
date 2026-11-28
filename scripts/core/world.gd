@@ -141,6 +141,10 @@ var dodges := 0
 var tut: Tutorial = null
 var forced_offers: Array = []  # queue of offer lists for the next level-ups
 var tut_xp_mult := 1.0
+# Temporary playtest cheats (Cheats, balance.crazygames.cheats); all off = no effect.
+var cheat_god := false  # no damage to you or the nucleus
+var cheat_dmg := 1.0  # x damage to hostiles
+var cheat_no_spawn := false  # timed modes: no new spawns
 var showcase := ""  # weapon the next chest evolves outright (prologue)
 var picks := 0  # upgrades picked this run
 # Skill moves (balance.skill, D-041): Perfect Dodge, Overdrive, streak buffs,
@@ -530,7 +534,7 @@ func step(dt: float, move: Vector2) -> void:
 			_update_waves(dt)
 		if state != "playing":
 			return
-	elif not frozen:
+	elif not frozen and not cheat_no_spawn:
 		var ts := Prof.t()
 		_update_lull()
 		_spawn(dt)
@@ -1391,6 +1395,8 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		amount *= 1.0 + float(stats.get("hive", 0.0)) * ally_count
 	if outbreak_t > 0.0:
 		amount *= float(bal.outbreak.damage_mult)
+	if cheat_dmg != 1.0 and e_team[i] == 0:
+		amount *= cheat_dmg
 	if amount < 1.0e5 and e_team[i] == 0 and _src != "allies" and _src != "towers":
 		amount *= skill_damage_mult()  # Perfect Dodge buff, streak buffs
 	var crit := false
@@ -1808,7 +1814,7 @@ func _process_dead() -> void:
 
 
 func _hurt(amount: float, cause: String, from: Vector2 = Vector2.INF) -> void:
-	if bal.get("debug", {}).get("invincible", false):
+	if cheat_god or bal.get("debug", {}).get("invincible", false):
 		return
 	var ev := float(stats.get("evasion", 0.0))  # Lab: Evasion (only while moving)
 	if ev > 0.0 and p_move.length_squared() > 0.04 and rng.randf() < ev:
@@ -3465,7 +3471,7 @@ func _update_core(dt: float) -> void:
 
 
 func _hurt_core(amount: float) -> void:
-	if state != "playing" or bal.get("debug", {}).get("invincible", false):
+	if state != "playing" or cheat_god or bal.get("debug", {}).get("invincible", false):
 		return
 	core_hp -= amount
 	_emit({"type": "core_hit", "amount": amount})
