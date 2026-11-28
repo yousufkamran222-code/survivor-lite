@@ -249,6 +249,8 @@ func consume(events: Array) -> void:
 				var c := GameData.color(ev.color)
 				_kills_this_frame += 1
 				_kill_sum += ev.pos
+				if _wfx.has("kill_flavor") and _kills_this_frame <= int(_wfx.kill_flavor.get("per_frame", 6)):
+					_evo_kill(ev, max_fx)
 				if not CosmeticArt.is_default_pop(_pop):
 					_styled_pop(ev, c, max_fx)
 					continue
@@ -608,6 +610,17 @@ func evolution_moment(weapon: String) -> void:
 		_add_fx({"kind": "dot", "pos": p, "vel": Vector2(cos(a), sin(a)) * randf_range(300, 520), "drag": 3.0, "color": c if n % 3 else Color.WHITE, "r": 6.0, "life": 0.8}, max_fx)
 	add_zoom_punch(float(juice.get("cam_punch_evolution", 0.0)))
 	add_shake(8.0)
+	# S5: the reveal shows the new weapon's own effect right away.
+	if weapon == "nova" and _wfx.has("fever") and world.wstats.has("nova"):
+		_fever_pulse({"pos": p, "radius": float(world.wstats.nova.area), "pulse": 1, "pulses": 2}, max_fx)
+	elif weapon == "chain" and _wfx.has("neural"):
+		_forks_now = 0
+		for k in 3:
+			var a := TAU * k / 3.0 + randf() * 0.6
+			var pts := PackedVector2Array([p])
+			for j in 3:
+				pts.append(pts[-1] + Vector2.from_angle(a + randf_range(-0.5, 0.5)) * randf_range(110, 170))
+			_neural_storm({"points": pts, "uids": PackedInt32Array()}, max_fx)
 
 
 ## Boss Rift: the portal while it's open (a swirl whose outer ring shows the
@@ -696,6 +709,43 @@ func _styled_pop(ev: Dictionary, c: Color, max_fx: int) -> void:
 		for n in 6:
 			var a := -PI / 2.0 + randf_range(-1.2, 1.2)
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
+
+
+## S5: a kill by an evolved weapon leaves that weapon's mark on top of the
+## pop: Fever Spike embers rise, Neural Storm a zap crackle, Cytotoxic Storm
+## pink shards, Immune Wall green motes drifting to the cell (the heal).
+func _evo_kill(ev: Dictionary, max_fx: int) -> void:
+	var src := str(ev.get("src", ""))
+	if not _evo(src):
+		return
+	var kf: Dictionary = _wfx.kill_flavor
+	var p: Vector2 = ev.pos
+	var n := int(kf.get("n", 4))
+	match src:
+		"nova":
+			var fc: Dictionary = _wfx.get("fever", {})
+			for k in n:
+				_add_fx({"kind": "dot", "pos": p + Vector2(randf_range(-8, 8), randf_range(-8, 8)), "vel": Vector2(randf_range(-60, 60), randf_range(-260, -140)),
+					"drag": 1.5, "color": GameData.color(str(fc.get("front" if k % 2 else "core", "#ff8a2a"))), "r": randf_range(3.0, 5.5), "life": 0.6}, max_fx + 20)
+		"chain":
+			var cc := _wcolor("chain", pal.chain)
+			_add_fx({"kind": "kring", "pos": p, "color": cc, "r": float(ev.radius) * 0.9, "life": 0.18}, max_fx + 10)
+			for k in n:
+				var a := randf() * TAU
+				_add_fx({"kind": "dot", "pos": p, "vel": Vector2(cos(a), sin(a)) * randf_range(300, 560), "drag": 7.0,
+					"color": Color.WHITE if k % 2 else cc.lightened(0.4), "r": 2.5, "life": 0.2}, max_fx + 20)
+		"bolt":
+			var bc := _wcolor("bolt", pal.bolt)
+			for k in n:
+				var a := randf() * TAU
+				_add_fx({"kind": "dot", "pos": p, "vel": Vector2(cos(a), sin(a)) * randf_range(220, 420), "drag": 4.0,
+					"color": bc.lightened(0.25 * (k % 2)), "r": randf_range(3.0, 5.0), "life": 0.32}, max_fx + 20)
+		"orbit":
+			var oc := _wcolor("orbit", pal.orbit)
+			for k in n:
+				var to := (world.p_pos - p).normalized()
+				_add_fx({"kind": "dot", "pos": p + Vector2(randf_range(-10, 10), randf_range(-10, 10)), "vel": to.rotated(randf_range(-0.6, 0.6)) * randf_range(120, 220),
+					"drag": 1.0, "color": oc.lightened(0.3), "r": randf_range(3.0, 4.5), "life": 0.55}, max_fx + 20)
 
 
 ## S4: one fork of Neural Storm (evolved chain on the dark slide): a jagged

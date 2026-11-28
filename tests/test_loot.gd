@@ -167,6 +167,25 @@ func test_neural_storm_events_list_hits() -> void:
 		check_eq((ev.uids as PackedInt32Array).size(), (ev.points as PackedVector2Array).size() - 1, "one uid per germ hit")
 
 
+## S5: hits and kills say which weapon dealt them (the overhaul gives each
+## evolved weapon its own hit sound and kill particles).
+func test_hit_and_kill_events_name_their_source() -> void:
+	var w := _world()
+	w.emit_events = true
+	w.owned["orbit"] = 3
+	w._recompute_stats()
+	for k in 8:
+		w._add_enemy("grunt", w.p_pos + Vector2(float(w.wstats.orbit.orbit_radius), 0).rotated(TAU * k / 8.0))
+	var srcs := {}
+	for i in 120:
+		w.step(DT, Vector2.ZERO)
+		for ev in w.events:
+			if ev.type == "hit" or ev.type == "kill":
+				srcs[str(ev.get("src", "?"))] = true
+		w.events.clear()
+	check(srcs.has("orbit"), "antibody hits are tagged orbit: %s" % [srcs.keys()])
+
+
 func test_vacuum_pulls_all_gems() -> void:
 	var w := _world()
 	for k in 10:

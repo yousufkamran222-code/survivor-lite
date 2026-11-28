@@ -1437,7 +1437,7 @@ func _damage(i: int, amount: float, knock: Vector2, show: bool = true, flash: bo
 		resist = maxf(resist, minf(resist + _v_resist, 0.95))
 	e_knock[i] += knock * (1.0 - resist)
 	if show:
-		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0), "crit": crit, "dir": knock.normalized()})
+		_emit({"type": "hit", "pos": e_pos[i], "amount": amount, "uid": e_uid[i], "frac": amount / maxf(e_maxhp[i], 1.0), "crit": crit, "dir": knock.normalized(), "src": _src})
 	if e_hp[i] <= 0.0:
 		_dead[i] = true
 
@@ -1767,7 +1767,7 @@ func _process_dead() -> void:
 				biomass += float(dcfg.biomass_boss)
 			else:
 				biomass += float(d.cost) * float(dcfg.biomass_per_cost)
-		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite, "gilded": e_gild[i] == 1, "uid": e_uid[i]})
+		_emit({"type": "kill", "pos": pos, "color": d.color, "radius": e_rad[i], "elite": elite, "gilded": e_gild[i] == 1, "uid": e_uid[i], "src": _src})
 		if elite:
 			elites_killed += 1
 			_drop_gem(pos, float(data.waves.elites.xp))

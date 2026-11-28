@@ -486,6 +486,18 @@ def build_evolution_sfx() -> None:
     hum = env(osc(120, 120, 0.3, "square"), attack=0.003, decay_pow=2.5) * 0.12  # a mains-like buzz under it
     write("neural", mix(clicks * 0.9, zap, hum, body(140, 60, 0.12, 0.6)), 0.8)
 
+    # Cytotoxic Storm volley: the plain shot's chirp an octave down with a
+    # punchy recorded hit and a low push, so a volley sounds heavy.
+    storm = mix(env(osc(900, 260, 0.1, "square"), decay_pow=1.4) * 0.35,
+                sample("qubodup_punch/punch01.wav", 0.14, pitch=1.4) * 0.6, body(150, 60, 0.12, 0.7))
+    write("storm", storm, 0.6)
+    # Immune Wall: a soft rubbery bonk when an antibody hits, with a small
+    # rising sparkle (the heal) on top.
+    bonk = mix(env(osc(240, 110, 0.12, "sine"), attack=0.002, decay_pow=2.4),
+               sample("ezduzziteh_squish/squish_03.wav", 0.1, pitch=1.6) * 0.25)
+    sparkle = env(osc(1300, 2100, 0.09, "sine"), attack=0.01, decay_pow=1.6) * 0.18
+    write("wall", mix(bonk, np.concatenate([np.zeros(int(0.03 * RATE)), sparkle])), 0.6)
+
 
 if __name__ == "__main__":
     import sys

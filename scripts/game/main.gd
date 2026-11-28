@@ -534,10 +534,15 @@ func _handle_events(events: Array) -> void:
 					Sfx.play("chest", 0.0, 1.6)
 				Analytics.event("tutorial_step", {"id": ev.id, "mode": "prologue" if _prologue else str(_current_mode().id)})
 			"shoot":
-				Sfx.play("shoot")
+				if overhaul and not ev.has("tower") and world.evolved.has("bolt"):
+					Sfx.play("storm", 0.05)  # S5: Cytotoxic Storm volleys sound heavy
+				else:
+					Sfx.play("shoot")
 			"hit":
 				if ev.get("crit", false):
 					Sfx.play("crit", 0.06)
+				elif overhaul and str(ev.get("src", "")) == "orbit" and world.evolved.has("orbit"):
+					Sfx.play("wall", 0.06)  # S5: Immune Wall's antibodies bonk (and heal)
 				else:
 					Sfx.play("hit")
 			"kill":
@@ -2641,6 +2646,8 @@ func _tick_evolution(delta: float) -> void:
 		s.fired = true
 		view.evolution_moment(s.weapon)
 		Sfx.play("evolve", 0.0, 0.9)
+		if overhaul:  # S5: the reveal plays the new weapon's own sound too
+			Sfx.play(str({"bolt": "storm", "orbit": "wall", "nova": "fever", "chain": "neural"}.get(s.weapon, "evolve")), 0.0)
 		Sfx.play("bomb", 0.0, 0.8)
 		Sfx.vibrate(220)
 	if s.t >= s.dur:
