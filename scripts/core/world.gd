@@ -1512,7 +1512,7 @@ func _update_weapons(dt: float) -> void:
 				if _nova_echo > 0.0:
 					_nova_echo -= dt
 					if _nova_echo <= 0.0:
-						_fire_nova(w)
+						_fire_nova(w, Vector2.INF, 2)
 				cooldowns[id] -= dt
 				if cooldowns[id] > 0.0:
 					continue
@@ -1572,7 +1572,9 @@ func _block_shots(c: Vector2, size: float) -> void:
 		i -= 1
 
 
-func _fire_nova(w: Dictionary, from: Vector2 = Vector2.INF) -> void:
+## `pulse` (presentation only): 2 = Fever Spike's echo, so the view and the
+## sound can make the second hit read as a second hit.
+func _fire_nova(w: Dictionary, from: Vector2 = Vector2.INF, pulse: int = 1) -> void:
 	var tower := from != Vector2.INF
 	var c := from if tower else p_pos
 	var slow := float(w.get("slow_s", 0.0))
@@ -1580,7 +1582,8 @@ func _fire_nova(w: Dictionary, from: Vector2 = Vector2.INF) -> void:
 		_damage(i, w.damage, (e_pos[i] - c).normalized() * w.knockback)
 		if slow > 0.0:
 			e_slow[i] = maxf(e_slow[i], slow)
-	_emit({"type": "nova", "pos": c, "radius": w.area, "tower": tower})
+	_emit({"type": "nova", "pos": c, "radius": w.area, "tower": tower, "weapon": true, "pulse": pulse,
+		"pulses": int(w.get("pulses", 1.0))})
 
 
 func _spawn_bullet(vel: Vector2, w: Dictionary, from: Vector2 = Vector2.INF) -> void:

@@ -115,6 +115,30 @@ func test_evolved_orbit_heals_and_chain_forks() -> void:
 	check(w.p_hp > 10.0, "antibodies heal on hit")
 
 
+## S3: Fever Spike's echo is tagged pulse 2 (the view and sound make it read
+## as a second hit); a plain nova and tower novas stay pulse 1.
+func test_fever_spike_tags_its_echo() -> void:
+	var w := _world()
+	w.emit_events = true
+	w.owned["nova"] = 5
+	w.owned["regen"] = 1
+	w._recompute_stats()
+	w._open_chest(1)
+	check(w.evolved.has("nova"), "nova evolves")
+	w.close_chest()
+	var pulses := []
+	for i in 600:
+		w.step(DT, Vector2.ZERO)
+		for ev in w.events:
+			if ev.type == "nova" and ev.get("weapon", false):
+				pulses.append(int(ev.pulse))
+		w.events.clear()
+		if pulses.size() >= 4:
+			break
+	check(pulses.size() >= 2, "Fever Spike fired")
+	check_eq(pulses.slice(0, 2), [1, 2], "a pulse, then its echo tagged 2")
+
+
 func test_vacuum_pulls_all_gems() -> void:
 	var w := _world()
 	for k in 10:

@@ -447,11 +447,40 @@ def build_overhaul_art() -> None:
     build_overhaul_background()
 
 
+def build_evolution_sfx() -> None:
+    """Phase S3-S5 (overhaul): each evolved weapon gets its own sound, so an
+    evolution is heard as well as seen. Own RNG, so the other sounds never
+    change when these are rebuilt (python3 tools/build_assets.py --evo-sfx)."""
+    rng = np.random.default_rng(4747)
+
+    def hiss(dur: float, bright: float = 0.6) -> np.ndarray:
+        """Sizzle: white noise with random crackle spikes, high-passed."""
+        n = rng.uniform(-1, 1, int(RATE * dur))
+        crackle = (rng.uniform(0, 1, n.size) > 0.985) * rng.uniform(-1, 1, n.size) * 3.0
+        x = n * bright + crackle
+        return np.diff(x, prepend=0.0)  # first difference = a cheap high-pass
+
+    # Fever Spike, pulse 1: a deep heat whump (the explosion recording an
+    # octave down + a sub drop) that dies into a crackling sizzle.
+    boom = sample("joth_chunky_explosion/chunky_explosion.wav", 0.55, pitch=0.62, fade=0.3)
+    fever = mix(boom * 0.8, body(110, 34, 0.5, 1.0), np.concatenate([np.zeros(int(0.04 * RATE)), env(hiss(0.7), attack=0.05, decay_pow=1.6) * 0.35]))
+    write("fever", fever, 0.9)
+    # Pulse 2: higher and sharper, a white-hot crack with a brighter sizzle.
+    crack = sample("joth_chunky_explosion/chunky_explosion.wav", 0.35, pitch=1.05, fade=0.2)
+    fever2 = mix(crack * 0.75, body(220, 70, 0.3, 0.8), env(osc(1800, 600, 0.12, "tri"), decay_pow=1.4) * 0.25,
+                 env(hiss(0.55, 0.9), attack=0.01, decay_pow=1.8) * 0.4)
+    write("fever2", fever2, 0.85)
+
+
 if __name__ == "__main__":
     import sys
+    if "--evo-sfx" in sys.argv:  # only the evolved-weapon sounds (fast)
+        build_evolution_sfx()
+        raise SystemExit(0)
     if "--overhaul" in sys.argv:  # only the overhaul art (fast)
         build_overhaul_art()
         raise SystemExit(0)
     build_sfx()
     build_background()
     build_overhaul_art()
+    build_evolution_sfx()

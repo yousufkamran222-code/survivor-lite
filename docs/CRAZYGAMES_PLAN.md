@@ -200,6 +200,15 @@ Noted for R3: the menu keeps its purple background and old-style menu germs.
 - **HUD key chips** (desktop): the SPACE/E/Q/R/B chips were redrawn every frame (~90 small draws, 0.11 ms); they now sit on their own layer, redrawn only when the layout changes (`HudOverlay._keys_layer`, `_sig_keys`); the hover rings stay live. Pixel-identical in the chip areas (`bench_cost.gd --shots`).
 - **Dropped after measuring:** sending sprite batches as one mesh (not faster, S1); merging duplicate sounds in a frame (the per-sound minimum gaps already do it; the 23/s are different sounds, so fewer would be audible); rewriting the effects list or HUD discs (each ≤ 0.1-0.2 ms, a big refactor for little gain; the game's own code is ~2.2 ms a frame and already tight). **Not measurable here:** real GPU frame time (software renderer). If his F9 line ever shows a GPU-bound frame, the levers are the draw calls (81) and `balance.web` caps.
 
+**S3 done (2026-11-28): Fever Spike made unmistakable** (overhaul only; numbers in `balance.overhaul.weapon_fx.fever`; no balance change, the bot sim is byte-identical apart from its timing line). Before: the base nova's ring 1.8× thicker plus a faint white ring, and the 0.3 s echo looked like a repeat.
+- **Pulse 1:** a thick orange heat front (soft haze band, a trailing inner band, a white-hot leading edge) that eases out to the nova radius, an additive orange fill, 16 embers thrown outward, a small camera punch + shake.
+- **Between pulses:** the heat is drawn back in (a bright ring shrinking onto the cell while the cell flares white).
+- **Pulse 2:** white-hot (pale yellow front, white edge), faster, 22 embers, a bigger punch. `World._fire_nova` now tags its events `weapon`, `pulse` (2 = the echo) and `pulses` (presentation only; test `test_fever_spike_tags_its_echo`).
+- **Germs it hits** glow white-hot, cooling to orange over `heat_s` (`WorldView._heat`, applied in `_fill_enemies`).
+- **The cell runs hot** as the next spike charges (a flickering white-hot core on top of the existing charge glow).
+- **Sound:** `fever` (the explosion recording an octave down + a sub drop, dying into a crackling sizzle) and `fever2` (a higher crack with a brighter sizzle), built by `build_assets.build_evolution_sfx()` (own RNG; `--evo-sfx` rebuilds only these). Other builds keep the old nova sound and look.
+- Tried and dropped: a scorch mark (the splat came out as a big brown goo stain). Review footage: `showcase.gd --shot fever` (new shots `fever`, `neural`, `storm`, `wall` for S3-S5).
+
 **Order:** S1 → S2 (perf first, so the new effects in S3-S5 are built on the cheap paths and measured against the new budget) → S3 → S4 → S5 → S6 → S7 → S8. About 6-9 cloud sessions.
 **Claude's calls:** perf and keyboard navigation go to all builds (no visible change on touch); Back = Backspace on CrazyGames; evolution looks stay "louder than the base weapon" but never cover germs or telegraphs (readability first); no balance numbers touched.
 

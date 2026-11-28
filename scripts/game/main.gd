@@ -554,7 +554,11 @@ func _handle_events(events: Array) -> void:
 				_pickup_ms = now
 				Sfx.play("pickup", 0.03, 1.0 + minf(_pickup_chain * float(j.get("pickup_pitch_step", 0.0)), float(j.get("pickup_pitch_max", 0.0))))
 			"nova":
-				Sfx.play("nova")
+				if overhaul and ev.get("weapon", false) and not ev.get("tower", false) and world.evolved.has("nova"):
+					Sfx.play("fever2" if int(ev.get("pulse", 1)) >= 2 else "fever", 0.04)  # S3: Fever Spike has its own two-part sound
+					Sfx.vibrate(18)
+				else:
+					Sfx.play("nova")
 			"chain":
 				Sfx.play("chain")
 			"shield_block":

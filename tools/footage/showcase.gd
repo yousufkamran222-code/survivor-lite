@@ -77,6 +77,14 @@ func _process(_delta: float) -> bool:
 func _shot_cfg(name: String) -> Dictionary:
 	var strong := {"bolt": 5, "multishot": 2, "orbit": 5, "vitality": 5, "nova": 5, "regen": 3, "chain": 5, "haste": 5, "might": 5, "magnet": 3}
 	match name:
+		"fever":  # Phase S3/S5 review: Fever Spike on its own in a busy dish (bolt kept low so the pulses read)
+			return {"mode": "classic", "time": 230.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 2, "nova": 5, "regen": 5, "might": 3}, "evolve": ["nova"], "warm": 6.0, "dur": 4.0}
+		"neural":  # Phase S4/S5 review: Neural Storm on its own
+			return {"mode": "classic", "time": 230.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 2, "chain": 5, "haste": 5, "might": 3}, "evolve": ["chain"], "warm": 6.0, "dur": 4.0}
+		"storm":  # Phase S5 review: Cytotoxic Storm on its own
+			return {"mode": "classic", "time": 230.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 5, "multishot": 5, "might": 3}, "evolve": ["bolt"], "warm": 6.0, "dur": 4.0}
+		"wall":  # Phase S5 review: Immune Wall on its own
+			return {"mode": "classic", "time": 230.0, "vir": 3, "shop": 0.5, "loadout": {"bolt": 2, "orbit": 5, "vitality": 5, "might": 3}, "evolve": ["orbit"], "warm": 6.0, "dur": 4.0}
 		"horde":  # final minute, everything evolved, the bot kiting through a full dish
 			return {"mode": "classic", "time": 246.0, "vir": 4, "shop": 0.5, "loadout": strong, "evolve": ["bolt", "orbit", "nova", "chain"], "warm": 8.0, "dur": 12.0}
 		"outbreak":  # a ring of germs closes in, then OUTBREAK: frenzy + gold blast (+ MEGA KILL)

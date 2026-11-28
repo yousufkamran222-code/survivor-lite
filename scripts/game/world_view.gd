@@ -103,6 +103,9 @@ var _trails: SpriteBatch  # dash-trail particles (the trail's shape texture)
 var _pops: SpriteBatch  # pop-style particles (the style's shape texture)
 var _bolt_heads: SpriteBatch  # weapon-style bolt shapes (stars, hearts, ...)
 var _shaped := false  # the weapon style has its own bolt/orbit shape
+var _heat: Array = []  # S3 Fever Spike: [pos, radius², time left, life] per pulse, germs inside glow hot
+var _inhale := 0.0  # S3: seconds left of the heat drawn back in between Fever Spike's pulses
+var _inhale_r := 0.0
 var _wfx := {}  # R5 weapon spectacle on the dark slide (balance.overhaul.weapon_fx; empty = old look)
 
 
@@ -264,6 +267,9 @@ func consume(events: Array) -> void:
 						var a := -PI / 2.0 + randf_range(-1.2, 1.2)
 						_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 			"nova":
+				if _wfx.has("fever") and _evo("nova") and ev.get("weapon", false) and not ev.get("tower", false):
+					_fever_pulse(ev, max_fx)
+					continue
 				_add_fx({"kind": "ring", "pos": ev.pos, "r": ev.radius, "life": 0.3, "color": _wcolor("nova", pal.nova), "w": 9.0 if _evo("nova") and not ev.get("tower", false) else 5.0}, max_fx + 4)
 				var nfx: Dictionary = _wfx.get("nova", {})
 				if not nfx.is_empty() and not ev.get("tower", false):  # R5: an additive shock fill
@@ -491,6 +497,21 @@ func _draw_weapon_auras_back(ci: CanvasItem, p: Vector2, r: float) -> void:
 		var gr := r * (1.25 + 0.55 * nova * nova) * (1.0 + 0.25 * _nova_flash)
 		var a := (0.07 + 0.16 * nova * nova + 0.25 * _nova_flash) * (1.4 if _evo("nova") else 1.0)
 		ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(gr, gr), Vector2(gr, gr) * 2.0), false, Color(c, a))
+		if _wfx.has("fever") and _evo("nova"):
+			var fc: Dictionary = _wfx.fever
+			# S3: the cell runs hot as the next spike charges (a flickering white-hot core).
+			var hot := nova * nova * nova
+			if hot > 0.05:
+				var hr := r * (1.05 + 0.25 * hot + 0.06 * sin(_cell_t * 23.0))
+				ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(hr, hr), Vector2(hr, hr) * 2.0), false,
+					Color(GameData.color(str(fc.get("core", "#fff1c2"))), 0.25 * hot))
+			# Between the pulses the heat is drawn back in: a bright ring shrinking onto the cell.
+			if _inhale > 0.0:
+				var ik := 1.0 - _inhale / maxf(float(fc.get("inhale_s", 0.3)), 0.01)  # 0 -> 1
+				var ir := lerpf(_inhale_r * 0.6, r * 1.2, ik * ik)
+				ci.draw_arc(p, ir, 0, TAU, 48, Color(GameData.color(str(fc.get("front2", "#ffe27a"))), 0.25 + 0.6 * ik), 3.0 + 7.0 * ik)
+				var g := r * (1.4 + 0.8 * ik)
+				ci.draw_texture_rect(_disc_tex, Rect2(p - Vector2(g, g), Vector2(g, g) * 2.0), false, Color(GameData.color(str(fc.get("core2", "#ffffff"))), 0.3 * ik))
 	if world.wstats.has("orbit"):
 		var c := _wcolor("orbit", pal.orbit)
 		var rr := r * 1.62
@@ -657,6 +678,45 @@ func _styled_pop(ev: Dictionary, c: Color, max_fx: int) -> void:
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 
 
+## S3: one pulse of Fever Spike (evolved nova on the dark slide). Pulse 1 is
+## an orange heat front, pulse 2 (the echo) a white-hot one; both throw
+## embers, scorch the floor and make the germs inside glow. Numbers in
+## balance.overhaul.weapon_fx.fever.
+func _fever_pulse(ev: Dictionary, max_fx: int) -> void:
+	var fc: Dictionary = _wfx.fever
+	var two := int(ev.get("pulse", 1)) >= 2
+	var pos: Vector2 = ev.pos
+	var r := float(ev.radius)
+	var front := GameData.color(str(fc.get("front2" if two else "front", "#ff8a2a")))
+	var core := GameData.color(str(fc.get("core2" if two else "core", "#fff1c2")))
+	var life := float(fc.get("life2_s" if two else "life_s", 0.4))
+	_add_fx({"kind": "heat", "pos": pos, "r": r, "life": life, "color": front, "core": core,
+		"w": float(fc.get("front_w", 20.0)) * (1.25 if two else 1.0)}, max_fx + 8)
+	_add_fx({"kind": "nfill", "pos": pos, "r": r, "life": life * 0.7, "color": front,
+		"a": float(fc.get("fill2_a" if two else "fill_a", 0.22))}, max_fx + 8)
+	var sp: Array = fc.get("ember_speed", [260, 640])
+	var ember_cols := [front, core, GameData.color(str(fc.get("heat_col", "#ff7a2a")))]
+	for k in int(fc.get("embers2" if two else "embers", 16)):
+		var a := randf() * TAU
+		var d := Vector2(cos(a), sin(a))
+		_add_fx({"kind": "dot", "pos": pos + d * r * randf_range(0.15, 0.4), "vel": d * randf_range(float(sp[0]), float(sp[1])),
+			"drag": float(fc.get("ember_drag", 2.6)), "color": ember_cols[k % 3], "r": randf_range(3.5, 7.0),
+			"life": float(fc.get("ember_life", 0.55)) * randf_range(0.7, 1.1)}, max_fx + 30)
+	if not two:
+		if float(fc.get("scorch", 0.0)) > 0.0:
+			_add_splat(pos, r * float(fc.get("scorch", 0.0)), GameData.color(str(fc.get("scorch_col", "#ff6a1a"))))
+		if int(ev.get("pulses", 1)) > 1:
+			_inhale = float(fc.get("inhale_s", 0.3))
+			_inhale_r = r
+	var hs := float(fc.get("heat_s", 0.45))
+	_heat.append([pos, r * r, hs, hs])
+	if _heat.size() > 4:
+		_heat.pop_front()
+	_nova_flash = 1.0
+	add_zoom_punch(float(fc.get("punch2" if two else "punch", 0.03)))
+	add_shake(float(fc.get("shake2" if two else "shake", 4.0)))
+
+
 func _add_fx(f: Dictionary, cap: int) -> void:
 	if fx.size() >= cap:
 		return
@@ -704,6 +764,14 @@ func _process_view(delta: float) -> void:
 		else:
 			wi += 1
 	_nova_flash = maxf(0.0, _nova_flash - delta * 4.0)
+	_inhale = maxf(0.0, _inhale - delta)
+	var hi := 0
+	while hi < _heat.size():
+		_heat[hi][2] -= delta
+		if _heat[hi][2] <= 0.0:
+			_heat.remove_at(hi)
+		else:
+			hi += 1
 	_chain_flash = maxf(0.0, _chain_flash - delta * 8.0)
 	_spark_t -= delta
 	if _spark_t <= 0.0:
@@ -968,6 +1036,9 @@ func _fill_enemies(view: Rect2) -> void:
 	var rift_uid := world.rift_uid
 	var fever := world.sym_state == 2 and world.sym_id == "fever"
 	var fever_col := Color("#ff7a3d")
+	var heat_on := not _heat.is_empty()
+	var heat_col := GameData.color(str(_wfx.get("fever", {}).get("heat_col", "#ff7a2a"))) if heat_on else white
+	var heat_mix := float(_wfx.get("fever", {}).get("heat_mix", 0.7)) if heat_on else 0.0
 	var vx0 := view.position.x
 	var vy0 := view.position.y
 	var vx1 := view.end.x
@@ -1006,6 +1077,12 @@ func _fill_enemies(view: Rect2) -> void:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
 		if fever:  # Symptoms: Fever turns the germs hot
 			c = c.lerp(fever_col, 0.45 + 0.15 * sin(_view_t * 9.0 + float(i)))
+		if heat_on:  # S3 Fever Spike: germs it hit glow white-hot, then orange, then cool
+			for h in _heat:
+				if p.distance_squared_to(h[0]) <= h[1]:
+					var hk: float = h[2] / h[3]  # 1 = just hit
+					c = c.lerp(heat_col.lerp(white, hk * hk), heat_mix * hk)
+					break
 		var pulse := 1.0 + pulse_k * maxf(e_flash[i], 0.0)  # pops a little when hit
 		var asp := 1.0
 		var kn := e_knock[i]
@@ -1212,6 +1289,15 @@ func _draw_top_layer() -> void:
 				if f.r < 160.0:
 					_dot(ci, f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
 				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), float(f.get("w", 5.0)))
+			"heat":  # S3 Fever Spike front: haze band, hot front, white-hot edge, trailing echo
+				var hr: float = f.r * (0.25 + 0.75 * (1.0 - pow(1.0 - k, 3.0)))
+				var hw: float = f.w
+				var hc: Color = f.color
+				var fade := 1.0 - k
+				ci.draw_arc(f.pos, hr - hw * 0.7, 0, TAU, 64, Color(hc, 0.08 * fade), hw * 2.4)
+				ci.draw_arc(f.pos, hr * 0.8, 0, TAU, 56, Color(hc, 0.3 * fade), hw * 0.45)
+				ci.draw_arc(f.pos, hr, 0, TAU, 64, Color(hc, 0.9 * (1.0 - k * k)), hw)
+				ci.draw_arc(f.pos, hr + hw * 0.3, 0, TAU, 64, Color(f.core, fade), maxf(2.0, hw * 0.3))
 			"chain":
 				var pts: PackedVector2Array = f.points
 				var c: Color = f.get("color", pal.chain)
