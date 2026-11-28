@@ -187,6 +187,7 @@ static func overlay(parent: Node, dim: float = 0.72) -> Array:
 	col.add_theme_constant_override("separation", 18)
 	col.custom_minimum_size = Vector2(600, 0)
 	center.add_child(col)
+	KeyNav.register(root)  # keyboard menus: its buttons form one scope
 	return [root, col]
 
 

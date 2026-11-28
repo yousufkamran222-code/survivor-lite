@@ -89,6 +89,7 @@ var cheats_on := false
 var _cheat_btn: Button
 var _cheat_menu: CheatMenu = null
 var _cheat_from := ""  # the screen the cheat menu was opened from
+var nav: KeyNav  # keyboard menus (arrows/WASD, Enter/Space, Backspace): every build, shows only after a key
 
 
 func _ready() -> void:
@@ -217,6 +218,13 @@ func _ready() -> void:
 		_cheat_btn.size = Vector2(150, 48)
 		_cheat_btn.modulate.a = 0.75
 		ui_root.add_child(_cheat_btn)
+	nav = KeyNav.new()
+	nav.accent = pal.ui_accent
+	nav.esc_back = not crazygames  # Esc leaves fullscreen there
+	nav.enabled_fn = func() -> bool: return screen in ["menu", "results", "paused", "dead", "defense_won", "cheats"] and _evo_seq.is_empty()
+	nav.back_fn = _nav_back
+	ui_root.add_child(nav)
+	pause_btn.focus_mode = Control.FOCUS_NONE
 	if Onboarding.prologue_done(Save.profile):
 		_show_menu()
 	else:
@@ -381,6 +389,23 @@ func _menu_back() -> void:
 		_ask_quit()
 
 
+## Backspace (and Esc off CrazyGames) on keyboard menus, when the topmost
+## scope has no Back of its own (KeyNav).
+func _nav_back() -> void:
+	match screen:
+		"menu":
+			_menu_back()
+		"paused":
+			for c in _pause[1].get_children():
+				if c is SettingsScreen:
+					Save.write()
+					(c as SettingsScreen).on_back.call()  # pause → settings → back to pause
+					return
+			_resume()
+		"cheats":
+			_close_cheats()
+
+
 func _ask_quit() -> void:
 	if _quit_pop == null or not is_instance_valid(_quit_pop[0]):
 		_quit_pop = UiKit.overlay(ui_root, 0.8)
@@ -389,7 +414,7 @@ func _ask_quit() -> void:
 	col.add_theme_constant_override("separation", 20)
 	col.add_child(UiKit.display(UiKit.label("QUIT?", 56, pal.ui_accent), 10))
 	col.add_child(UiKit.label("Your progress is saved.", 24, Color(pal.text, 0.75)))
-	col.add_child(UiKit.button("KEEP PLAYING", func() -> void: _quit_pop[0].visible = false, 110, "primary"))
+	col.add_child(KeyNav.first(UiKit.button("KEEP PLAYING", func() -> void: _quit_pop[0].visible = false, 110, "primary")))
 	col.add_child(_text_button("Quit", func() -> void:
 		Save.write()
 		get_tree().quit()))
@@ -1014,6 +1039,7 @@ func _warm_up_ui() -> void:
 
 func _set_screen(s: String) -> void:
 	screen = s
+	get_viewport().gui_release_focus()  # no clicked button keeps Godot focus (Space/Enter in a run)
 	_apply_fps()
 	var in_run := s in ["playing", "levelup", "chest", "dead", "paused", "defense_won", "build", "cheats"]
 	hud.visible = in_run
@@ -1254,6 +1280,7 @@ func _show_menu() -> void:
 	_mode_box.add_theme_constant_override("separation", 10)
 	col.add_child(_mode_box)
 	_play_btn = Button.new()
+	KeyNav.first(_play_btn).set_meta("nav_no_bump", true)  # PLAY has its own pulse
 	_play_btn.custom_minimum_size = Vector2(0, 128)
 	_play_btn.pressed.connect(_on_play)
 	col.add_child(_play_btn)
@@ -2996,7 +3023,7 @@ func _build_results(won: bool, animate: bool = true, gold_from: int = 0) -> void
 					_build_results(won, false, before)
 				else:
 					_build_results(won, false)), 96, "positive"))
-	var again := UiKit.button("PLAY AGAIN", _collect.bind(true), 120, "primary")
+	var again := KeyNav.first(UiKit.button("PLAY AGAIN", _collect.bind(true), 120, "primary"))
 	again.add_theme_font_size_override("font_size", 44)
 	col.add_child(again)
 	var menu := _text_button("Menu", _collect.bind(false))
@@ -3103,6 +3130,7 @@ func _show_prologue_results() -> void:
 			_hot_start = false
 			Save.mode = "classic"
 			_start_run(false), 120, "primary")
+		KeyNav.first(go)
 		go.add_theme_font_size_override("font_size", 44)
 		col.add_child(go)
 		col.add_child(_text_button("Menu", func() -> void:
@@ -3114,10 +3142,11 @@ func _show_prologue_results() -> void:
 		var cont := UiKit.button("CONTINUE", func() -> void:
 			_prologue = false
 			_show_menu(), 120, "primary")
+		KeyNav.first(cont)
 		cont.add_theme_font_size_override("font_size", 44)
 		col.add_child(cont)
 	else:
-		var again := UiKit.button("PLAY AGAIN", func() -> void: _start_run(true), 120, "primary")
+		var again := KeyNav.first(UiKit.button("PLAY AGAIN", func() -> void: _start_run(true), 120, "primary"))
 		again.add_theme_font_size_override("font_size", 44)
 		col.add_child(again)
 		col.add_child(_text_button("Menu", func() -> void:
@@ -3391,7 +3420,7 @@ func _build_pause() -> void:
 	var col: VBoxContainer = _pause[1]
 	UiKit.clear(col)
 	col.add_child(UiKit.label("PAUSED", 56, pal.ui_accent))
-	col.add_child(UiKit.button("RESUME", _resume, 120))
+	col.add_child(KeyNav.first(UiKit.button("RESUME", _resume, 120)))
 	if cheats_on:
 		col.add_child(UiKit.button("CHEATS", _open_cheats, 80, "danger"))
 	col.add_child(UiKit.button("SETTINGS", func() -> void:

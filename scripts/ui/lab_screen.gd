@@ -191,6 +191,7 @@ func _open(n: Dictionary, b: Dictionary) -> void:
 	_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_popup.mouse_filter = Control.MOUSE_FILTER_STOP
 	popup_layer.add_child(_popup)
+	KeyNav.register(_popup, func() -> void: _close_popup(true))  # keys stay in the popup; Back closes it
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.7)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

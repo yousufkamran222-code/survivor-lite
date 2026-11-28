@@ -23,6 +23,7 @@ func setup(palette: Dictionary, game_data: Dictionary, w: World, close: Callable
 	color = Color(0, 0, 0, 0.82)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	KeyNav.register(self, close_menu)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
