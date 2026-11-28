@@ -471,6 +471,21 @@ def build_evolution_sfx() -> None:
                  env(hiss(0.55, 0.9), attack=0.01, decay_pow=1.8) * 0.4)
     write("fever2", fever2, 0.85)
 
+    # Neural Storm: an electric crackle (a burst of sharp clicks, each a
+    # tiny high-passed noise snap) over a falling zap and a short low thud.
+    dur = 0.38
+    clicks = np.zeros(int(RATE * dur))
+    t = 0.0
+    while t < dur - 0.02:
+        i = int(t * RATE)
+        snap = env(rng.uniform(-1, 1, int(0.006 * RATE)), attack=0.0005, decay_pow=2.0) * rng.uniform(0.4, 1.0)
+        clicks[i: i + snap.size] += snap[: clicks.size - i]
+        t += rng.uniform(0.008, 0.03) * (1.0 + 2.0 * t / dur)  # dense, then thinning out
+    clicks = np.diff(clicks, prepend=0.0) * (1.0 - np.linspace(0, 1, clicks.size)) ** 1.5
+    zap = env(osc(2600, 500, 0.22, "saw"), attack=0.002, decay_pow=1.8) * 0.3
+    hum = env(osc(120, 120, 0.3, "square"), attack=0.003, decay_pow=2.5) * 0.12  # a mains-like buzz under it
+    write("neural", mix(clicks * 0.9, zap, hum, body(140, 60, 0.12, 0.6)), 0.8)
+
 
 if __name__ == "__main__":
     import sys

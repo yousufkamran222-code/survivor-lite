@@ -560,7 +560,11 @@ func _handle_events(events: Array) -> void:
 				else:
 					Sfx.play("nova")
 			"chain":
-				Sfx.play("chain")
+				if overhaul and ev.get("evolved", false):  # S4: Neural Storm crackles, higher the further it jumps
+					if int(ev.get("fork", 0)) == 0:
+						Sfx.play("neural", 0.03, 0.92 + 0.04 * minf(float((ev.points as PackedVector2Array).size()), 7.0))
+				else:
+					Sfx.play("chain")
 			"shield_block":
 				Sfx.play("deny", 0.0, 1.4)
 				Sfx.vibrate(25)

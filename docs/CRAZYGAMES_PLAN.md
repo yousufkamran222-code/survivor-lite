@@ -209,6 +209,13 @@ Noted for R3: the menu keeps its purple background and old-style menu germs.
 - **Sound:** `fever` (the explosion recording an octave down + a sub drop, dying into a crackling sizzle) and `fever2` (a higher crack with a brighter sizzle), built by `build_assets.build_evolution_sfx()` (own RNG; `--evo-sfx` rebuilds only these). Other builds keep the old nova sound and look.
 - Tried and dropped: a scorch mark (the splat came out as a big brown goo stain). Review footage: `showcase.gd --shot fever` (new shots `fever`, `neural`, `storm`, `wall` for S3-S5).
 
+**S4 done (2026-11-28): Neural Storm made unmistakable** (overhaul only; numbers in `balance.overhaul.weapon_fx.neural`; bot sim identical). Before: the base chain arc 1.6× thicker for 0.16 s, and the 3 forks fired in the same frame, so it blinked.
+- **Bolts:** jagged (4 bends per jump, pushed sideways up to 16% of the jump), reshaped every 45 ms so they crackle, with the odd side twig; a wide glow, a thick body and a white core; they stay 0.32 s and flicker (`WorldView` fx kind `zap`, `_jag_path`).
+- **A storm, not a blink:** the forks start 50 ms apart (`_neural_storm`, counted per frame).
+- **Every germ hit:** a white node flash and 5 sparks; the germs it hit crackle (a cyan/white flicker) for 0.4 s. `World._fire_chain` events now list the hit germs' `uids` and the `fork` number (presentation only; test `test_neural_storm_events_list_hits`).
+- **The cell crackles** with static once the next storm is 60% charged.
+- **Sound:** `neural` (a burst of sharp clicks thinning out, a falling saw zap, a short buzz and thud), once per storm, pitched up the more germs it jumps through; built by `build_evolution_sfx()`. Other builds keep the old chain look and sound.
+
 **Order:** S1 → S2 (perf first, so the new effects in S3-S5 are built on the cheap paths and measured against the new budget) → S3 → S4 → S5 → S6 → S7 → S8. About 6-9 cloud sessions.
 **Claude's calls:** perf and keyboard navigation go to all builds (no visible change on touch); Back = Backspace on CrazyGames; evolution looks stay "louder than the base weapon" but never cover germs or telegraphs (readability first); no balance numbers touched.
 

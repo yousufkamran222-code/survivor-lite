@@ -103,6 +103,8 @@ var _trails: SpriteBatch  # dash-trail particles (the trail's shape texture)
 var _pops: SpriteBatch  # pop-style particles (the style's shape texture)
 var _bolt_heads: SpriteBatch  # weapon-style bolt shapes (stars, hearts, ...)
 var _shaped := false  # the weapon style has its own bolt/orbit shape
+var _zapped := {}  # S4 Neural Storm: uid -> seconds left of the electric crackle on a germ it hit
+var _forks_now := 0  # S4: Neural Storm forks seen this frame (each starts a little later)
 var _heat: Array = []  # S3 Fever Spike: [pos, radius², time left, life] per pulse, germs inside glow hot
 var _inhale := 0.0  # S3: seconds left of the heat drawn back in between Fever Spike's pulses
 var _inhale_r := 0.0
@@ -238,6 +240,7 @@ func consume(events: Array) -> void:
 	var max_fx := int(bal.perf.max_effects)
 	_kills_this_frame = 0
 	_kill_sum = Vector2.ZERO
+	_forks_now = 0
 	for ev in events:
 		match ev.type:
 			"hit":
@@ -282,6 +285,9 @@ func consume(events: Array) -> void:
 				if not ev.get("tower", false):
 					add_shake(float(juice.shake_nova))
 			"chain":
+				if _wfx.has("neural") and ev.get("evolved", false):
+					_neural_storm(ev, max_fx)
+					continue
 				_add_fx({"kind": "chain", "points": ev.points, "life": 0.16, "color": _wcolor("chain", pal.chain), "evo": _evo("chain") and not ev.get("tower", false)}, max_fx + 4)
 				_chain_flash = 1.0
 			"convert":
@@ -530,6 +536,20 @@ func _draw_weapon_auras_front(ci: CanvasItem, p: Vector2, r: float, nc: Vector2,
 		var cr := nr * (0.25 + 0.3 * bolt + 0.35 * fire)
 		var cp := p + nc
 		ci.draw_texture_rect(_disc_tex, Rect2(cp - Vector2(cr, cr), Vector2(cr, cr) * 2.0), false, Color(c.lightened(0.4), 0.35 + 0.5 * bolt + 0.4 * fire))
+	if _wfx.has("neural") and _evo("chain"):
+		# S4: static crackles around the cell once the next storm is mostly charged.
+		var ch := _wcharge("chain")
+		var from := float(_wfx.neural.get("aura_from", 0.6))
+		if ch > from and fmod(_cell_t, 0.09) < 0.05:
+			var sc := _wcolor("chain", pal.chain).lightened(0.35)
+			var ak := (ch - from) / maxf(1.0 - from, 0.01)
+			for n in 2:
+				var ang := randf() * TAU
+				var d := Vector2.from_angle(ang)
+				var o := d.orthogonal()
+				var b0 := p + d * r * 1.15
+				ci.draw_polyline(PackedVector2Array([b0, b0 + d * 7.0 + o * randf_range(-6, 6), b0 + d * 13.0 + o * randf_range(-6, 6), b0 + d * (18.0 + 8.0 * ak)]),
+					Color(sc, 0.5 + 0.45 * ak), 2.0)
 	if world.wstats.has("chain") and (_chain_flash > 0.0 or fmod(_cell_t, 0.22 if _evo("chain") else 0.4) < 0.07):
 		var c := _wcolor("chain", pal.chain)
 		var a := _spark_ang
@@ -678,6 +698,57 @@ func _styled_pop(ev: Dictionary, c: Color, max_fx: int) -> void:
 			_add_fx({"kind": "dot", "pos": ev.pos, "vel": Vector2(cos(a), sin(a)) * randf_range(140, 260), "grav": 520.0, "color": pal.ui_accent, "r": 4.0, "life": 0.45}, max_fx + 20)
 
 
+## S4: one fork of Neural Storm (evolved chain on the dark slide): a jagged
+## bolt that lingers and crackles (drawn as kind "zap"), a flash and sparks
+## at every germ it hit, and those germs crackle for a moment. The forks of
+## one storm start stagger_s apart. Numbers in balance.overhaul.weapon_fx.neural.
+func _neural_storm(ev: Dictionary, max_fx: int) -> void:
+	var nc: Dictionary = _wfx.neural
+	var col := _wcolor("chain", pal.chain)
+	var pts: PackedVector2Array = ev.points
+	var delay := float(nc.get("stagger_s", 0.05)) * _forks_now
+	_forks_now += 1
+	_add_fx({"kind": "zap", "points": pts, "life": float(nc.get("life_s", 0.32)) + delay, "delay": delay, "color": col,
+		"jag": PackedVector2Array(), "shape": -1}, max_fx + 8)
+	var sp: Array = nc.get("spark_speed", [180, 460])
+	var core := GameData.color(str(nc.get("core", "#ffffff")))
+	for j in range(1, pts.size()):
+		_add_fx({"kind": "pop", "pos": pts[j], "color": core, "r": float(nc.get("node_r", 16.0)), "life": 0.16}, max_fx + 20)
+		for k in int(nc.get("sparks", 4)):
+			var a := randf() * TAU
+			_add_fx({"kind": "dot", "pos": pts[j], "vel": Vector2(cos(a), sin(a)) * randf_range(float(sp[0]), float(sp[1])),
+				"drag": 5.0, "color": col.lightened(0.4) if k % 2 == 0 else core, "r": randf_range(2.0, 4.0), "life": 0.25}, max_fx + 30)
+	var zs := float(nc.get("zap_s", 0.4))
+	for u in ev.get("uids", PackedInt32Array()):
+		_zapped[u] = zs
+	_chain_flash = 1.0
+	if _forks_now == 1:
+		add_zoom_punch(float(nc.get("punch", 0.012)))
+
+
+## S4: the jagged path of a Neural Storm bolt: every jump gets `kinks` bends
+## pushed sideways up to `jag` x its length, plus (sometimes) a short twig.
+## Returns [path, twigs] (twigs: pairs of points, one segment each).
+func _jag_path(pts: PackedVector2Array, nc: Dictionary) -> Array:
+	var path := PackedVector2Array([pts[0]])
+	var twigs := PackedVector2Array()
+	var kinks := int(nc.get("kinks", 4))
+	var jag := float(nc.get("jag", 0.16))
+	for j in range(1, pts.size()):
+		var a := pts[j - 1]
+		var b := pts[j]
+		var side := (b - a).orthogonal().normalized()
+		var length := a.distance_to(b)
+		for k in kinks:
+			var q := a.lerp(b, float(k + 1) / float(kinks + 1)) + side * randf_range(-jag, jag) * length
+			path.append(q)
+			if randf() < float(nc.get("branch_p", 0.35)) / kinks:
+				twigs.append(q)
+				twigs.append(q + (b - a).normalized().rotated(randf_range(-1.2, 1.2)) * length * randf_range(0.15, 0.3))
+		path.append(b)
+	return [path, twigs]
+
+
 ## S3: one pulse of Fever Spike (evolved nova on the dark slide). Pulse 1 is
 ## an orange heat front, pulse 2 (the echo) a white-hot one; both throw
 ## embers, scorch the floor and make the germs inside glow. Numbers in
@@ -765,6 +836,11 @@ func _process_view(delta: float) -> void:
 			wi += 1
 	_nova_flash = maxf(0.0, _nova_flash - delta * 4.0)
 	_inhale = maxf(0.0, _inhale - delta)
+	if not _zapped.is_empty():
+		for u in _zapped.keys():
+			_zapped[u] -= delta
+			if _zapped[u] <= 0.0:
+				_zapped.erase(u)
 	var hi := 0
 	while hi < _heat.size():
 		_heat[hi][2] -= delta
@@ -1036,6 +1112,9 @@ func _fill_enemies(view: Rect2) -> void:
 	var rift_uid := world.rift_uid
 	var fever := world.sym_state == 2 and world.sym_id == "fever"
 	var fever_col := Color("#ff7a3d")
+	var zap_on := not _zapped.is_empty()
+	var e_uid := world.e_uid
+	var zap_col := GameData.color(str(_wfx.get("neural", {}).get("zap_col", "#9ff4ff"))) if zap_on else white
 	var heat_on := not _heat.is_empty()
 	var heat_col := GameData.color(str(_wfx.get("fever", {}).get("heat_col", "#ff7a2a"))) if heat_on else white
 	var heat_mix := float(_wfx.get("fever", {}).get("heat_mix", 0.7)) if heat_on else 0.0
@@ -1077,6 +1156,8 @@ func _fill_enemies(view: Rect2) -> void:
 			c = c.lerp(pal.nova, 0.5)  # Fever Node slow
 		if fever:  # Symptoms: Fever turns the germs hot
 			c = c.lerp(fever_col, 0.45 + 0.15 * sin(_view_t * 9.0 + float(i)))
+		if zap_on and _zapped.has(e_uid[i]):  # S4 Neural Storm: germs it hit crackle (an electric flicker)
+			c = c.lerp(zap_col if fmod(_view_t * 30.0 + float(i), 2.0) < 1.0 else white, 0.55)
 		if heat_on:  # S3 Fever Spike: germs it hit glow white-hot, then orange, then cool
 			for h in _heat:
 				if p.distance_squared_to(h[0]) <= h[1]:
@@ -1289,6 +1370,29 @@ func _draw_top_layer() -> void:
 				if f.r < 160.0:
 					_dot(ci, f.pos, f.r * (0.4 + 0.6 * k), Color(c, 0.18 * (1.0 - k)))
 				ci.draw_arc(f.pos, f.r * (0.4 + 0.6 * k), 0, TAU, 40, Color(c, 0.9 * (1.0 - k)), float(f.get("w", 5.0)))
+			"zap":  # S4 Neural Storm: a lingering, crackling, jagged bolt
+				var zt: float = f.t - float(f.delay)
+				if zt < 0.0:
+					continue
+				var nc: Dictionary = _wfx.get("neural", {})
+				var shape := int(zt / float(nc.get("reshape_s", 0.045)))
+				if shape != int(f.shape):  # a new crackle: reshape and pick this frame's flicker
+					f.shape = shape
+					var jp := _jag_path(f.points, nc)
+					f.jag = jp[0]
+					f.twigs = jp[1]
+					f.flick = 1.0 - randf() * float(nc.get("flicker", 0.35))
+				var zk: float = zt / maxf(float(f.life) - float(f.delay), 0.01)
+				var za: float = (1.0 - zk * zk) * float(f.flick)
+				var zc: Color = f.color
+				var zcore := GameData.color(str(nc.get("core", "#ffffff")))
+				var jagp: PackedVector2Array = f.jag
+				ci.draw_polyline(jagp, Color(zc, float(nc.get("glow_a", 0.28)) * za), float(nc.get("glow_w", 18.0)))
+				ci.draw_polyline(jagp, Color(zc, za), float(nc.get("body_w", 5.0)))
+				ci.draw_polyline(jagp, Color(zcore, za), float(nc.get("core_w", 2.2)))
+				var tw: PackedVector2Array = f.twigs
+				if tw.size() >= 2:
+					ci.draw_multiline(tw, Color(zc.lightened(0.3), 0.8 * za), 2.0)
 			"heat":  # S3 Fever Spike front: haze band, hot front, white-hot edge, trailing echo
 				var hr: float = f.r * (0.25 + 0.75 * (1.0 - pow(1.0 - k, 3.0)))
 				var hw: float = f.w

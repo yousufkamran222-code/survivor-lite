@@ -28,6 +28,7 @@ const SOUNDS := {
 	# Evolved weapons on the overhaul (Phase S3-S5, build_assets.build_evolution_sfx).
 	"fever": preload("res://assets/processed/sfx/fever.wav"),
 	"fever2": preload("res://assets/processed/sfx/fever2.wav"),
+	"neural": preload("res://assets/processed/sfx/neural.wav"),
 	"death": preload("res://assets/processed/sfx/death.wav"),
 	"boss": preload("res://assets/processed/sfx/boss.wav"),
 	"click": preload("res://assets/processed/sfx/click.wav"),
@@ -62,9 +63,9 @@ const GROUP := {"kill1": "kill", "kill2": "kill", "kill3": "kill", "kill4": "kil
 	"pop_glass": "kill", "pop_chime": "kill", "pop_zap": "kill", "pop_slime": "kill", "pop_boom": "kill", "pop_squeak": "kill"}
 const KILLS := ["kill1", "kill2", "kill3", "kill4", "kill5", "kill6"]
 const MIN_GAP_MS := {"shoot": 70, "hit": 45, "kill": 40, "pickup": 35, "chain": 80, "click": 40, "convert": 90, "nova": 60,
-	"thump": 120, "crit": 60, "crunch": 60, "mega": 500, "fever": 150, "fever2": 150}
+	"thump": 120, "crit": 60, "crunch": 60, "mega": 500, "fever": 150, "fever2": 150, "neural": 110}
 const VOLUME_DB := {"shoot": -14.0, "hit": -13.0, "kill": -8.0, "pickup": -13.0, "chain": -10.0,
-	"thump": -5.0, "crunch": -4.0, "crit": -7.0, "mega": -2.0, "fever": -4.0, "fever2": -5.0}
+	"thump": -5.0, "crunch": -4.0, "crit": -7.0, "mega": -2.0, "fever": -4.0, "fever2": -5.0, "neural": -6.0}
 
 ## Music: Juhani Junkala's "5 Chiptunes (Action)" (CC0, OpenGameArt; see
 ## assets/MANIFEST.md), re-encoded to OGG and imported as seamless loops.

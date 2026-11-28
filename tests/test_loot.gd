@@ -139,6 +139,34 @@ func test_fever_spike_tags_its_echo() -> void:
 	check_eq(pulses.slice(0, 2), [1, 2], "a pulse, then its echo tagged 2")
 
 
+## S4: Neural Storm's events carry the germs each fork hit and the fork
+## number (presentation: crackling germs, staggered forks, one sound).
+func test_neural_storm_events_list_hits() -> void:
+	var w := _world()
+	w.emit_events = true
+	w.owned["chain"] = 5
+	w.owned["haste"] = 1
+	w._recompute_stats()
+	w._open_chest(1)
+	check(w.evolved.has("chain"), "chain evolves")
+	w.close_chest()
+	for k in 12:
+		w._add_enemy("brute", w.p_pos + Vector2(120 + 30 * k, 40 * (k % 3)))
+	var forks := []
+	for i in 300:
+		w.step(DT, Vector2.ZERO)
+		for ev in w.events:
+			if ev.type == "chain":
+				forks.append(ev)
+		w.events.clear()
+		if not forks.is_empty():
+			break
+	check(not forks.is_empty(), "Neural Storm fired")
+	check(bool(forks[0].evolved) and int(forks[0].fork) == 0, "first fork is fork 0")
+	for ev in forks:
+		check_eq((ev.uids as PackedInt32Array).size(), (ev.points as PackedVector2Array).size() - 1, "one uid per germ hit")
+
+
 func test_vacuum_pulls_all_gems() -> void:
 	var w := _world()
 	for k in 10:

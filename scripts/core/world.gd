@@ -1542,14 +1542,16 @@ func _fire_chain(from: Vector2, tgt: int, w: Dictionary, evo: bool) -> void:
 			if cur < 0:
 				break
 		var pts := PackedVector2Array([from])
+		var uids := PackedInt32Array()  # presentation: S4 makes the germs it hit crackle
 		for k in int(w.jumps) + 1:
 			hit[e_uid[cur]] = true
 			pts.append(e_pos[cur])
+			uids.append(e_uid[cur])
 			_damage(cur, w.damage, Vector2.ZERO)
 			cur = _nearest_enemy(e_pos[cur], w.jump_range, hit)
 			if cur < 0:
 				break
-		_emit({"type": "chain", "points": pts, "evolved": evo})
+		_emit({"type": "chain", "points": pts, "evolved": evo, "uids": uids, "fork": f})
 
 
 ## Antibodies destroy enemy shots that touch them (counter to Spitters).
